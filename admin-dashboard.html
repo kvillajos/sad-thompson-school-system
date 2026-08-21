@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Administrative Control Module | TCSMS</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: #f0f2f5; color: #1a1a1a; font-family: 'Segoe UI', Tahoma, sans-serif; }
+      header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 2rem; background: #374151; color: white; }
+      h1 { margin: 0; font-size: 1.5rem; }
+      main { max-width: 960px; margin: 2rem auto; padding: 0 1.25rem; }
+      .welcome { padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+      button { padding: .65rem 1rem; border: 0; border-radius: 6px; background: white; color: #374151; font-weight: 600; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <header><h1>Administrative Control Module</h1><button id="logout">Sign Out</button></header>
+    <main><section class="welcome"><h2>Welcome, <span id="user-name"></span></h2><p>This administrative workspace will manage user accounts, roles, faculty assignments, subjects, approvals, academic-term settings, and audit logs.</p></section></main>
+    <script type="module">
+      import { requireRole, signOut } from './auth-client.js'
+      import { hideLoadingScreen } from './loading-screen.js'
+      const user = await requireRole(1)
+      if (user) document.getElementById('user-name').textContent = user.username
+      document.getElementById('logout').addEventListener('click', signOut)
+      hideLoadingScreen()
+    </script>
+  </body>
+</html>
