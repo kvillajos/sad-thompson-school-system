@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Thompson Christian School Management System</title>
     <style>
+<<<<<<< HEAD
       :root { color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { min-height: 100vh; background: #071b3a; }
@@ -25,10 +26,25 @@
       input:focus { outline: 2px solid #4c8bf5; outline-offset: 1px; }
       button { width: 100%; padding: .62rem; border: 0; border-radius: 4px; background: #2864c7; color: white; font-size: .7rem; cursor: pointer; transition: background .2s; }
       button:hover { background: #3476df; }
+=======
+      * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+      body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+      .card { background: #fff; padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); width: 100%; max-width: 400px; }
+      h2 { margin-bottom: 1.5rem; color: #1a1a1a; text-align: center; }
+      .form-group { margin-bottom: 1.2rem; }
+      label { display: block; margin-bottom: 0.4rem; font-weight: 600; font-size: 0.9rem; color: #444; }
+      input { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
+      input:focus { outline: none; border-color: #2563eb; ring: 2px #2563eb; }
+      button { width: 100%; padding: 0.75rem; background-color: #2563eb; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+      button:hover { background-color: #1d4ed8; }
+      .logout-btn { background-color: #dc2626; margin-top: 1rem; }
+      .logout-btn:hover { background-color: #b91c1c; }
+>>>>>>> 67b42edc8833838d19ea0e224fe3311856993196
       #message { margin-top: 1rem; text-align: center; font-size: 0.9rem; font-weight: 600; }
       .hidden { display: none; }
       .dashboard-info { background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 1rem; }
       .dashboard-info p { margin-bottom: 0.5rem; color: #334155; }
+<<<<<<< HEAD
       .login-photo { min-height: 100vh; background: url('/bg.jpg') center / cover no-repeat; }
       .logout-btn { background-color: #dc2626; margin-top: 1rem; }
       .logout-btn:hover { background-color: #b91c1c; }
@@ -37,10 +53,13 @@
         .login-panel { min-height: 100vh; }
         .login-photo { display: none; }
       }
+=======
+>>>>>>> 67b42edc8833838d19ea0e224fe3311856993196
     </style>
   </head>
   <body>
 
+<<<<<<< HEAD
     <div class="login-layout">
       <section class="login-panel" aria-label="TCSMS sign in">
         <div id="login-container" class="card">
@@ -77,6 +96,35 @@
         </div>
       </section>
       <aside class="login-photo" aria-label="Thompson Christian School campus"></aside>
+=======
+    <!-- LOGIN CONTAINER -->
+    <div id="login-container" class="card">
+      <h2>TCSMS Login</h2>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" required autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" required />
+        </div>
+        <button type="submit">Sign In</button>
+      </form>
+      <div id="message"></div>
+    </div>
+
+    <!-- DASHBOARD CONTAINER (Hidden by default) -->
+    <div id="dashboard-container" class="card hidden">
+      <h2>Dashboard</h2>
+      <div class="dashboard-info">
+        <p><strong>User:</strong> <span id="user-display"></span></p>
+        <p><strong>Email:</strong> <span id="email-display"></span></p>
+        <p><strong>Status:</strong> Active Session</p>
+      </div>
+      <button id="logout-btn" class="logout-btn">Sign Out</button>
+    </div>
+>>>>>>> 67b42edc8833838d19ea0e224fe3311856993196
 
     <script type="module" src="/main.js"></script>
   </body>
