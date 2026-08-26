@@ -9,7 +9,11 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+<<<<<<< HEAD
+  "type": "module",
+=======
   "type": "commonjs",
+>>>>>>> 67b42edc8833838d19ea0e224fe3311856993196
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
     "vite": "^8.2.1"

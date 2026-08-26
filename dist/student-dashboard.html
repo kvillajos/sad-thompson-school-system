@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Dashboard | TCSMS</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: #f0f2f5; color: #1a1a1a; font-family: 'Segoe UI', Tahoma, sans-serif; }
+      header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 2rem; background: #2563eb; color: white; }
+      h1 { margin: 0; font-size: 1.5rem; }
+      main { max-width: 960px; margin: 2rem auto; padding: 0 1.25rem; }
+      .welcome { padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+      button { padding: .65rem 1rem; border: 0; border-radius: 6px; background: white; color: #1d4ed8; font-weight: 600; cursor: pointer; }
+    </style>
+    <script type="module" crossorigin src="/assets/student-DLC7-ito.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/loading-screen-CBKu0TMq.js">
+  </head>
+  <body>
+    <header><h1>Student Dashboard</h1><button id="logout">Sign Out</button></header>
+    <main><section class="welcome"><h2>Welcome, <span id="user-name"></span></h2><p>Your student portal will contain your profile, class schedule, grades, attendance, financial statement, and school announcements.</p></section></main>
+  </body>
+</html>

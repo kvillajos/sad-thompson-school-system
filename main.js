@@ -1,3 +1,35 @@
+<<<<<<< HEAD
+import { supabase } from './auth-client.js'
+import { hideLoadingScreen } from './loading-screen.js'
+
+// DOM Elements
+const loginContainer = document.getElementById('login-container')
+const loginForm = document.getElementById('login-form')
+const messageDiv = document.getElementById('message')
+
+const dashboardPages = {
+  1: '/admin-dashboard.html',
+  2: '/student-records.html',
+  3: '/faculty-dashboard.html',
+  4: '/student-dashboard.html'
+}
+
+const { data: { session } } = await supabase.auth.getSession()
+if (session) {
+  const { data: user } = await supabase
+    .from('users')
+    .select('role_id, is_active')
+    .eq('email', session.user.email)
+    .eq('is_active', true)
+    .single()
+
+  if (user && dashboardPages[user.role_id]) redirectToDashboard(user)
+  else await supabase.auth.signOut()
+}
+
+hideLoadingScreen()
+
+=======
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -20,27 +52,64 @@ if (currentSession) {
   showDashboard(currentSession)
 }
 
+>>>>>>> 67b42edc8833838d19ea0e224fe3311856993196
 // Handle Login
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault()
   
   const username = document.getElementById('username').value.trim()
+<<<<<<< HEAD
+  const password = document.getElementById('password').value
+=======
   const password = document.getElementById('password').value.trim()
+>>>>>>> 67b42edc8833838d19ea0e224fe3311856993196
 
   messageDiv.style.color = '#333'
   messageDiv.textContent = 'Authenticating...'
 
+<<<<<<< HEAD
+  const { data: email, error: lookupError } = await supabase
+    .rpc('find_login_email', { login_username: username })
+
+  if (lookupError || !email) {
+    messageDiv.style.color = 'red'
+    messageDiv.textContent = 'Invalid username or password!'
+    return
+  }
+
+  const { error: authError } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  })
+
+  const { data: user, error: profileError } = await supabase
+    .from('users')
+    .select('role_id, is_active')
+    .eq('email', email)
+    .eq('is_active', true)
+    .single()
+
+  if (authError || profileError || !user || !dashboardPages[user.role_id]) {
+=======
   const { data, error } = await supabase
     .from('users')
     .select('*')
     .eq('username', username)
 
   if (error || !data || data.length === 0) {
+>>>>>>> 67b42edc8833838d19ea0e224fe3311856993196
     messageDiv.style.color = 'red'
     messageDiv.textContent = 'Invalid username or password!'
     return
   }
 
+<<<<<<< HEAD
+  redirectToDashboard(user)
+})
+
+function redirectToDashboard(user) {
+  window.location.href = dashboardPages[user.role_id]
+=======
   const user = data[0]
 
   if (user.password_hash === password) {
@@ -69,4 +138,5 @@ function showDashboard(user) {
   dashboardContainer.classList.remove('hidden')
   userDisplay.textContent = user.username
   emailDisplay.textContent = user.email
+>>>>>>> 67b42edc8833838d19ea0e224fe3311856993196
 }

@@ -1,0 +1,1 @@
+import{n as e,r as t,t as n}from"./loading-screen-CBKu0TMq.js";var r=await e(4);r&&(document.getElementById(`user-name`).textContent=r.username),document.getElementById(`logout`).addEventListener(`click`,t),n();
