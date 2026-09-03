@@ -4,26 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Administrative Control Module | TCSMS</title>
-    <style>
-      * { box-sizing: border-box; }
-      body { margin: 0; min-height: 100vh; background: #f0f2f5; color: #1a1a1a; font-family: 'Segoe UI', Tahoma, sans-serif; }
-      header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 2rem; background: #374151; color: white; }
-      h1 { margin: 0; font-size: 1.5rem; }
-      main { max-width: 960px; margin: 2rem auto; padding: 0 1.25rem; }
-      .welcome { padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
-      button { padding: .65rem 1rem; border: 0; border-radius: 6px; background: white; color: #374151; font-weight: 600; cursor: pointer; }
-    </style>
   </head>
   <body>
-    <header><h1>Administrative Control Module</h1><button id="logout">Sign Out</button></header>
-    <main><section class="welcome"><h2>Welcome, <span id="user-name"></span></h2><p>This administrative workspace will manage user accounts, roles, faculty assignments, subjects, approvals, academic-term settings, and audit logs.</p></section></main>
+    <header><h1>Administrative Control Module</h1></header>
+    <main><div class="admin-page-head"><div><h2>Admin Dashboard</h2><p>Review pending registrar requests and confirm administrative changes.</p></div></div><section class="admin-table-wrap"><div class="admin-section-title"><h3>Pending Registrar Changes</h3><small>Current Term: 1st Semester</small></div><table><thead><tr><th>Request Type</th><th>Details</th><th>Requested By</th><th>Status</th><th>Action</th></tr></thead><tbody id="pending-table"><tr><td colspan="5">Loading pending requests...</td></tr></tbody></table></section><section class="admin-table-wrap admin-announcements"><div class="admin-section-title"><h3>Announcements</h3><button class="admin-primary" type="button">+ Add</button></div><p>No announcements configured.</p></section></main>
     <script type="module">
-      import { requireRole, signOut } from './auth-client.js'
+      import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
+      import { applyUiTheme, mountProfile } from './ui-theme.js'
+      applyUiTheme()
       const user = await requireRole(1)
-      if (user) document.getElementById('user-name').textContent = user.username
-      document.getElementById('logout').addEventListener('click', signOut)
+      if (user) { document.getElementById('user-name').textContent = user.username; mountProfile(user, 'Administrator', signOut) }
       hideLoadingScreen()
+
+      const main = document.querySelector('main')
+      const adminSidebar = document.createElement('aside')
+      adminSidebar.className = 'admin-sidebar'
+      adminSidebar.innerHTML = `<div class="admin-brand">Administrative<br>Control</div><nav><a class="active" href="/admin-dashboard.html">Dashboard</a><a>Manage Accounts</a><a>Manage Faculty</a><a href="/admin-sections.html">Manage Sections</a><a>Manage Subjects</a><a>System Config</a></nav><img src="/logo.png" alt="Thompson Christian School" class="admin-sidebar-logo">`
+      document.body.prepend(adminSidebar)
+      const pendingTable = document.getElementById('pending-table')
+      const { data: applications, error } = await supabase.from('admission_applications').select('id,first_name,last_name,grade_level,status,created_at').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false })
+      if (error) pendingTable.innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`
+      else pendingTable.innerHTML = (applications || []).map(application => `<tr><td>Admission Review</td><td>${application.first_name} ${application.last_name} - Grade ${application.grade_level}</td><td>Registrar</td><td>${application.status}</td><td><a class="admin-view" href="/student-records.html">Review</a></td></tr>`).join('') || '<tr><td colspan="5">No pending requests.</td></tr>'
     </script>
   </body>
 </html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Sections | TCSMS</title>
+</head>
+<body>
+  <header><h1>Administrative Control Module</h1></header>
+  <aside class="admin-sidebar"><div class="admin-brand">Administrative<br>Control</div><nav><a href="/admin-dashboard.html">Dashboard</a><a>Manage Accounts</a><a>Manage Faculty</a><a class="active" href="/admin-sections.html">Manage Sections</a><a>Manage Subjects</a><a>System Config</a></nav><img src="/logo.png" alt="Thompson Christian School" class="admin-sidebar-logo"></aside>
+  <main>
+    <div class="admin-page-head"><div><h2>Manage Sections</h2><p>Create and manage academic sections used by enrollment and placement.</p></div><button id="add-section" class="admin-primary">+ Add Section</button></div>
+    <section class="admin-table-wrap"><table><thead><tr><th>Section Name</th><th>Grade</th><th>Academic Year</th><th>Semester</th><th>Faculty Assigned</th><th>Students</th><th>Actions</th></tr></thead><tbody id="sections-table"><tr><td colspan="7">Loading sections...</td></tr></tbody></table></section>
+  </main>
+  <div id="section-modal" class="admin-modal hidden"><div class="admin-modal-box"><div class="admin-modal-head"><h3>Add New Section</h3><button id="close-section">x</button></div><form id="section-form"><label>Section Name<input name="section_name" placeholder="e.g. James" required></label><label>Grade<select name="grade_level" required><option value="">Select Grade</option><option value="0">Kindergarten</option><option value="1">Grade 1</option><option value="2">Grade 2</option><option value="3">Grade 3</option><option value="4">Grade 4</option><option value="5">Grade 5</option><option value="6">Grade 6</option><option value="7">Grade 7</option><option value="8">Grade 8</option><option value="9">Grade 9</option><option value="10">Grade 10</option><option value="11">Grade 11</option><option value="12">Grade 12</option></select></label><label>Capacity<input name="capacity" type="number" min="1" value="40" required></label><label>Academic Year<input name="academic_year" value="2025-2026" required></label><label>Semester<select name="semester"><option>1st Semester</option><option>2nd Semester</option></select></label><label class="admin-full">Faculty Assigned (optional)<input name="faculty_assigned" placeholder="e.g. Dr. Sarah Smith"></label><div class="admin-actions"><button type="button" id="cancel-section" class="admin-cancel">Cancel</button><button class="admin-primary">Save Section</button></div></form></div></div>
+  <script type="module">
+    import { supabase, requireRole, signOut } from './auth-client.js'
+    import { applyUiTheme, mountProfile } from './ui-theme.js'
+    applyUiTheme()
+    const user = await requireRole(1)
+    if (!user) throw new Error('Unauthorized')
+    mountProfile(user, 'Administrator', signOut)
+    const modal = document.getElementById('section-modal')
+    const close = () => modal.classList.add('hidden')
+    document.getElementById('add-section').onclick = () => modal.classList.remove('hidden')
+    document.getElementById('close-section').onclick = close
+    document.getElementById('cancel-section').onclick = close
+    const escape = value => String(value ?? '').replace(/[&<>\"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+    async function loadSections() {
+      const { data, error } = await supabase.from('sections').select('*').order('grade_level').order('section_name')
+      if (error) return document.getElementById('sections-table').innerHTML = `<tr><td colspan="7">${escape(error.message)}</td></tr>`
+      const { data: enrollments } = await supabase.from('enrollments').select('section_id').eq('status', 'active')
+      const counts = (enrollments || []).reduce((result, row) => { result[row.section_id] = (result[row.section_id] || 0) + 1; return result }, {})
+      document.getElementById('sections-table').innerHTML = (data || []).map(section => `<tr><td>${escape(section.section_name)}</td><td>${Number(section.grade_level) === 0 ? 'Kindergarten' : `Grade ${section.grade_level}`}</td><td>${escape(section.academic_year || '-')}</td><td>${escape(section.semester || '-')}</td><td>${escape(section.faculty_assigned || 'Unassigned')}</td><td>${counts[section.section_id] || 0}</td><td><button class="admin-view" data-view="${section.section_id}">View</button><button class="admin-remove" data-remove="${section.section_id}">Remove</button></td></tr>`).join('') || '<tr><td colspan="7">No sections configured.</td></tr>'
+      document.querySelectorAll('[data-remove]').forEach(button => button.onclick = () => removeSection(button.dataset.remove))
+      document.querySelectorAll('[data-view]').forEach(button => button.onclick = () => { const section = data.find(item => String(item.section_id) === String(button.dataset.view)); if (section) window.alert(`${section.section_name}\n${section.academic_year || '-'} | ${section.semester || '-'}\nFaculty: ${section.faculty_assigned || 'Unassigned'}`) })
+    }
+    async function removeSection(id) { if (!window.confirm('Remove this section? Students will not be deleted.')) return; const { error } = await supabase.from('sections').delete().eq('section_id', id); if (error) return window.alert(error.message); loadSections() }
+    document.getElementById('section-form').onsubmit = async event => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.target).entries()); const payload = { section_name: values.section_name.trim(), grade_level: Number(values.grade_level), capacity: Number(values.capacity) }; const optional = { academic_year: values.academic_year, semester: values.semester, faculty_assigned: values.faculty_assigned || null }; let result = await supabase.from('sections').insert({ ...payload, ...optional }); if (result.error && /column .* of 'sections'|schema cache/i.test(result.error.message)) result = await supabase.from('sections').insert(payload); if (result.error) return window.alert(result.error.message); event.target.reset(); close(); loadSections() }
+    loadSections()
+  </script>
+</body>
+</html>

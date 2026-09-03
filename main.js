@@ -1,5 +1,8 @@
 import { supabase } from './auth-client.js'
 import { hideLoadingScreen } from './loading-screen.js'
+import { applyUiTheme } from './ui-theme.js'
+
+applyUiTheme()
 
 // DOM Elements
 const loginContainer = document.getElementById('login-container')

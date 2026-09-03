@@ -2,6 +2,16 @@
 -- Existing tables: users(user_id), students(student_id), sections(section_id).
 -- Run this in the Supabase SQL Editor.
 
+alter table sections add column if not exists academic_year text default '2025-2026';
+alter table sections add column if not exists semester text default '1st Semester';
+alter table sections add column if not exists faculty_assigned text;
+
+alter table students add column if not exists middle_name text;
+alter table students add column if not exists date_of_birth date;
+alter table students add column if not exists gender text;
+alter table students add column if not exists grade_level integer;
+alter table students add column if not exists enrollment_status text default 'active';
+
 do $$ begin
   create type admission_status as enum ('draft','submitted','under_review','approved','rejected','enrolled');
 exception when duplicate_object then null; end $$;
@@ -87,6 +97,14 @@ begin
     insert into students(lrn_number,first_name,last_name,date_of_birth,gender,enrollment_status)
     values(new_no,a.first_name,a.last_name,a.birth_date,a.sex,'active');
   end if;
+  if p_status='approved' then
+    insert into enrollments(student_id, school_year, grade_level, status, enrolled_at)
+    select student_id, extract(year from current_date)::text || '-' || (extract(year from current_date)+1)::text,
+      a.grade_level::integer, 'active', now()
+    from students
+    where lower(first_name)=lower(a.first_name) and lower(last_name)=lower(a.last_name) and date_of_birth=a.birth_date
+    on conflict(student_id, school_year) do update set grade_level=excluded.grade_level, status='active', enrolled_at=excluded.enrolled_at;
+  end if;
   insert into notifications(recipient_email,title,message,entity_type,entity_id) values(a.guardian_email,'Application Status Updated','Your TCSMS admission application is now '||replace(p_status::text,'_',' ')||'.','admission_application',a.id);
   insert into audit_logs(action,entity_type,entity_id,details) values('UPDATE_STATUS','admission_application',a.id,jsonb_build_object('status',p_status,'remarks',p_remarks));
   return jsonb_build_object('id',a.id,'status',p_status);
@@ -119,11 +137,12 @@ begin
   return jsonb_build_object('section_id',target.section_id,'section_name',target.section_name);
 end $$;
 
-create or replace function batch_promote_students(p_grade_level integer,p_school_year text)
+drop function if exists batch_promote_students(integer,text);
+create or replace function batch_promote_students(p_grade_level integer,p_school_year text,p_excluded_student_ids integer[] default '{}')
 returns jsonb language plpgsql security definer as $$
 declare r record; processed int:=0; promoted int:=0; avg_grade numeric; target integer;
 begin
-  for r in select student_id,grade_level from students where grade_level=p_grade_level loop
+  for r in select student_id,grade_level from students where grade_level=p_grade_level and not (student_id = any(p_excluded_student_ids)) loop
     processed:=processed+1; select avg(grade) into avg_grade from academic_history where student_id=r.student_id and school_year=p_school_year;
     if exists(select 1 from academic_history where student_id=r.student_id and school_year=p_school_year and grade<75) then
       insert into promotion_logs(student_id,from_grade,to_grade,school_year,result,reason) values(r.student_id,r.grade_level,r.grade_level,p_school_year,'retained','At least one subject below passing criteria');
@@ -151,6 +170,7 @@ begin
   update enrollments set section_id=p_target_section_id where student_id=p_student_id and status='active';
   insert into shift_requests(student_id,from_section_id,target_section_id,reason) values(p_student_id,old_section,p_target_section_id,p_reason);
   insert into notifications(title,message,entity_type,entity_id) values('Student Section Shift','Student shifted from '||coalesce(old_name,'Unassigned')||' to '||new_name||'.','student',p_student_id);
+  insert into audit_logs(action,entity_type,entity_id,details) values('SHIFT_STUDENT','student',p_student_id,jsonb_build_object('from_section',old_section,'target_section',p_target_section_id,'reason',p_reason));
   return jsonb_build_object('student_id',p_student_id,'from_section',old_name,'to_section',new_name);
 end $$;
 
@@ -166,6 +186,9 @@ alter table shift_requests enable row level security;
 alter table registrar_feedback enable row level security;
 alter table audit_logs enable row level security;
 
+alter table students enable row level security;
+alter table sections enable row level security;
+
 do $$ begin create policy registrar_applications on admission_applications for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
 do $$ begin create policy registrar_documents on application_documents for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
 do $$ begin create policy registrar_notifications on notifications for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
@@ -175,3 +198,5 @@ do $$ begin create policy registrar_promotion on promotion_logs for all to authe
 do $$ begin create policy registrar_shifts on shift_requests for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
 do $$ begin create policy registrar_feedback_policy on registrar_feedback for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
 do $$ begin create policy registrar_audit on audit_logs for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy registrar_students on students for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy admin_sections on sections for all to authenticated using (true) with check (true); exception when duplicate_object then null; end $$;
