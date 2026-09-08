@@ -1,4 +1,4 @@
-import { supabase } from './auth-client.js'
+import { supabase, isSupabaseConfigured, showConfigurationError } from './auth-client.js'
 import { hideLoadingScreen } from './loading-screen.js'
 import { applyUiTheme } from './ui-theme.js'
 
@@ -16,24 +16,33 @@ const dashboardPages = {
   4: '/student-dashboard.html'
 }
 
-const { data: { session } } = await supabase.auth.getSession()
-if (session) {
-  const { data: user } = await supabase
-    .from('users')
-    .select('role_id, is_active')
-    .eq('email', session.user.email)
-    .eq('is_active', true)
-    .single()
-
-  if (user && dashboardPages[user.role_id]) redirectToDashboard(user)
-  else await supabase.auth.signOut()
-}
-
 hideLoadingScreen()
+
+if (!isSupabaseConfigured) {
+  showConfigurationError()
+} else {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session) {
+    const { data: user } = await supabase
+      .from('users')
+      .select('role_id, is_active')
+      .eq('email', session.user.email)
+      .eq('is_active', true)
+      .single()
+
+    if (user && dashboardPages[user.role_id]) redirectToDashboard(user)
+    else await supabase.auth.signOut()
+  }
+}
 
 // Handle Login
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault()
+
+  if (!supabase) {
+    showConfigurationError()
+    return
+  }
   
   const username = document.getElementById('username').value.trim()
   const password = document.getElementById('password').value

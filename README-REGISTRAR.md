@@ -58,9 +58,11 @@ This version extends the existing Thompson Christian School Management System lo
 1. Open the project folder in VS Code.
 2. Run `npm install`.
 3. In Supabase SQL Editor, run `supabase-migration.sql`.
-4. Make sure `.env` contains your existing VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY values.
+4. Copy `.env.example` to `.env` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to the Supabase project values. Each developer must create this local file because `.env` is intentionally ignored by Git.
 5. Create/configure the private `admission-documents` storage bucket (the migration creates it).
 6. Run `npm run dev`.
+
+If the login page appears unstyled or shows a configuration warning, the local `.env` file is missing or Vite needs to be restarted after it was created.
 
 ## Important schema note
 
