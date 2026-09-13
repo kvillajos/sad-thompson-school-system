@@ -6,15 +6,14 @@
     <title>Student Dashboard | TCSMS</title>
   </head>
   <body>
-    <header><h1>Student Dashboard</h1></header>
     <main><section class="welcome"><h2>Welcome, <span id="user-name"></span></h2><p>Your student portal will contain your profile, class schedule, grades, attendance, financial statement, and school announcements.</p></section></main>
     <script type="module">
       import { requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
-      import { applyUiTheme, mountProfile } from './ui-theme.js'
+      import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
       applyUiTheme()
       const user = await requireRole(4)
-      if (user) { document.getElementById('user-name').textContent = user.username; mountProfile(user, 'Student', signOut) }
+      if (user) { document.getElementById('user-name').textContent = user.username; mountProfile(user, 'Student', signOut); mountSidebar([{ label: 'Dashboard', href: '/student-dashboard.html', active: true, icon: '⌂' }], 'Student Portal') }
       hideLoadingScreen()
     </script>
   </body>

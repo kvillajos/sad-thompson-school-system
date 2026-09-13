@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Manage Accounts | TCSMS</title></head>
+<body class="admin-shell">
+<main>
+  <div class="admin-page-head"><div><h2>Manage Accounts</h2><p>Review active users and their access roles.</p></div></div>
+  <div class="admin-filterbar"><input id="account-search" type="search" placeholder="Search username or email"><select id="account-role"><option value="">All roles</option><option value="1">Administrator</option><option value="2">Registrar</option><option value="3">Faculty</option><option value="4">Student</option></select><button id="filter-accounts" class="admin-primary" type="button">Filter</button></div>
+  <section class="admin-table-wrap"><table><thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Linked Record</th></tr></thead><tbody id="accounts-table"><tr><td colspan="5">Loading accounts...</td></tr></tbody></table></section>
+</main>
+<script type="module">
+  import { supabase, requireRole, signOut } from './auth-client.js'
+  import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
+  applyUiTheme()
+  const user = await requireRole(1)
+  if (!user) throw new Error('Unauthorized')
+  mountProfile(user, 'Administrator', signOut)
+  mountSidebar([
+    { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
+    { label: 'Manage Accounts', href: '/admin-accounts.html', active: true, icon: '▣' },
+    { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
+    { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
+    { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
+    { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' }
+  ], 'Administrative<br>Control')
+  const roleNames = { 1: 'Administrator', 2: 'Registrar', 3: 'Faculty', 4: 'Student' }
+  let accounts = []
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+  async function loadAccounts() {
+    const result = await supabase.from('users').select('username,email,role_id,is_active,student_id,user_id').order('role_id').order('username')
+    const table = document.getElementById('accounts-table')
+    if (result.error) return table.innerHTML = `<tr><td colspan="5">${escape(result.error.message)}</td></tr>`
+    accounts = result.data || []
+    renderAccounts()
+  }
+  function renderAccounts() {
+    const search = document.getElementById('account-search').value.trim().toLowerCase()
+    const role = document.getElementById('account-role').value
+    const rows = accounts.filter(item => (!role || String(item.role_id) === role) && (!search || `${item.username} ${item.email}`.toLowerCase().includes(search)))
+    document.getElementById('accounts-table').innerHTML = rows.map(item => `<tr><td>${escape(item.username)}</td><td>${escape(item.email)}</td><td>${roleNames[item.role_id] || 'Unknown'}</td><td>${item.is_active ? 'Active' : 'Inactive'}</td><td>${item.student_id ? `Student #${item.student_id}` : '-'}</td></tr>`).join('') || '<tr><td colspan="5">No accounts found.</td></tr>'
+  }
+  document.getElementById('filter-accounts').onclick = renderAccounts
+  document.getElementById('account-search').onkeydown = event => { if (event.key === 'Enter') renderAccounts() }
+  loadAccounts()
+</script>
+</body>
+</html>

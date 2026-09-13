@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "vite"
+    "dev": "vite",
+    "seed:students": "node scripts/seed-students.mjs",
+    "seed:staff": "node scripts/seed-staff.mjs"
   },
   "keywords": [],
   "author": "",

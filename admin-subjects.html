@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Subjects | TCSMS</title>
+</head>
+<body class="admin-shell">
+  <main>
+    <div class="admin-page-head"><div><h2>Manage Subjects</h2><p>Create subjects and schedule them for sections.</p></div></div>
+    <div class="admin-filterbar"><input id="subject-search" type="search" placeholder="Search subject code or name"><select id="subject-status"><option value="">All statuses</option><option value="true">Active</option><option value="false">Inactive</option></select><button id="filter-subjects" class="admin-primary" type="button">Filter</button><button id="add-subject" class="admin-primary admin-action" type="button">+ Add Subject</button></div>
+    <section class="admin-table-wrap"><table><thead><tr><th>Code</th><th>Subject</th><th>Grade</th><th>Status</th><th>Actions</th></tr></thead><tbody id="subjects-table"><tr><td colspan="5">Loading subjects...</td></tr></tbody></table></section>
+    <div class="admin-page-head" style="margin-top:28px"><div><h2>Schedules</h2><p>Conflicts are rejected when section, faculty, or room times overlap.</p></div></div>
+    <div class="admin-filterbar"><button id="add-schedule" class="admin-primary admin-action" type="button">+ Add Schedule</button></div>
+    <section class="admin-table-wrap"><table><thead><tr><th>Subject</th><th>Section</th><th>Faculty</th><th>Room</th><th>Day</th><th>Time</th><th>Actions</th></tr></thead><tbody id="schedules-table"><tr><td colspan="7">Loading schedules...</td></tr></tbody></table></section>
+  </main>
+  <div id="subject-modal" class="admin-modal hidden"><div class="admin-modal-box"><div class="admin-modal-head"><h3 id="subject-modal-title">Add Subject</h3><button type="button" id="close-subject">x</button></div><form id="subject-form"><input type="hidden" name="subject_id"><label>Code<input name="subject_code" placeholder="e.g. MATH-7" required></label><label>Subject Name<input name="subject_name" placeholder="e.g. Mathematics" required></label><label>Grade<select name="grade_level"><option value="">All Grades</option><option value="0">Kindergarten</option><option value="1">Grade 1</option><option value="2">Grade 2</option><option value="3">Grade 3</option><option value="4">Grade 4</option><option value="5">Grade 5</option><option value="6">Grade 6</option><option value="7">Grade 7</option><option value="8">Grade 8</option><option value="9">Grade 9</option><option value="10">Grade 10</option><option value="11">Grade 11</option><option value="12">Grade 12</option></select></label><label>Status<select name="is_active"><option value="true">Active</option><option value="false">Inactive</option></select></label><label class="admin-full">Description<textarea name="description" rows="3"></textarea></label><div class="admin-actions"><button type="button" id="cancel-subject" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Save Subject</button></div></form></div></div>
+  <div id="schedule-modal" class="admin-modal hidden"><div class="admin-modal-box"><div class="admin-modal-head"><h3 id="schedule-modal-title">Add Schedule</h3><button type="button" id="close-schedule">x</button></div><form id="schedule-form"><input type="hidden" name="schedule_id"><label>Subject<select name="subject_id" id="schedule-subject" required></select></label><label>Section<select name="section_id" id="schedule-section" required></select></label><label>Faculty<input name="faculty_name" placeholder="Optional"></label><label>Room<input name="room" placeholder="Optional"></label><label>Day<select name="day_of_week"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="7">Sunday</option></select></label><label>Start<input name="start_time" type="time" required></label><label>End<input name="end_time" type="time" required></label><div class="admin-actions"><button type="button" id="cancel-schedule" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Save Schedule</button></div></form></div></div>
+  <script type="module">
+    import { supabase, requireRole, signOut } from './auth-client.js'
+    import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
+    applyUiTheme()
+    const user = await requireRole(1)
+    if (!user) throw new Error('Unauthorized')
+    mountProfile(user, 'Administrator', signOut)
+    mountSidebar([
+      { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
+      { label: 'Manage Accounts', href: '/admin-accounts.html', icon: '▣' },
+      { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
+      { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
+      { label: 'Manage Subjects', href: '/admin-subjects.html', active: true, icon: '♧' },
+      { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' }
+    ], 'Administrative<br>Control')
+
+    const subjectModal = document.getElementById('subject-modal')
+    const scheduleModal = document.getElementById('schedule-modal')
+    const subjectForm = document.getElementById('subject-form')
+    const scheduleForm = document.getElementById('schedule-form')
+    const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+    const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    let subjects = []
+    let sections = []
+    let schedules = []
+
+    function closeModal(modal, form) { modal.classList.add('hidden'); form.reset(); form.elements.subject_id && (form.elements.subject_id.value = ''); form.elements.schedule_id && (form.elements.schedule_id.value = '') }
+    function fillOptions() {
+      document.getElementById('schedule-subject').innerHTML = subjects.filter(item => item.is_active).map(item => `<option value="${item.subject_id}">${escape(item.subject_code)} - ${escape(item.subject_name)}</option>`).join('')
+      document.getElementById('schedule-section').innerHTML = sections.map(item => `<option value="${item.section_id}">${escape(item.section_name)} - Grade ${item.grade_level}</option>`).join('')
+    }
+    async function loadData() {
+      const [subjectResult, sectionResult, scheduleResult] = await Promise.all([
+        supabase.from('subjects').select('*').order('subject_code'),
+        supabase.from('sections').select('section_id,section_name,grade_level').order('grade_level').order('section_name'),
+        supabase.from('subject_schedules').select('schedule_id,subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_code,subject_name),sections(section_name)').order('day_of_week').order('start_time')
+      ])
+      if (subjectResult.error) document.getElementById('subjects-table').innerHTML = `<tr><td colspan="5">${escape(subjectResult.error.message)}</td></tr>`
+      else subjects = subjectResult.data || []
+      if (sectionResult.error) sections = []
+      else sections = sectionResult.data || []
+      if (scheduleResult.error) document.getElementById('schedules-table').innerHTML = `<tr><td colspan="7">${escape(scheduleResult.error.message)}</td></tr>`
+      else schedules = scheduleResult.data || []
+      fillOptions()
+      renderSubjects()
+      renderSchedules()
+    }
+    function renderSubjects() {
+      const search = document.getElementById('subject-search').value.trim().toLowerCase()
+      const status = document.getElementById('subject-status').value
+      const visibleSubjects = subjects.filter(item => (!status || String(item.is_active) === status) && (!search || `${item.subject_code} ${item.subject_name}`.toLowerCase().includes(search)))
+      document.getElementById('subjects-table').innerHTML = visibleSubjects.map(item => `<tr><td>${escape(item.subject_code)}</td><td>${escape(item.subject_name)}</td><td>${item.grade_level === null ? 'All Grades' : item.grade_level === 0 ? 'Kindergarten' : `Grade ${item.grade_level}`}</td><td>${item.is_active ? 'Active' : 'Inactive'}</td><td><button class="admin-view" data-edit-subject="${item.subject_id}">Edit</button><button class="admin-remove" data-remove-subject="${item.subject_id}">Remove</button></td></tr>`).join('') || '<tr><td colspan="5">No matching subjects.</td></tr>'
+      document.querySelectorAll('[data-edit-subject]').forEach(button => button.onclick = () => openSubject(subjects.find(item => String(item.subject_id) === button.dataset.editSubject)))
+      document.querySelectorAll('[data-remove-subject]').forEach(button => button.onclick = () => removeSubject(button.dataset.removeSubject))
+    }
+    function renderSchedules() {
+      document.getElementById('schedules-table').innerHTML = schedules.map(item => `<tr><td>${escape(item.subjects?.subject_code || '')} - ${escape(item.subjects?.subject_name || '')}</td><td>${escape(item.sections?.section_name || '')}</td><td>${escape(item.faculty_name || '-')}</td><td>${escape(item.room || '-')}</td><td>${dayNames[item.day_of_week]}</td><td>${escape(item.start_time.slice(0, 5))} - ${escape(item.end_time.slice(0, 5))}</td><td><button class="admin-view" data-edit-schedule="${item.schedule_id}">Edit</button><button class="admin-remove" data-remove-schedule="${item.schedule_id}">Remove</button></td></tr>`).join('') || '<tr><td colspan="7">No schedules configured.</td></tr>'
+      document.querySelectorAll('[data-edit-schedule]').forEach(button => button.onclick = () => openSchedule(schedules.find(item => String(item.schedule_id) === button.dataset.editSchedule)))
+      document.querySelectorAll('[data-remove-schedule]').forEach(button => button.onclick = () => removeSchedule(button.dataset.removeSchedule))
+    }
+    function openSubject(item) {
+      subjectForm.reset(); subjectForm.elements.subject_id.value = item?.subject_id || ''; subjectForm.elements.subject_code.value = item?.subject_code || ''; subjectForm.elements.subject_name.value = item?.subject_name || ''; subjectForm.elements.grade_level.value = item?.grade_level ?? ''; subjectForm.elements.is_active.value = String(item?.is_active ?? true); subjectForm.elements.description.value = item?.description || ''
+      document.getElementById('subject-modal-title').textContent = item ? 'Edit Subject' : 'Add Subject'; subjectModal.classList.remove('hidden')
+    }
+    function openSchedule(item) {
+      scheduleForm.reset(); scheduleForm.elements.schedule_id.value = item?.schedule_id || ''; scheduleForm.elements.subject_id.value = item?.subject_id || ''; scheduleForm.elements.section_id.value = item?.section_id || ''; scheduleForm.elements.faculty_name.value = item?.faculty_name || ''; scheduleForm.elements.room.value = item?.room || ''; scheduleForm.elements.day_of_week.value = item?.day_of_week || '1'; scheduleForm.elements.start_time.value = item?.start_time?.slice(0, 5) || ''; scheduleForm.elements.end_time.value = item?.end_time?.slice(0, 5) || ''; document.getElementById('schedule-modal-title').textContent = item ? 'Edit Schedule' : 'Add Schedule'; scheduleModal.classList.remove('hidden')
+    }
+    async function removeSubject(id) { if (!window.confirm('Remove this subject and its schedules?')) return; const result = await supabase.from('subjects').delete().eq('subject_id', id); if (result.error) return window.alert(result.error.message); await loadData() }
+    async function removeSchedule(id) { if (!window.confirm('Remove this schedule?')) return; const result = await supabase.from('subject_schedules').delete().eq('schedule_id', id); if (result.error) return window.alert(result.error.message); await loadData() }
+    subjectForm.onsubmit = async event => { event.preventDefault(); const values = Object.fromEntries(new FormData(subjectForm).entries()); const payload = { subject_code: values.subject_code.trim().toUpperCase(), subject_name: values.subject_name.trim(), grade_level: values.grade_level === '' ? null : Number(values.grade_level), description: values.description.trim() || null, is_active: values.is_active === 'true', updated_at: new Date().toISOString() }; const result = values.subject_id ? await supabase.from('subjects').update(payload).eq('subject_id', values.subject_id) : await supabase.from('subjects').insert(payload); if (result.error) return window.alert(result.error.message); closeModal(subjectModal, subjectForm); await loadData() }
+    scheduleForm.onsubmit = async event => { event.preventDefault(); const values = Object.fromEntries(new FormData(scheduleForm).entries()); const payload = { subject_id: Number(values.subject_id), section_id: Number(values.section_id), faculty_name: values.faculty_name.trim() || null, room: values.room.trim() || null, day_of_week: Number(values.day_of_week), start_time: values.start_time, end_time: values.end_time }; const result = values.schedule_id ? await supabase.from('subject_schedules').update(payload).eq('schedule_id', values.schedule_id) : await supabase.from('subject_schedules').insert(payload); if (result.error) return window.alert(result.error.message); closeModal(scheduleModal, scheduleForm); await loadData() }
+    document.getElementById('add-subject').onclick = () => openSubject()
+    document.getElementById('close-subject').onclick = () => closeModal(subjectModal, subjectForm)
+    document.getElementById('cancel-subject').onclick = () => closeModal(subjectModal, subjectForm)
+    document.getElementById('add-schedule').onclick = () => openSchedule()
+    document.getElementById('close-schedule').onclick = () => closeModal(scheduleModal, scheduleForm)
+    document.getElementById('cancel-schedule').onclick = () => closeModal(scheduleModal, scheduleForm)
+    document.getElementById('filter-subjects').onclick = renderSubjects
+    document.getElementById('subject-search').onkeydown = event => { if (event.key === 'Enter') renderSubjects() }
+    loadData()
+  </script>
+</body>
+</html>

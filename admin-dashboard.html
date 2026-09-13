@@ -5,23 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Administrative Control Module | TCSMS</title>
   </head>
-  <body>
-    <header><h1>Administrative Control Module</h1></header>
+  <body class="admin-shell">
     <main><div class="admin-page-head"><div><h2>Admin Dashboard</h2><p>Review pending registrar requests and confirm administrative changes.</p></div></div><section class="admin-table-wrap"><div class="admin-section-title"><h3>Pending Registrar Changes</h3><small>Current Term: 1st Semester</small></div><table><thead><tr><th>Request Type</th><th>Details</th><th>Requested By</th><th>Status</th><th>Action</th></tr></thead><tbody id="pending-table"><tr><td colspan="5">Loading pending requests...</td></tr></tbody></table></section><section class="admin-table-wrap admin-announcements"><div class="admin-section-title"><h3>Announcements</h3><button class="admin-primary" type="button">+ Add</button></div><p>No announcements configured.</p></section></main>
     <script type="module">
       import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
-      import { applyUiTheme, mountProfile } from './ui-theme.js'
+      import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
       applyUiTheme()
       const user = await requireRole(1)
-      if (user) { document.getElementById('user-name').textContent = user.username; mountProfile(user, 'Administrator', signOut) }
+      if (user) mountProfile(user, 'Administrator', signOut)
       hideLoadingScreen()
 
-      const main = document.querySelector('main')
-      const adminSidebar = document.createElement('aside')
-      adminSidebar.className = 'admin-sidebar'
-      adminSidebar.innerHTML = `<div class="admin-brand">Administrative<br>Control</div><nav><a class="active" href="/admin-dashboard.html">Dashboard</a><a>Manage Accounts</a><a>Manage Faculty</a><a href="/admin-sections.html">Manage Sections</a><a>Manage Subjects</a><a>System Config</a></nav><img src="/logo.png" alt="Thompson Christian School" class="admin-sidebar-logo">`
-      document.body.prepend(adminSidebar)
+      mountSidebar([
+        { label: 'Dashboard', href: '/admin-dashboard.html', active: true, icon: '⌂' },
+        { label: 'Manage Accounts', href: '/admin-accounts.html', icon: '▣' },
+        { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
+        { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
+        { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
+        { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' }
+      ], 'Administrative<br>Control')
       const pendingTable = document.getElementById('pending-table')
       const { data: applications, error } = await supabase.from('admission_applications').select('id,first_name,last_name,grade_level,status,created_at').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false })
       if (error) pendingTable.innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`

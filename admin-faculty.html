@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Manage Faculty | TCSMS</title></head>
+<body class="admin-shell">
+<main>
+  <div class="admin-page-head"><div><h2>Manage Faculty</h2><p>Review faculty profiles, departments, and teaching specializations.</p></div></div>
+  <div class="admin-filterbar"><input id="faculty-search" type="search" placeholder="Search faculty or department"><button id="filter-faculty" class="admin-primary" type="button">Filter</button></div>
+  <section class="admin-table-wrap"><table><thead><tr><th>Employee No.</th><th>Name</th><th>Department</th><th>Specialization</th><th>Phone</th><th>Account</th></tr></thead><tbody id="faculty-table"><tr><td colspan="6">Loading faculty...</td></tr></tbody></table></section>
+</main>
+<script type="module">
+  import { supabase, requireRole, signOut } from './auth-client.js'
+  import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
+  applyUiTheme()
+  const user = await requireRole(1)
+  if (!user) throw new Error('Unauthorized')
+  mountProfile(user, 'Administrator', signOut)
+  mountSidebar([
+    { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
+    { label: 'Manage Accounts', href: '/admin-accounts.html', icon: '▣' },
+    { label: 'Manage Faculty', href: '/admin-faculty.html', active: true, icon: '♙' },
+    { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
+    { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
+    { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' }
+  ], 'Administrative<br>Control')
+  let faculty = []
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+  async function loadFaculty() {
+    const result = await supabase.from('staff_profiles').select('employee_no,first_name,middle_name,last_name,department,specialization,phone,user_id,users(username,email,is_active)').order('last_name')
+    const table = document.getElementById('faculty-table')
+    if (result.error) return table.innerHTML = `<tr><td colspan="6">${escape(result.error.message)}</td></tr>`
+    faculty = result.data || []
+    renderFaculty()
+  }
+  function renderFaculty() {
+    const search = document.getElementById('faculty-search').value.trim().toLowerCase()
+    const rows = faculty.filter(item => `${item.first_name} ${item.last_name} ${item.department} ${item.specialization}`.toLowerCase().includes(search))
+    document.getElementById('faculty-table').innerHTML = rows.map(item => `<tr><td>${escape(item.employee_no)}</td><td>${escape(`${item.first_name} ${item.middle_name || ''} ${item.last_name}`)}</td><td>${escape(item.department)}</td><td>${escape(item.specialization)}</td><td>${escape(item.phone || '-')}</td><td>${item.users?.is_active ? 'Active' : 'Inactive'}</td></tr>`).join('') || '<tr><td colspan="6">No faculty found.</td></tr>'
+  }
+  document.getElementById('filter-faculty').onclick = renderFaculty
+  document.getElementById('faculty-search').onkeydown = event => { if (event.key === 'Enter') renderFaculty() }
+  loadFaculty()
+</script>
+</body>
+</html>

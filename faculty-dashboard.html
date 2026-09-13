@@ -6,15 +6,31 @@
     <title>Faculty Dashboard | TCSMS</title>
   </head>
   <body>
-    <header><h1>Faculty Dashboard</h1></header>
-    <main><section class="welcome"><h2>Welcome, <span id="user-name"></span></h2><p>Your faculty workspace will contain assigned classes, student attendance, grades, and teaching-related records.</p></section></main>
+    <main><div class="admin-page-head"><div><h2>Faculty Dashboard</h2><p>Assigned classes, schedules, and student rosters.</p></div></div><section class="admin-summary-grid"><div class="card"><small>Assigned Classes</small><div class="stat" id="class-count">-</div></div><div class="card"><small>Scheduled Sessions</small><div class="stat" id="schedule-count">-</div></div><div class="card"><small>Students</small><div class="stat" id="student-count">-</div></div></section><section class="admin-table-wrap" style="margin-top:18px"><div class="admin-section-title"><h3>My Schedule</h3></div><table><thead><tr><th>Subject</th><th>Section</th><th>Room</th><th>Day</th><th>Time</th></tr></thead><tbody id="schedule-table"><tr><td colspan="5">Loading schedule...</td></tr></tbody></table></section><section class="admin-table-wrap" style="margin-top:18px"><div class="admin-section-title"><h3>My Students</h3></div><table><thead><tr><th>Student ID</th><th>Name</th><th>Grade</th><th>Status</th></tr></thead><tbody id="student-table"><tr><td colspan="4">Loading students...</td></tr></tbody></table></section></main>
     <script type="module">
-      import { requireRole, signOut } from './auth-client.js'
+      import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
-      import { applyUiTheme, mountProfile } from './ui-theme.js'
+      import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
       applyUiTheme()
       const user = await requireRole(3)
-      if (user) { document.getElementById('user-name').textContent = user.username; mountProfile(user, 'Faculty', signOut) }
+      if (user) {
+        mountProfile(user, 'Faculty', signOut)
+        mountSidebar([{ label: 'Dashboard', href: '/faculty-dashboard.html', active: true, icon: '⌂' }], 'Faculty')
+        const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+        const profileResult = await supabase.from('staff_profiles').select('first_name,last_name').eq('user_id', user.user_id).single()
+        const profile = profileResult.data
+        const facultyName = profile ? `${profile.first_name} ${profile.last_name}` : user.username
+        const scheduleResult = await supabase.from('subject_schedules').select('subject_id,section_id,room,day_of_week,start_time,end_time,subjects(subject_name),sections(section_name)').ilike('faculty_name', facultyName).order('day_of_week').order('start_time')
+        const schedules = scheduleResult.data || []
+        const sectionIds = [...new Set(schedules.map(item => item.section_id))]
+        const enrollmentResult = sectionIds.length ? await supabase.from('enrollments').select('student_id,students(lrn_number,first_name,last_name,grade_level)').in('section_id', sectionIds).eq('status', 'active') : { data: [] }
+        const students = enrollmentResult.data || []
+        document.getElementById('class-count').textContent = sectionIds.length
+        document.getElementById('schedule-count').textContent = schedules.length
+        document.getElementById('student-count').textContent = students.length
+        document.getElementById('schedule-table').innerHTML = scheduleResult.error ? `<tr><td colspan="5">${escape(scheduleResult.error.message)}</td></tr>` : schedules.map(item => `<tr><td>${escape(item.subjects?.subject_name)}</td><td>${escape(item.sections?.section_name)}</td><td>${escape(item.room || '-')}</td><td>${['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'][item.day_of_week]}</td><td>${escape(`${item.start_time.slice(0,5)} - ${item.end_time.slice(0,5)}`)}</td></tr>`).join('') || '<tr><td colspan="5">No schedules assigned.</td></tr>'
+        document.getElementById('student-table').innerHTML = enrollmentResult.error ? `<tr><td colspan="4">${escape(enrollmentResult.error.message)}</td></tr>` : students.map(item => `<tr><td>${escape(item.students?.lrn_number || item.student_id)}</td><td>${escape(`${item.students?.first_name || ''} ${item.students?.last_name || ''}`)}</td><td>${escape(item.students?.grade_level)}</td><td>Active</td></tr>`).join('') || '<tr><td colspan="4">No students assigned.</td></tr>'
+      }
       hideLoadingScreen()
     </script>
   </body>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Curriculum Review | TCSMS</title></head>
+<body class="admin-shell">
+<main>
+  <div class="admin-page-head"><div><h2>Curriculum Review</h2><p>Review the current section, subject, and schedule setup before demonstration.</p></div></div>
+  <section class="admin-table-wrap"><div class="admin-section-title"><h3>Review Checklist</h3><small id="review-progress">0 of 5 complete</small></div><div id="review-checklist" class="admin-checklist"></div></section>
+  <section class="admin-table-wrap" style="margin-top:18px"><div class="admin-section-title"><h3>Curriculum Summary</h3><button id="refresh-summary" class="admin-primary" type="button">Refresh</button></div><div class="admin-summary-grid" id="summary-grid"><div class="card"><small>Subjects</small><div class="stat" id="subject-count">-</div></div><div class="card"><small>Sections</small><div class="stat" id="section-count">-</div></div><div class="card"><small>Schedules</small><div class="stat" id="schedule-count">-</div></div></div></section>
+</main>
+<script type="module">
+  import { supabase, requireRole, signOut } from './auth-client.js'
+  import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
+  applyUiTheme()
+  const user = await requireRole(1)
+  if (!user) throw new Error('Unauthorized')
+  mountProfile(user, 'Administrator', signOut)
+  mountSidebar([
+    { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
+    { label: 'Manage Accounts', href: '/admin-accounts.html', icon: '▣' },
+    { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
+    { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
+    { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
+    { label: 'Curriculum Review', href: '/admin-curriculum.html', active: true, icon: '☷' }
+  ], 'Administrative<br>Control')
+  const checks = ['Subjects have codes and names', 'Sections have grade and capacity', 'Every schedule has a valid time range', 'No schedule conflicts are reported', 'Student placement rules are ready for demo']
+  const checklist = document.getElementById('review-checklist')
+  checks.forEach((label, index) => { checklist.insertAdjacentHTML('beforeend', `<label class="admin-check"><input type="checkbox" data-review="${index}"> <span>${label}</span></label>`) })
+  function updateProgress() { const complete = [...document.querySelectorAll('[data-review]:checked')].length; document.getElementById('review-progress').textContent = `${complete} of ${checks.length} complete` }
+  document.querySelectorAll('[data-review]').forEach(item => item.onchange = updateProgress)
+  async function loadSummary() {
+    const [subjects, sections, schedules] = await Promise.all([supabase.from('subjects').select('subject_id'), supabase.from('sections').select('section_id'), supabase.from('subject_schedules').select('schedule_id')])
+    document.getElementById('subject-count').textContent = subjects.error ? '!' : subjects.data.length
+    document.getElementById('section-count').textContent = sections.error ? '!' : sections.data.length
+    document.getElementById('schedule-count').textContent = schedules.error ? '!' : schedules.data.length
+  }
+  document.getElementById('refresh-summary').onclick = loadSummary
+  loadSummary()
+</script>
+</body>
+</html>

@@ -43,7 +43,7 @@ export async function requireRole(roleId) {
 
   const { data: user, error } = await supabase
     .from('users')
-    .select('username, email, role_id, is_active')
+    .select('user_id, username, email, role_id, is_active, student_id')
     .eq('email', session.user.email)
     .eq('is_active', true)
     .single()

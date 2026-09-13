@@ -1,2 +1,2 @@
 import { defineConfig } from 'vite'
-export default defineConfig({ build: { rollupOptions: { input: { index:'index.html', admin:'admin-dashboard.html', adminSections:'admin-sections.html', registrar:'student-records.html', faculty:'faculty-dashboard.html', student:'student-dashboard.html' } } } })
+export default defineConfig({ build: { rollupOptions: { input: { index:'index.html', admin:'admin-dashboard.html', adminAccounts:'admin-accounts.html', adminFaculty:'admin-faculty.html', adminSections:'admin-sections.html', adminSubjects:'admin-subjects.html', adminCurriculum:'admin-curriculum.html', registrar:'student-records.html', faculty:'faculty-dashboard.html', student:'student-dashboard.html' } } } })

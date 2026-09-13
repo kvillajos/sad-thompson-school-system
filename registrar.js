@@ -1,5 +1,5 @@
 import { supabase, requireRole, signOut } from './auth-client.js'
-import { applyUiTheme, mountProfile } from './ui-theme.js'
+import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
 
 applyUiTheme()
 
@@ -13,29 +13,18 @@ if (!user) throw new Error('Unauthorized')
 
 mountProfile(user, 'Registrar', signOut)
 
-const logo = document.createElement('img')
-logo.src = '/logo.png'
-logo.alt = 'Thompson Christian School'
-logo.className = 'sidebar-logo'
-document.querySelector('.side').prepend(logo)
-const navIcons = ['⌂', '▣', '♙', '▤', '♧', '▱', '↗', '⇄', '☷', '◉']
-document.querySelectorAll('.side button').forEach((button, index) => {
-  const icon = document.createElement('span')
-  icon.className = 'nav-icon'
-  icon.setAttribute('aria-hidden', 'true')
-  icon.textContent = navIcons[index] || '•'
-  button.prepend(icon)
-})
-
-const enrollmentButton = document.createElement('button')
-enrollmentButton.dataset.tab = 'enrollment'
-enrollmentButton.textContent = 'Manage Enrollment'
-const enrollmentIcon = document.createElement('span')
-enrollmentIcon.className = 'nav-icon'
-enrollmentIcon.setAttribute('aria-hidden', 'true')
-enrollmentIcon.textContent = '▣'
-enrollmentButton.prepend(enrollmentIcon)
-document.querySelector('.side').insertBefore(enrollmentButton, document.querySelector('[data-tab="admission"]'))
+mountSidebar([
+  { label: 'Dashboard', tab: 'dashboard', active: true, icon: '⌂' },
+  { label: 'Manage Enrollment', tab: 'enrollment', icon: '▣' },
+  { label: 'New Admission', tab: 'admission', icon: '▣' },
+  { label: 'Applications', tab: 'applications', icon: '♙' },
+  { label: 'Section Students', tab: 'sectioning', icon: '▤' },
+  { label: 'Academic History', tab: 'academic', icon: '♧' },
+  { label: 'Transcript', tab: 'transcript', icon: '▱' },
+  { label: 'Batch Promotion', tab: 'promotion', icon: '↗' },
+  { label: 'Transfer & Shifting', tab: 'shifting', icon: '⇄' },
+  { label: 'Feedback Log', tab: 'feedback', icon: '☷' }
+], 'Registry and<br>Student Records')
 const enrollmentPanel = document.createElement('section')
 enrollmentPanel.id = 'enrollment'
 enrollmentPanel.dataset.panel = ''
