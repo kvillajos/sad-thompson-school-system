@@ -1,18 +1,26 @@
-const loadingScreen = document.createElement('div')
-loadingScreen.className = 'loading-screen'
-loadingScreen.setAttribute('role', 'status')
-loadingScreen.setAttribute('aria-label', 'Loading Thompson Christian School Management System')
-loadingScreen.innerHTML = `
-  <div class="loading-mark" aria-hidden="true">T</div>
-  <p class="loading-title">TCSMS</p>
-  <p class="loading-subtitle">Preparing your workspace</p>
-  <div class="loading-spinner" aria-hidden="true"></div>
-`
+// Pages should include the static #tcsms-loading-screen markup inline (see index.html)
+// so it paints before this module even downloads. This module only ensures the
+// screen/styles exist (fallback for pages without the inline markup) and hides it later.
+let loadingScreen = document.getElementById('tcsms-loading-screen')
 
-document.body.appendChild(loadingScreen)
+if (!loadingScreen) {
+  loadingScreen = document.createElement('div')
+  loadingScreen.id = 'tcsms-loading-screen'
+  loadingScreen.className = 'loading-screen'
+  loadingScreen.setAttribute('role', 'status')
+  loadingScreen.setAttribute('aria-label', 'Loading Thompson Christian School Management System')
+  loadingScreen.innerHTML = `
+    <div class="loading-mark" aria-hidden="true">T</div>
+    <p class="loading-title">TCSMS</p>
+    <p class="loading-subtitle">Preparing your workspace</p>
+    <div class="loading-spinner" aria-hidden="true"></div>
+  `
+  document.body.prepend(loadingScreen)
+}
 
-const loadingStyles = document.createElement('style')
-loadingStyles.textContent = `
+const loadingStyles = document.getElementById('tcsms-loading-styles') || document.createElement('style')
+loadingStyles.id = 'tcsms-loading-styles'
+if (!loadingStyles.isConnected) loadingStyles.textContent = `
   .loading-screen {
     position: fixed;
     inset: 0;
@@ -72,7 +80,7 @@ loadingStyles.textContent = `
   }
 `
 
-document.head.appendChild(loadingStyles)
+if (!loadingStyles.isConnected) document.head.appendChild(loadingStyles)
 
 export function hideLoadingScreen() {
   requestAnimationFrame(() => loadingScreen.classList.add('is-hidden'))

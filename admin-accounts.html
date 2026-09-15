@@ -2,6 +2,12 @@
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Manage Accounts | TCSMS</title></head>
 <body class="admin-shell">
+<div id="tcsms-loading-screen" class="loading-screen" role="status" aria-label="Loading Thompson Christian School Management System" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:.5rem;background:#102a43;color:#f7fbff">
+  <div class="loading-mark" aria-hidden="true" style="display:grid;place-items:center;width:4.25rem;height:4.25rem;margin-bottom:.4rem;border:2px solid #f0b429;border-radius:50%;color:#f0b429;font-family:Georgia,serif;font-size:2rem;font-weight:700">T</div>
+  <p class="loading-title" style="margin:0;font-size:1.35rem;font-weight:700;letter-spacing:.12em">TCSMS</p>
+  <p class="loading-subtitle" style="margin:0;color:#bcccdc;font-size:.85rem">Preparing your workspace</p>
+  <div class="loading-spinner" aria-hidden="true" style="width:1.25rem;height:1.25rem;margin-top:.8rem;border:2px solid rgba(255,255,255,.25);border-top-color:#f0b429;border-radius:50%"></div>
+</div>
 <main>
   <div class="admin-page-head"><div><h2>Manage Accounts</h2><p>Review active users and their access roles.</p></div></div>
   <div class="admin-filterbar"><input id="account-search" type="search" placeholder="Search username or email"><select id="account-role"><option value="">All roles</option><option value="1">Administrator</option><option value="2">Registrar</option><option value="3">Faculty</option><option value="4">Student</option></select><button id="filter-accounts" class="admin-primary" type="button">Filter</button></div>
@@ -10,10 +16,12 @@
 <script type="module">
   import { supabase, requireRole, signOut } from './auth-client.js'
   import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
+  import { hideLoadingScreen } from './loading-screen.js'
   applyUiTheme()
   const user = await requireRole(1)
   if (!user) throw new Error('Unauthorized')
   mountProfile(user, 'Administrator', signOut)
+  hideLoadingScreen()
   mountSidebar([
     { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
     { label: 'Manage Accounts', href: '/admin-accounts.html', active: true, icon: '▣' },

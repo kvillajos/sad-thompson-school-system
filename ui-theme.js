@@ -1,3 +1,5 @@
+import { supabase } from './auth-client.js';
+
 const sharedTheme = `
 :root {
   --ui-bg: #f3f6fb;
@@ -229,9 +231,56 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 body.has-app-sidebar > header { display:none; }
 body.has-app-sidebar > main { margin-left:220px; max-width:none; padding:36px 36px; }
 body.has-app-sidebar > .app-sidebar { position:fixed; inset:0 auto 0 0; z-index:90; }
+.spam-guard-cooling { opacity: .6; cursor: not-allowed !important; pointer-events: none; }
+.review-box { width: min(100%, 560px); }
+.review-summary { margin-bottom: 14px; }
+.review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 6px; }
+.review-grid small { display: block; color: var(--ui-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.review-grid p { margin: 4px 0 0; color: var(--ui-text); font-weight: 600; }
+.review-countdown { margin: 10px 0 0; padding: 9px 12px; background: #fff4d6; color: var(--ui-warning); border-radius: 5px; font-size: 12px; font-weight: 700; }
+.admin-actions button[disabled] { opacity: .55; cursor: not-allowed; }
+.admin-modal-box textarea { width:100%; box-sizing:border-box; margin-top:6px; padding:9px; border:1px solid #b9c8dc; border-radius:5px; color:var(--ui-text); background:#fff; resize:vertical; min-height:72px; max-height:160px; font:inherit; }
 `;
 
+const SPAM_GUARD_MS = 600;
+
+// Blocks rapid repeat clicks on any clickable control app-wide so double-clicks or
+// impatient re-clicks during a network request can't trigger an action twice.
+function installSpamGuard() {
+  if (window.__tcsmsSpamGuardInstalled) return;
+  window.__tcsmsSpamGuardInstalled = true;
+  document.addEventListener('click', (event) => {
+    const target = event.target.closest('button, [type="submit"], .admin-view, .admin-remove, .sidebar-link');
+    if (!target) return;
+    const now = Date.now();
+    const last = Number(target.dataset.tcsmsLastClick || 0);
+    if (now - last < SPAM_GUARD_MS) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    target.dataset.tcsmsLastClick = String(now);
+    target.classList.add('spam-guard-cooling');
+    setTimeout(() => target.classList.remove('spam-guard-cooling'), SPAM_GUARD_MS);
+  }, true);
+}
+
+// Disables a button and swaps its label while an async action runs, restoring it after.
+export async function withBusy(button, busyLabel, action) {
+  const originalLabel = button.textContent;
+  const originalDisabled = button.disabled;
+  button.disabled = true;
+  button.textContent = busyLabel;
+  try {
+    return await action();
+  } finally {
+    button.disabled = originalDisabled;
+    button.textContent = originalLabel;
+  }
+}
+
 export function applyUiTheme() {
+  installSpamGuard();
   if (document.getElementById('shared-ui-theme')) return;
   const style = document.createElement('style');
   style.id = 'shared-ui-theme';
@@ -275,7 +324,7 @@ export function mountProfile(user, roleLabel, onSignOut) {
   const profile = document.createElement('div');
   profile.className = 'floating-profile profile-menu';
   const name = user?.username || roleLabel;
-  profile.innerHTML = `<button class="profile-toggle" aria-expanded="false"><span class="profile-avatar">${String(name).charAt(0).toUpperCase()}</span><span><strong>${name}</strong><small>${roleLabel}</small></span><span class="profile-chevron">⌄</span></button><div class="profile-dropdown hidden"><button class="profile-signout"><span aria-hidden="true">↪</span> Sign Out</button></div>`;
+  profile.innerHTML = `<button class="profile-toggle" aria-expanded="false"><span class="profile-avatar">${String(name).charAt(0).toUpperCase()}</span><span><strong>${name}</strong><small>${roleLabel}</small></span><span class="profile-chevron">⌄</span></button><div class="profile-dropdown hidden"><button class="profile-change-password"><span aria-hidden="true">⚿</span> Change Password</button><button class="profile-signout"><span aria-hidden="true">↪</span> Sign Out</button></div>`;
   document.body.appendChild(profile);
   const toggle = profile.querySelector('.profile-toggle');
   const dropdown = profile.querySelector('.profile-dropdown');
@@ -284,6 +333,60 @@ export function mountProfile(user, roleLabel, onSignOut) {
     toggle.setAttribute('aria-expanded', String(!dropdown.classList.contains('hidden')));
   });
   profile.querySelector('.profile-signout').addEventListener('click', onSignOut);
+  profile.querySelector('.profile-change-password').addEventListener('click', () => {
+    dropdown.classList.add('hidden');
+    openPasswordModal();
+  });
+  showLoginNotice();
+}
+
+function openPasswordModal() {
+  document.getElementById('tcsms-password-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'tcsms-password-modal';
+  modal.className = 'admin-modal';
+  modal.innerHTML = `<div class="admin-modal-box" style="width:min(100%,420px)">
+    <div class="admin-modal-head"><h3>Change Password</h3><button type="button" id="tcsms-password-close">x</button></div>
+    <form id="tcsms-password-form">
+      <label class="admin-full">New Password<input type="password" id="tcsms-new-password" minlength="8" required></label>
+      <label class="admin-full">Confirm Password<input type="password" id="tcsms-confirm-password" minlength="8" required></label>
+      <div class="admin-actions"><button type="button" id="tcsms-password-cancel" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Update Password</button></div>
+    </form>
+  </div>`;
+  document.body.appendChild(modal);
+  const close = () => modal.remove();
+  modal.querySelector('#tcsms-password-close').addEventListener('click', close);
+  modal.querySelector('#tcsms-password-cancel').addEventListener('click', close);
+  modal.querySelector('#tcsms-password-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const newPassword = document.getElementById('tcsms-new-password').value;
+    const confirmPassword = document.getElementById('tcsms-confirm-password').value;
+    if (newPassword.length < 8) return window.alert('Password must be at least 8 characters.');
+    if (newPassword !== confirmPassword) return window.alert('Passwords do not match.');
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return window.alert(error.message);
+    close();
+    window.alert('Password updated successfully.');
+  });
+}
+
+// Reminds users once per browser session (i.e. each fresh login) that they can change
+// their password, instead of forcing it. sessionStorage clears on sign-out/new session.
+function showLoginNotice() {
+  if (sessionStorage.getItem('tcsms_password_notice_shown')) return;
+  sessionStorage.setItem('tcsms_password_notice_shown', 'true');
+  window.setTimeout(() => {
+    document.getElementById('tcsms-login-notice')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'tcsms-login-notice';
+    modal.className = 'admin-modal';
+    modal.innerHTML = `<div class="admin-modal-box" style="width:min(100%,400px);text-align:center">
+      <p style="margin:0 0 16px;color:var(--ui-text);font-size:14px">Tip: you can change your password anytime from the profile menu in the top-right corner.</p>
+      <div class="admin-actions" style="justify-content:center"><button type="button" class="admin-primary" id="tcsms-login-notice-ok">Got it</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('#tcsms-login-notice-ok').addEventListener('click', () => modal.remove());
+  }, 300);
 }
 
 export const applyRegistrarTheme = applyUiTheme;

@@ -2,18 +2,27 @@
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Manage Faculty | TCSMS</title></head>
 <body class="admin-shell">
+<div id="tcsms-loading-screen" class="loading-screen" role="status" aria-label="Loading Thompson Christian School Management System" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:.5rem;background:#102a43;color:#f7fbff">
+  <div class="loading-mark" aria-hidden="true" style="display:grid;place-items:center;width:4.25rem;height:4.25rem;margin-bottom:.4rem;border:2px solid #f0b429;border-radius:50%;color:#f0b429;font-family:Georgia,serif;font-size:2rem;font-weight:700">T</div>
+  <p class="loading-title" style="margin:0;font-size:1.35rem;font-weight:700;letter-spacing:.12em">TCSMS</p>
+  <p class="loading-subtitle" style="margin:0;color:#bcccdc;font-size:.85rem">Preparing your workspace</p>
+  <div class="loading-spinner" aria-hidden="true" style="width:1.25rem;height:1.25rem;margin-top:.8rem;border:2px solid rgba(255,255,255,.25);border-top-color:#f0b429;border-radius:50%"></div>
+</div>
 <main>
   <div class="admin-page-head"><div><h2>Manage Faculty</h2><p>Review faculty profiles, departments, and teaching specializations.</p></div></div>
   <div class="admin-filterbar"><input id="faculty-search" type="search" placeholder="Search faculty or department"><button id="filter-faculty" class="admin-primary" type="button">Filter</button></div>
-  <section class="admin-table-wrap"><table><thead><tr><th>Employee No.</th><th>Name</th><th>Department</th><th>Specialization</th><th>Phone</th><th>Account</th></tr></thead><tbody id="faculty-table"><tr><td colspan="6">Loading faculty...</td></tr></tbody></table></section>
+  <section class="admin-table-wrap"><table><thead><tr><th>Employee No.</th><th>Name</th><th>Department</th><th>Specialization</th><th>Phone</th><th>Account</th><th>Subjects</th><th>Actions</th></tr></thead><tbody id="faculty-table"><tr><td colspan="8">Loading faculty...</td></tr></tbody></table></section>
 </main>
+<div id="assign-modal" class="admin-modal hidden"><div class="admin-modal-box"><div class="admin-modal-head"><h3 id="assign-modal-title">Assign Subjects</h3><button type="button" id="close-assign">x</button></div><form id="assign-form"><div class="admin-full admin-checklist" id="assign-subject-list"></div><div class="admin-actions"><button type="button" id="cancel-assign" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Save Assignments</button></div></form></div></div>
 <script type="module">
   import { supabase, requireRole, signOut } from './auth-client.js'
   import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
+  import { hideLoadingScreen } from './loading-screen.js'
   applyUiTheme()
   const user = await requireRole(1)
   if (!user) throw new Error('Unauthorized')
   mountProfile(user, 'Administrator', signOut)
+  hideLoadingScreen()
   mountSidebar([
     { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
     { label: 'Manage Accounts', href: '/admin-accounts.html', icon: '▣' },
@@ -23,19 +32,55 @@
     { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' }
   ], 'Administrative<br>Control')
   let faculty = []
+  let subjects = []
+  let assignments = []
+  let assigningProfileId = null
   const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
   async function loadFaculty() {
-    const result = await supabase.from('staff_profiles').select('employee_no,first_name,middle_name,last_name,department,specialization,phone,user_id,users(username,email,is_active)').order('last_name')
+    const [facultyResult, subjectResult, assignmentResult] = await Promise.all([
+      supabase.from('staff_profiles').select('profile_id,employee_no,first_name,middle_name,last_name,department,specialization,phone,user_id,users(username,email,is_active)').order('last_name'),
+      supabase.from('subjects').select('subject_id,subject_code,subject_name').eq('is_active', true).order('subject_code'),
+      supabase.from('faculty_subjects').select('profile_id,subject_id,subjects(subject_code,subject_name)')
+    ])
     const table = document.getElementById('faculty-table')
-    if (result.error) return table.innerHTML = `<tr><td colspan="6">${escape(result.error.message)}</td></tr>`
-    faculty = result.data || []
+    if (facultyResult.error) return table.innerHTML = `<tr><td colspan="8">${escape(facultyResult.error.message)}</td></tr>`
+    faculty = facultyResult.data || []
+    subjects = subjectResult.data || []
+    assignments = assignmentResult.data || []
     renderFaculty()
   }
   function renderFaculty() {
     const search = document.getElementById('faculty-search').value.trim().toLowerCase()
     const rows = faculty.filter(item => `${item.first_name} ${item.last_name} ${item.department} ${item.specialization}`.toLowerCase().includes(search))
-    document.getElementById('faculty-table').innerHTML = rows.map(item => `<tr><td>${escape(item.employee_no)}</td><td>${escape(`${item.first_name} ${item.middle_name || ''} ${item.last_name}`)}</td><td>${escape(item.department)}</td><td>${escape(item.specialization)}</td><td>${escape(item.phone || '-')}</td><td>${item.users?.is_active ? 'Active' : 'Inactive'}</td></tr>`).join('') || '<tr><td colspan="6">No faculty found.</td></tr>'
+    document.getElementById('faculty-table').innerHTML = rows.map(item => {
+      const assigned = assignments.filter(a => a.profile_id === item.profile_id).map(a => escape(a.subjects?.subject_code || '')).join(', ')
+      return `<tr><td>${escape(item.employee_no)}</td><td>${escape(`${item.first_name} ${item.middle_name || ''} ${item.last_name}`)}</td><td>${escape(item.department)}</td><td>${escape(item.specialization)}</td><td>${escape(item.phone || '-')}</td><td>${item.users?.is_active ? 'Active' : 'Inactive'}</td><td>${assigned || '-'}</td><td><button class="admin-view" data-assign="${item.profile_id}">Assign Subjects</button></td></tr>`
+    }).join('') || '<tr><td colspan="8">No faculty found.</td></tr>'
+    document.querySelectorAll('[data-assign]').forEach(button => button.onclick = () => openAssign(button.dataset.assign))
   }
+  function openAssign(profileId) {
+    assigningProfileId = profileId
+    const item = faculty.find(f => String(f.profile_id) === String(profileId))
+    document.getElementById('assign-modal-title').textContent = `Assign Subjects — ${item?.first_name || ''} ${item?.last_name || ''}`
+    const assignedIds = new Set(assignments.filter(a => String(a.profile_id) === String(profileId)).map(a => a.subject_id))
+    document.getElementById('assign-subject-list').innerHTML = subjects.map(s => `<label class="admin-check"><input type="checkbox" value="${s.subject_id}" ${assignedIds.has(s.subject_id) ? 'checked' : ''}> ${escape(s.subject_code)} - ${escape(s.subject_name)}</label>`).join('') || '<p>No active subjects to assign.</p>'
+    document.getElementById('assign-modal').classList.remove('hidden')
+  }
+  function closeAssign() { document.getElementById('assign-modal').classList.add('hidden'); assigningProfileId = null }
+  document.getElementById('assign-form').onsubmit = async event => {
+    event.preventDefault()
+    const checked = [...document.querySelectorAll('#assign-subject-list input[type=checkbox]:checked')].map(input => Number(input.value))
+    const { error: deleteError } = await supabase.from('faculty_subjects').delete().eq('profile_id', assigningProfileId)
+    if (deleteError) return window.alert(deleteError.message)
+    if (checked.length) {
+      const { error: insertError } = await supabase.from('faculty_subjects').insert(checked.map(subject_id => ({ profile_id: assigningProfileId, subject_id })))
+      if (insertError) return window.alert(insertError.message)
+    }
+    closeAssign()
+    await loadFaculty()
+  }
+  document.getElementById('close-assign').onclick = closeAssign
+  document.getElementById('cancel-assign').onclick = closeAssign
   document.getElementById('filter-faculty').onclick = renderFaculty
   document.getElementById('faculty-search').onkeydown = event => { if (event.key === 'Enter') renderFaculty() }
   loadFaculty()

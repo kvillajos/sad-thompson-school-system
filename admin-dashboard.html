@@ -6,11 +6,29 @@
     <title>Administrative Control Module | TCSMS</title>
   </head>
   <body class="admin-shell">
-    <main><div class="admin-page-head"><div><h2>Admin Dashboard</h2><p>Review pending registrar requests and confirm administrative changes.</p></div></div><section class="admin-table-wrap"><div class="admin-section-title"><h3>Pending Registrar Changes</h3><small>Current Term: 1st Semester</small></div><table><thead><tr><th>Request Type</th><th>Details</th><th>Requested By</th><th>Status</th><th>Action</th></tr></thead><tbody id="pending-table"><tr><td colspan="5">Loading pending requests...</td></tr></tbody></table></section><section class="admin-table-wrap admin-announcements"><div class="admin-section-title"><h3>Announcements</h3><button class="admin-primary" type="button">+ Add</button></div><p>No announcements configured.</p></section></main>
+    <div id="tcsms-loading-screen" class="loading-screen" role="status" aria-label="Loading Thompson Christian School Management System" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:.5rem;background:#102a43;color:#f7fbff">
+      <div class="loading-mark" aria-hidden="true" style="display:grid;place-items:center;width:4.25rem;height:4.25rem;margin-bottom:.4rem;border:2px solid #f0b429;border-radius:50%;color:#f0b429;font-family:Georgia,serif;font-size:2rem;font-weight:700">T</div>
+      <p class="loading-title" style="margin:0;font-size:1.35rem;font-weight:700;letter-spacing:.12em">TCSMS</p>
+      <p class="loading-subtitle" style="margin:0;color:#bcccdc;font-size:.85rem">Preparing your workspace</p>
+      <div class="loading-spinner" aria-hidden="true" style="width:1.25rem;height:1.25rem;margin-top:.8rem;border:2px solid rgba(255,255,255,.25);border-top-color:#f0b429;border-radius:50%"></div>
+    </div>
+    <main><div class="admin-page-head"><div><h2>Admin Dashboard</h2><p>Review pending registrar requests and confirm administrative changes.</p></div></div><section class="admin-table-wrap"><div class="admin-section-title"><h3>Pending Admission Applications</h3><small>Current Term: 1st Semester</small></div><table><thead><tr><th>Request Type</th><th>Details</th><th>Requested By</th><th>Status</th><th>Action</th></tr></thead><tbody id="pending-table"><tr><td colspan="5">Loading pending requests...</td></tr></tbody></table></section><section class="admin-table-wrap admin-announcements"><div class="admin-section-title"><h3>Announcements</h3><button class="admin-primary" type="button">+ Add</button></div><p>No announcements configured.</p></section></main>
+    <div id="review-modal" class="admin-modal hidden">
+      <div class="admin-modal-box review-box">
+        <div class="admin-modal-head"><h3>Review Admission Application</h3><button type="button" id="close-review">x</button></div>
+        <div id="review-details" class="admin-full review-summary"></div>
+        <label class="admin-full">Remarks<textarea id="review-remarks" rows="3" maxlength="500" placeholder="Optional notes for the registrar or guardian"></textarea></label>
+        <p id="review-countdown" class="admin-full review-countdown">Please review the details above — decisions unlock in <span id="review-countdown-seconds">3</span>s...</p>
+        <div class="admin-actions">
+          <button type="button" id="decline-application" class="admin-remove" disabled>Decline</button>
+          <button type="button" id="approve-application" class="admin-primary" disabled>Approve</button>
+        </div>
+      </div>
+    </div>
     <script type="module">
       import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
-      import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
+      import { applyUiTheme, mountProfile, mountSidebar, withBusy } from './ui-theme.js'
       applyUiTheme()
       const user = await requireRole(1)
       if (user) mountProfile(user, 'Administrator', signOut)
@@ -24,10 +42,88 @@
         { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
         { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' }
       ], 'Administrative<br>Control')
-      const pendingTable = document.getElementById('pending-table')
-      const { data: applications, error } = await supabase.from('admission_applications').select('id,first_name,last_name,grade_level,status,created_at').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false })
-      if (error) pendingTable.innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`
-      else pendingTable.innerHTML = (applications || []).map(application => `<tr><td>Admission Review</td><td>${application.first_name} ${application.last_name} - Grade ${application.grade_level}</td><td>Registrar</td><td>${application.status}</td><td><a class="admin-view" href="/student-records.html">Review</a></td></tr>`).join('') || '<tr><td colspan="5">No pending requests.</td></tr>'
+
+      const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+      let applications = []
+      let selectedApplication = null
+      let countdownTimer = null
+
+      async function loadApplications() {
+        const pendingTable = document.getElementById('pending-table')
+        const { data, error } = await supabase.from('admission_applications').select('id,first_name,last_name,grade_level,status,created_at').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false })
+        if (error) return pendingTable.innerHTML = `<tr><td colspan="5">${escape(error.message)}</td></tr>`
+        applications = data || []
+        pendingTable.innerHTML = applications.map(application => `<tr><td>Admission Review</td><td>${escape(application.first_name)} ${escape(application.last_name)} - Grade ${escape(application.grade_level)}</td><td>Registrar</td><td>${escape(application.status)}</td><td><button class="admin-view" data-review="${application.id}">Review</button></td></tr>`).join('') || '<tr><td colspan="5">No pending requests.</td></tr>'
+        document.querySelectorAll('[data-review]').forEach(button => button.onclick = () => openReview(button.dataset.review))
+      }
+
+      function openReview(id) {
+        selectedApplication = applications.find(a => String(a.id) === String(id))
+        if (!selectedApplication) return
+        const a = selectedApplication
+        document.getElementById('review-details').innerHTML = `
+          <div class="review-grid">
+            <div><small>Student</small><p>${escape(a.first_name)} ${escape(a.last_name)}</p></div>
+            <div><small>Grade Level</small><p>${escape(a.grade_level)}</p></div>
+            <div><small>Current Status</small><p>${escape(a.status)}</p></div>
+            <div><small>Submitted</small><p>${new Date(a.created_at).toLocaleDateString()}</p></div>
+          </div>`
+        document.getElementById('review-remarks').value = ''
+        document.getElementById('review-modal').classList.remove('hidden')
+        startReviewCountdown()
+      }
+
+      function startReviewCountdown() {
+        const approveBtn = document.getElementById('approve-application')
+        const declineBtn = document.getElementById('decline-application')
+        const countdownEl = document.getElementById('review-countdown')
+        const secondsEl = document.getElementById('review-countdown-seconds')
+        approveBtn.disabled = true
+        declineBtn.disabled = true
+        countdownEl.classList.remove('hidden')
+        let secondsLeft = 3
+        secondsEl.textContent = secondsLeft
+        clearInterval(countdownTimer)
+        countdownTimer = setInterval(() => {
+          secondsLeft -= 1
+          if (secondsLeft <= 0) {
+            clearInterval(countdownTimer)
+            countdownEl.classList.add('hidden')
+            approveBtn.disabled = false
+            declineBtn.disabled = false
+            return
+          }
+          secondsEl.textContent = secondsLeft
+        }, 1000)
+      }
+
+      function closeReview() {
+        clearInterval(countdownTimer)
+        document.getElementById('review-modal').classList.add('hidden')
+      }
+      document.getElementById('close-review').onclick = closeReview
+
+      async function reviewApplication(status, button) {
+        await withBusy(button, status === 'approved' ? 'Approving…' : 'Declining…', async () => {
+          const remarks = document.getElementById('review-remarks').value.trim()
+          const { data, error } = await supabase.rpc('review_admission_application', { p_application_id: selectedApplication.id, p_status: status, p_remarks: remarks || null })
+          if (error) return window.alert(error.message)
+          closeReview()
+          if (status === 'approved' && data?.new_user_id) {
+            const { data: provision, error: provisionError } = await supabase.functions.invoke('provision-account', { body: { user_id: data.new_user_id } })
+            if (provisionError) window.alert(`Application approved, but the login could not be auto-provisioned: ${provisionError.message}. Run "npm run provision:accounts" to fix this.`)
+            else window.alert(`Application approved. Student login "${provision.username}" is ready to use.`)
+          } else if (status === 'approved') {
+            window.alert('Application approved.')
+          }
+          await loadApplications()
+        })
+      }
+      document.getElementById('approve-application').onclick = event => reviewApplication('approved', event.currentTarget)
+      document.getElementById('decline-application').onclick = event => reviewApplication('rejected', event.currentTarget)
+
+      await loadApplications()
     </script>
   </body>
 </html>
+

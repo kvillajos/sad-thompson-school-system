@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "seed:students": "node scripts/seed-students.mjs",
-    "seed:staff": "node scripts/seed-staff.mjs"
+    "seed:staff": "node scripts/seed-staff.mjs",
+    "provision:accounts": "node scripts/provision-accounts.mjs"
   },
   "keywords": [],
   "author": "",

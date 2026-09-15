@@ -6,15 +6,168 @@
     <title>Student Dashboard | TCSMS</title>
   </head>
   <body>
-    <main><section class="welcome"><h2>Welcome, <span id="user-name"></span></h2><p>Your student portal will contain your profile, class schedule, grades, attendance, financial statement, and school announcements.</p></section></main>
+    <div id="tcsms-loading-screen" class="loading-screen" role="status" aria-label="Loading Thompson Christian School Management System" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:.5rem;background:#102a43;color:#f7fbff">
+      <div class="loading-mark" aria-hidden="true" style="display:grid;place-items:center;width:4.25rem;height:4.25rem;margin-bottom:.4rem;border:2px solid #f0b429;border-radius:50%;color:#f0b429;font-family:Georgia,serif;font-size:2rem;font-weight:700">T</div>
+      <p class="loading-title" style="margin:0;font-size:1.35rem;font-weight:700;letter-spacing:.12em">TCSMS</p>
+      <p class="loading-subtitle" style="margin:0;color:#bcccdc;font-size:.85rem">Preparing your workspace</p>
+      <div class="loading-spinner" aria-hidden="true" style="width:1.25rem;height:1.25rem;margin-top:.8rem;border:2px solid rgba(255,255,255,.25);border-top-color:#f0b429;border-radius:50%"></div>
+    </div>
+    <main>
+      <section data-panel="dashboard">
+        <div class="admin-page-head"><div><h2>Dashboard</h2></div></div>
+        <div class="admin-summary-grid">
+          <div class="admin-table-wrap"><div class="admin-section-title"><h3>Student Information</h3></div><p><b>Code:</b> <span id="dash-code"></span></p><p><b>Student Name:</b> <span id="dash-name"></span></p><p><b>LRN No.:</b> <span id="dash-lrn"></span></p></div>
+          <div class="admin-table-wrap"><div class="admin-section-title"><h3>Units Enrolled</h3></div><p id="dash-units" style="font-size:20px;font-weight:700"></p><p id="dash-term"></p></div>
+        </div>
+        <section class="admin-table-wrap" style="margin-top:20px"><div class="admin-section-title"><h3>Announcements</h3></div><table><thead><tr><th>Title</th><th>Date</th></tr></thead><tbody id="announcements-table"><tr><td colspan="2">Loading announcements...</td></tr></tbody></table></section>
+      </section>
+
+      <section data-panel="grades" class="hidden">
+        <div class="admin-page-head"><div><h2>Grades</h2></div></div>
+        <section class="admin-table-wrap"><table><thead><tr><th>School Year</th><th>Subject</th><th>Grade</th><th>Remarks</th></tr></thead><tbody id="grades-table"><tr><td colspan="4">Loading grades...</td></tr></tbody></table></section>
+      </section>
+
+      <section data-panel="schedule" class="hidden">
+        <div class="admin-page-head"><div><h2>Schedule</h2></div></div>
+        <p id="schedule-caption" class="admin-section-title"></p>
+        <section class="admin-table-wrap"><table><thead><tr><th>Subject</th><th>Section</th><th>Faculty</th><th>Day</th><th>Time</th></tr></thead><tbody id="schedule-table"><tr><td colspan="5">Loading schedule...</td></tr></tbody></table></section>
+      </section>
+
+      <section data-panel="profile" class="hidden">
+        <div class="admin-page-head"><div><h2>Edit My Profile</h2></div></div>
+        <section class="admin-table-wrap"><div class="admin-section-title"><h3>Student Information</h3></div>
+          <p><b>Name</b><br><span id="profile-name"></span></p>
+          <p><b>Student ID</b><br><span id="profile-id"></span></p>
+          <p><b>Grade Level</b><br><span id="profile-grade"></span></p>
+          <p><b>Section</b><br><span id="profile-section"></span></p>
+          <p><b>Status</b><br><span id="profile-status"></span></p>
+          <p><b>Date of Birth</b><br><span id="profile-dob"></span></p>
+          <p><b>Address</b><br><span id="profile-address"></span></p>
+          <p><b>Contact Number</b><br><span id="profile-contact"></span></p>
+          <p><b>Program</b><br><span id="profile-program"></span></p>
+        </section>
+        <section class="admin-table-wrap" style="margin-top:20px"><div class="admin-section-title"><h3>Account Information</h3></div>
+          <p><b>Email Address</b><br><span id="profile-email"></span></p>
+          <p class="admin-note">To change your password, use the profile menu in the top-right corner.</p>
+        </section>
+        <section class="admin-table-wrap" style="margin-top:20px"><div class="admin-section-title"><h3>Profile Picture</h3></div>
+          <img id="profile-picture-preview" alt="Profile picture" style="width:96px;height:96px;object-fit:cover;border-radius:50%;display:block;margin-bottom:10px;background:#eaf1ff">
+          <input type="file" id="profile-picture-input" accept="image/png,image/jpeg,image/webp">
+          <button class="admin-primary" type="button" id="save-picture" style="margin-top:10px">Save</button>
+        </section>
+        <section class="admin-table-wrap" style="margin-top:20px"><div class="admin-section-title"><h3>Attendance Record</h3></div><table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody id="attendance-table"><tr><td colspan="2">Loading attendance...</td></tr></tbody></table></section>
+      </section>
+    </main>
     <script type="module">
-      import { requireRole, signOut } from './auth-client.js'
+      import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
       import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
       applyUiTheme()
       const user = await requireRole(4)
-      if (user) { document.getElementById('user-name').textContent = user.username; mountProfile(user, 'Student', signOut); mountSidebar([{ label: 'Dashboard', href: '/student-dashboard.html', active: true, icon: '⌂' }], 'Student Portal') }
+      if (!user) throw new Error('Unauthorized')
+      mountProfile(user, 'Student', signOut)
+      mountSidebar([
+        { label: 'Dashboard', tab: 'dashboard', active: true, icon: '⌂' },
+        { label: 'Grades', tab: 'grades', icon: '♧' },
+        { label: 'Schedule', tab: 'schedule', icon: '▤' },
+        { label: 'Profile', tab: 'profile', icon: '☷' }
+      ], 'Student Portal')
+
+      const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+      const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+      const tabs = [...document.querySelectorAll('[data-tab]')]
+      const panels = [...document.querySelectorAll('[data-panel]')]
+      tabs.forEach(tab => tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'))
+        panels.forEach(p => p.classList.add('hidden'))
+        tab.classList.add('active')
+        document.querySelector(`[data-panel="${tab.dataset.tab}"]`).classList.remove('hidden')
+      }))
+
+      let student = null
+      let sectionId = null
+      let sectionName = ''
+      let schoolYear = ''
+
+      async function loadStudent() {
+        if (!user.student_id) return
+        const { data } = await supabase.from('students').select('*').eq('student_id', user.student_id).single()
+        student = data
+        const { data: enrollment } = await supabase.from('enrollments').select('section_id,school_year,sections(section_name,academic_year,semester)').eq('student_id', user.student_id).eq('status', 'active').order('created_at', { ascending: false }).limit(1).maybeSingle()
+        sectionId = enrollment?.section_id || null
+        sectionName = enrollment?.sections?.section_name || 'Unassigned'
+        schoolYear = enrollment?.school_year || ''
+
+        const fullName = `${student?.first_name || ''} ${student?.middle_name || ''} ${student?.last_name || ''}`.replace(/\s+/g, ' ').trim()
+        document.getElementById('dash-code').textContent = student?.lrn_number || '-'
+        document.getElementById('dash-name').textContent = fullName
+        document.getElementById('dash-lrn').textContent = student?.lrn_number || '-'
+        document.getElementById('dash-term').textContent = `${enrollment?.sections?.semester || ''} - ${enrollment?.sections?.academic_year || schoolYear}`
+        document.getElementById('profile-name').textContent = fullName
+        document.getElementById('profile-id').textContent = student?.lrn_number || '-'
+        document.getElementById('profile-grade').textContent = student?.grade_level != null ? `Grade ${student.grade_level}` : '-'
+        document.getElementById('profile-section').textContent = sectionName
+        document.getElementById('profile-status').textContent = student?.enrollment_status || '-'
+        document.getElementById('profile-dob').textContent = student?.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString() : '-'
+        document.getElementById('profile-address').textContent = student?.address || '-'
+        document.getElementById('profile-contact').textContent = student?.contact_number || '-'
+        document.getElementById('profile-program').textContent = Number(student?.grade_level) >= 11 ? 'Senior High School' : Number(student?.grade_level) >= 7 ? 'Junior High School' : 'Elementary'
+        document.getElementById('profile-email').textContent = user.email
+        if (student?.profile_picture_url) document.getElementById('profile-picture-preview').src = student.profile_picture_url
+      }
+
+      async function loadSchedule() {
+        const table = document.getElementById('schedule-table')
+        document.getElementById('schedule-caption').textContent = `Class Schedule — ${schoolYear || 'Current Term'}`
+        if (!sectionId) { table.innerHTML = '<tr><td colspan="5">No active section enrollment found.</td></tr>'; return }
+        const { data, error } = await supabase.from('subject_schedules').select('subject_id,section_id,faculty_name,day_of_week,start_time,end_time,subjects(subject_name),sections(section_name)').eq('section_id', sectionId).order('day_of_week').order('start_time')
+        if (error) return table.innerHTML = `<tr><td colspan="5">${escape(error.message)}</td></tr>`
+        table.innerHTML = (data || []).map(item => `<tr><td>${escape(item.subjects?.subject_name || '')}</td><td>${escape(item.sections?.section_name || '')}</td><td>${escape(item.faculty_name || '-')}</td><td>${dayNames[item.day_of_week]}</td><td>${escape(item.start_time?.slice(0,5))} - ${escape(item.end_time?.slice(0,5))}</td></tr>`).join('') || '<tr><td colspan="5">No schedule configured yet.</td></tr>'
+        document.getElementById('dash-units').textContent = `${(data || []).length} Subject${(data || []).length === 1 ? '' : 's'}`
+      }
+
+      async function loadGrades() {
+        const table = document.getElementById('grades-table')
+        if (!user.student_id) return table.innerHTML = '<tr><td colspan="4">No student record linked.</td></tr>'
+        const { data, error } = await supabase.from('academic_history').select('school_year,subject,grade,remarks').eq('student_id', user.student_id).order('school_year', { ascending: false })
+        if (error) return table.innerHTML = `<tr><td colspan="4">${escape(error.message)}</td></tr>`
+        table.innerHTML = (data || []).map(g => `<tr><td>${escape(g.school_year)}</td><td>${escape(g.subject)}</td><td>${escape(g.grade)}</td><td>${escape(g.remarks || '-')}</td></tr>`).join('') || '<tr><td colspan="4">No grades recorded yet.</td></tr>'
+      }
+
+      async function loadAnnouncements() {
+        const table = document.getElementById('announcements-table')
+        const { data, error } = await supabase.from('announcements').select('title,posted_at').order('posted_at', { ascending: false }).limit(8)
+        if (error) return table.innerHTML = `<tr><td colspan="2">${escape(error.message)}</td></tr>`
+        table.innerHTML = (data || []).map(a => `<tr><td>${escape(a.title)}</td><td>${new Date(a.posted_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="2">No announcements posted.</td></tr>'
+      }
+
+      async function loadAttendance() {
+        const table = document.getElementById('attendance-table')
+        if (!user.student_id) return table.innerHTML = '<tr><td colspan="2">No student record linked.</td></tr>'
+        const { data, error } = await supabase.from('attendance').select('attendance_date,status').eq('student_id', user.student_id).order('attendance_date', { ascending: false }).limit(20)
+        if (error) return table.innerHTML = `<tr><td colspan="2">${escape(error.message)}</td></tr>`
+        table.innerHTML = (data || []).map(a => `<tr><td>${new Date(a.attendance_date).toLocaleDateString()}</td><td>${escape(a.status)}</td></tr>`).join('') || '<tr><td colspan="2">No attendance recorded yet.</td></tr>'
+      }
+
+      document.getElementById('save-picture').onclick = async () => {
+        const file = document.getElementById('profile-picture-input').files?.[0]
+        if (!file) return window.alert('Choose an image file first.')
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024) return window.alert('PNG/JPG/WEBP up to 3MB only.')
+        const path = `${user.student_id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+        const { error: uploadError } = await supabase.storage.from('profile-pictures').upload(path, file, { upsert: false })
+        if (uploadError) return window.alert(uploadError.message)
+        const { data: publicUrlData } = supabase.storage.from('profile-pictures').getPublicUrl(path)
+        const { error: rpcError } = await supabase.rpc('update_own_profile_picture', { p_url: publicUrlData.publicUrl })
+        if (rpcError) return window.alert(rpcError.message)
+        document.getElementById('profile-picture-preview').src = publicUrlData.publicUrl
+        window.alert('Profile picture updated.')
+      }
+
+      await loadStudent()
+      await Promise.all([loadSchedule(), loadGrades(), loadAnnouncements(), loadAttendance()])
       hideLoadingScreen()
     </script>
   </body>
 </html>
+

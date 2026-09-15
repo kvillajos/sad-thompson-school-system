@@ -6,6 +6,12 @@
   <title>Manage Sections | TCSMS</title>
 </head>
 <body class="admin-shell">
+<div id="tcsms-loading-screen" class="loading-screen" role="status" aria-label="Loading Thompson Christian School Management System" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:.5rem;background:#102a43;color:#f7fbff">
+  <div class="loading-mark" aria-hidden="true" style="display:grid;place-items:center;width:4.25rem;height:4.25rem;margin-bottom:.4rem;border:2px solid #f0b429;border-radius:50%;color:#f0b429;font-family:Georgia,serif;font-size:2rem;font-weight:700">T</div>
+  <p class="loading-title" style="margin:0;font-size:1.35rem;font-weight:700;letter-spacing:.12em">TCSMS</p>
+  <p class="loading-subtitle" style="margin:0;color:#bcccdc;font-size:.85rem">Preparing your workspace</p>
+  <div class="loading-spinner" aria-hidden="true" style="width:1.25rem;height:1.25rem;margin-top:.8rem;border:2px solid rgba(255,255,255,.25);border-top-color:#f0b429;border-radius:50%"></div>
+</div>
   <main>
     <div class="admin-page-head"><div><h2>Manage Sections</h2><p>Create and manage academic sections used by enrollment and placement.</p></div></div>
     <div class="admin-filterbar"><input id="section-search" type="search" placeholder="Search section name"><select id="section-grade"><option value="">All grades</option><option value="0">Kindergarten</option><option value="1">Grade 1</option><option value="2">Grade 2</option><option value="3">Grade 3</option><option value="4">Grade 4</option><option value="5">Grade 5</option><option value="6">Grade 6</option><option value="7">Grade 7</option><option value="8">Grade 8</option><option value="9">Grade 9</option><option value="10">Grade 10</option><option value="11">Grade 11</option><option value="12">Grade 12</option></select><button id="filter-sections" class="admin-primary" type="button">Filter</button><button id="add-section" class="admin-primary admin-action" type="button">+ Add Section</button></div>
@@ -15,10 +21,12 @@
   <script type="module">
     import { supabase, requireRole, signOut } from './auth-client.js'
     import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
+    import { hideLoadingScreen } from './loading-screen.js'
     applyUiTheme()
     const user = await requireRole(1)
     if (!user) throw new Error('Unauthorized')
     mountProfile(user, 'Administrator', signOut)
+    hideLoadingScreen()
     mountSidebar([
       { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
       { label: 'Manage Accounts', href: '/admin-accounts.html', icon: '▣' },

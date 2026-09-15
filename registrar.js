@@ -1,10 +1,11 @@
 import { supabase, requireRole, signOut } from './auth-client.js'
-import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
+import { applyUiTheme, mountProfile, mountSidebar, withBusy } from './ui-theme.js'
+import { hideLoadingScreen } from './loading-screen.js'
 
 applyUiTheme()
 
 const $ = (id) => document.getElementById(id)
-const state = { applications: [], sections: [], students: [], academic: [], selectedApplication: null }
+const state = { applications: [], sections: [], students: [], academic: [], selectedApplication: null, directorySectionId: null, directoryStudentIds: null }
 const gradeToNumber = (value) => value === 'Kindergarten' ? 0 : Number(String(value).replace('Grade ', ''))
 const gradeLabel = (value) => Number(value) === 0 ? 'Kindergarten' : `Grade ${value}`
 
@@ -12,6 +13,7 @@ const user = await requireRole(2)
 if (!user) throw new Error('Unauthorized')
 
 mountProfile(user, 'Registrar', signOut)
+hideLoadingScreen()
 
 mountSidebar([
   { label: 'Dashboard', tab: 'dashboard', active: true, icon: '⌂' },
@@ -34,7 +36,7 @@ document.querySelector('.main').prepend(enrollmentPanel)
 $('new-enrollment').onclick = () => document.querySelector('[data-tab="admission"]').click()
 const studentDirectory = document.createElement('div')
 studentDirectory.className = 'card student-directory'
-studentDirectory.innerHTML = '<div class="toolbar"><h2>Student Directory</h2><input id="student-directory-search" placeholder="Search student name or ID..."></div><table><thead><tr><th>Student ID</th><th>Name</th><th>Birth Date</th><th>Gender</th><th>Grade</th><th>Enrollment Status</th></tr></thead><tbody id="student-directory-table"></tbody></table>'
+studentDirectory.innerHTML = '<div class="toolbar"><h2>Student Directory</h2><button id="clear-directory-filter" class="small hidden">Show All Sections</button><input id="student-directory-search" placeholder="Search student name or ID..."></div><table><thead><tr><th>Student ID</th><th>Name</th><th>Birth Date</th><th>Gender</th><th>Grade</th><th>Enrollment Status</th></tr></thead><tbody id="student-directory-table"></tbody></table>'
 document.querySelector('#sectioning').appendChild(studentDirectory)
 const sectionCard = document.querySelector('#sectioning > .card')
 sectionCard.innerHTML = '<div class="toolbar"><h2>Sectioning</h2><button id="open-placement" class="btn">Placement Tool</button></div><div class="filterbar"><input id="section-search" placeholder="Search Section Name..."><select id="section-grade-filter"><option value="">All Grades</option></select><button id="filter-sections" class="btn">Filter</button></div><table><thead><tr><th>Section Name</th><th>Grade</th><th>Students</th><th>Action</th></tr></thead><tbody id="section-table"></tbody></table>'
@@ -171,13 +173,26 @@ document.querySelector('#section-search').onkeydown = event => { if (event.key =
 function viewSectionStudents(sectionId) {
   const section = state.sections.find(item => Number(item.section_id) === sectionId)
   if (!section) return
-  const directory = document.querySelector('.student-directory')
-  directory.classList.remove('hidden')
-  directory.querySelector('h2').textContent = `${section.section_name} - Students`
-  $('student-directory-search').value = ''
-  renderStudentDirectory()
-  directory.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  supabase.from('enrollments').select('student_id').eq('section_id', sectionId).eq('status', 'active').then(({ data, error }) => {
+    if (error) return toast(error.message, 'error')
+    state.directorySectionId = sectionId
+    state.directoryStudentIds = new Set((data || []).map(row => row.student_id))
+    const directory = document.querySelector('.student-directory')
+    directory.classList.remove('hidden')
+    directory.querySelector('h2').textContent = `${section.section_name} - Students`
+    $('clear-directory-filter').classList.remove('hidden')
+    $('student-directory-search').value = ''
+    renderStudentDirectory()
+    directory.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
 }
+$('clear-directory-filter').addEventListener('click', () => {
+  state.directorySectionId = null
+  state.directoryStudentIds = null
+  document.querySelector('.student-directory h2').textContent = 'Student Directory'
+  $('clear-directory-filter').classList.add('hidden')
+  renderStudentDirectory()
+})
 async function loadEnrollments() {
   const { data, error } = await supabase.from('enrollments').select('id,student_id,school_year,enrolled_at,status,section_id,students(lrn_number,first_name,last_name),sections(section_name)').order('enrolled_at', { ascending: false })
   if (error) return toast(error.message, 'error')
@@ -188,11 +203,43 @@ async function loadEnrollments() {
     return (!section || String(row.section_id) === section) && (!search || `${student.lrn_number} ${student.first_name} ${student.last_name}`.toLowerCase().includes(search))
   })
   $('enrollment-table').innerHTML = rows.map(row => { const student = row.students || {}; return `<tr><td>${escapeHtml(student.lrn_number || row.student_id)}</td><td>${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`)}</td><td>${escapeHtml(row.school_year || '')}</td><td>${row.enrolled_at ? new Date(row.enrolled_at).toLocaleDateString() : '-'}</td><td>${escapeHtml(row.sections?.section_name || 'No Section')}</td><td>${statusBadge(row.status || 'active')}</td><td><button class="small" data-remove-enrollment="${row.id}">Remove</button></td></tr>` }).join('') || '<tr><td colspan="7" class="empty-state">No enrollment records found.</td></tr>'
-  document.querySelectorAll('[data-remove-enrollment]').forEach(button => button.onclick = () => removeEnrollment(button.dataset.removeEnrollment))
+  document.querySelectorAll('[data-remove-enrollment]').forEach(button => button.onclick = () => confirmRemoveEnrollment(button.dataset.removeEnrollment, rows.find(row => String(row.id) === button.dataset.removeEnrollment)))
 }
+let removeEnrollmentCountdown = null
+function confirmRemoveEnrollment(id, row) {
+  const student = row?.students || {}
+  $('remove-enrollment-details').innerHTML = `You are about to remove <b>${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`.trim() || row?.student_id || '')}</b> from <b>${escapeHtml(row?.sections?.section_name || 'their section')}</b>.`
+  const confirmBtn = $('confirm-remove-enrollment')
+  const countdownEl = $('remove-enrollment-countdown')
+  const secondsEl = $('remove-enrollment-seconds')
+  confirmBtn.disabled = true
+  countdownEl.classList.remove('hidden')
+  let secondsLeft = 3
+  secondsEl.textContent = secondsLeft
+  clearInterval(removeEnrollmentCountdown)
+  removeEnrollmentCountdown = setInterval(() => {
+    secondsLeft -= 1
+    if (secondsLeft <= 0) {
+      clearInterval(removeEnrollmentCountdown)
+      countdownEl.classList.add('hidden')
+      confirmBtn.disabled = false
+      return
+    }
+    secondsEl.textContent = secondsLeft
+  }, 1000)
+  $('remove-enrollment-modal').classList.remove('hidden')
+  confirmBtn.onclick = () => withBusy(confirmBtn, 'Removing…', () => removeEnrollment(id))
+}
+function closeRemoveEnrollmentModal() {
+  clearInterval(removeEnrollmentCountdown)
+  $('remove-enrollment-modal').classList.add('hidden')
+}
+$('close-remove-enrollment').addEventListener('click', closeRemoveEnrollmentModal)
+$('cancel-remove-enrollment').addEventListener('click', closeRemoveEnrollmentModal)
 async function removeEnrollment(id) {
   const { error } = await supabase.from('enrollments').update({ status: 'inactive' }).eq('id', id)
   if (error) return toast(error.message, 'error')
+  closeRemoveEnrollmentModal()
   toast('Enrollment removed.'); loadEnrollments()
 }
 $('filter-enrollment').onclick = loadEnrollments
@@ -253,7 +300,7 @@ async function loadAcademic(){const {data,error}=await supabase.from('academic_h
 
 $('transcript-form').addEventListener('submit', async e=>{e.preventDefault();const studentId=$('transcript-student').value;if(!studentId)return;await generateTranscript(studentId)})
 async function loadStudents(){const {data,error}=await supabase.from('students').select('*').order('last_name');if(error)return toast(`Could not load students: ${error.message}`,'error');state.students=data||[];const html=state.students.map(s=>`<option value="${s.student_id}">${escapeHtml(s.lrn_number||s.student_id)} — ${escapeHtml(s.first_name||'')} ${escapeHtml(s.last_name||'')}</option>`).join('');$('academic-student').innerHTML=html;$('transcript-student').innerHTML=html;$('promotion-student').innerHTML=html;$('shift-student').innerHTML=html;renderStudentDirectory()}
-function renderStudentDirectory(){const search=($('student-directory-search')?.value||'').trim().toLowerCase();const rows=state.students.filter(s=>`${s.lrn_number} ${s.student_id} ${s.first_name||''} ${s.last_name||''}`.toLowerCase().includes(search));$('student-directory-table').innerHTML=rows.map(s=>`<tr><td>${escapeHtml(s.lrn_number||s.student_id)}</td><td>${escapeHtml(`${s.first_name||''} ${s.last_name||''}`)}</td><td>${escapeHtml(s.date_of_birth||s.birth_date||'-')}</td><td>${escapeHtml(s.gender||s.sex||'-')}</td><td>${escapeHtml(s.grade_level == null ? '-' : gradeLabel(s.grade_level))}</td><td>${escapeHtml(s.enrollment_status||'Active')}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-state">No students found.</td></tr>'}
+function renderStudentDirectory(){const search=($('student-directory-search')?.value||'').trim().toLowerCase();const rows=state.students.filter(s=>(state.directoryStudentIds===null||state.directoryStudentIds.has(s.student_id))&&`${s.lrn_number} ${s.student_id} ${s.first_name||''} ${s.last_name||''}`.toLowerCase().includes(search));$('student-directory-table').innerHTML=rows.map(s=>`<tr><td>${escapeHtml(s.lrn_number||s.student_id)}</td><td>${escapeHtml(`${s.first_name||''} ${s.last_name||''}`)}</td><td>${escapeHtml(s.date_of_birth||s.birth_date||'-')}</td><td>${escapeHtml(s.gender||s.sex||'-')}</td><td>${escapeHtml(s.grade_level == null ? '-' : gradeLabel(s.grade_level))}</td><td>${escapeHtml(s.enrollment_status||'Active')}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-state">No students found.</td></tr>'}
 $('student-directory-search').oninput=renderStudentDirectory
 async function generateTranscript(studentId){const {data:s,error:se}=await supabase.from('students').select('*').eq('student_id',studentId).single();if(se)return toast(se.message,'error');const {data:g,error:ge}=await supabase.from('academic_history').select('*').eq('student_id',studentId).order('school_year');if(ge)return toast(ge.message,'error');const win=window.open('','_blank');if(!win)return toast('Allow pop-ups to generate the transcript.','error');win.document.write(`<html><head><title>Official Transcript - ${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}</title><style>body{font-family:Arial;padding:40px}header{text-align:center;border-bottom:2px solid #111;padding-bottom:15px}.student{margin:25px 0}.student span{display:inline-block;width:48%}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #333;padding:8px;text-align:left}.sign{display:flex;justify-content:space-between;margin-top:80px}.sign div{width:40%;border-top:1px solid #111;text-align:center;padding-top:6px}@media print{button{display:none}}</style></head><body><header><h1>THOMPSON CHRISTIAN SCHOOL</h1><p>OFFICIAL TRANSCRIPT OF RECORDS</p></header><div class="student"><span><b>Student No:</b> ${escapeHtml(s.lrn_number||'')}</span><span><b>Name:</b> ${escapeHtml(`${s.first_name} ${s.last_name}`)}</span><span><b>Grade Level:</b> ${escapeHtml(gradeLabel(s.grade_level))}</span></div><table><thead><tr><th>School Year</th><th>Subject</th><th>Grade</th><th>Remarks</th></tr></thead><tbody>${g.map(r=>`<tr><td>${escapeHtml(r.school_year)}</td><td>${escapeHtml(r.subject)}</td><td>${r.grade??''}</td><td>${escapeHtml(r.remarks||'')}</td></tr>`).join('')}</tbody></table><div class="sign"><div>Registrar</div><div>School Seal / Signature</div></div><button onclick="window.print()">Print / Save as PDF</button></body></html>`);win.document.close();win.focus()}
 

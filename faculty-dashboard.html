@@ -6,6 +6,12 @@
     <title>Faculty Dashboard | TCSMS</title>
   </head>
   <body>
+    <div id="tcsms-loading-screen" class="loading-screen" role="status" aria-label="Loading Thompson Christian School Management System" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:.5rem;background:#102a43;color:#f7fbff">
+      <div class="loading-mark" aria-hidden="true" style="display:grid;place-items:center;width:4.25rem;height:4.25rem;margin-bottom:.4rem;border:2px solid #f0b429;border-radius:50%;color:#f0b429;font-family:Georgia,serif;font-size:2rem;font-weight:700">T</div>
+      <p class="loading-title" style="margin:0;font-size:1.35rem;font-weight:700;letter-spacing:.12em">TCSMS</p>
+      <p class="loading-subtitle" style="margin:0;color:#bcccdc;font-size:.85rem">Preparing your workspace</p>
+      <div class="loading-spinner" aria-hidden="true" style="width:1.25rem;height:1.25rem;margin-top:.8rem;border:2px solid rgba(255,255,255,.25);border-top-color:#f0b429;border-radius:50%"></div>
+    </div>
     <main><div class="admin-page-head"><div><h2>Faculty Dashboard</h2><p>Assigned classes, schedules, and student rosters.</p></div></div><section class="admin-summary-grid"><div class="card"><small>Assigned Classes</small><div class="stat" id="class-count">-</div></div><div class="card"><small>Scheduled Sessions</small><div class="stat" id="schedule-count">-</div></div><div class="card"><small>Students</small><div class="stat" id="student-count">-</div></div></section><section class="admin-table-wrap" style="margin-top:18px"><div class="admin-section-title"><h3>My Schedule</h3></div><table><thead><tr><th>Subject</th><th>Section</th><th>Room</th><th>Day</th><th>Time</th></tr></thead><tbody id="schedule-table"><tr><td colspan="5">Loading schedule...</td></tr></tbody></table></section><section class="admin-table-wrap" style="margin-top:18px"><div class="admin-section-title"><h3>My Students</h3></div><table><thead><tr><th>Student ID</th><th>Name</th><th>Grade</th><th>Status</th></tr></thead><tbody id="student-table"><tr><td colspan="4">Loading students...</td></tr></tbody></table></section></main>
     <script type="module">
       import { supabase, requireRole, signOut } from './auth-client.js'
