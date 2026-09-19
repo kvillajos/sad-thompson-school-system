@@ -12,16 +12,27 @@
       <p class="loading-subtitle" style="margin:0;color:#bcccdc;font-size:.85rem">Preparing your workspace</p>
       <div class="loading-spinner" aria-hidden="true" style="width:1.25rem;height:1.25rem;margin-top:.8rem;border:2px solid rgba(255,255,255,.25);border-top-color:#f0b429;border-radius:50%"></div>
     </div>
-    <main><div class="admin-page-head"><div><h2>Admin Dashboard</h2><p>Review pending registrar requests and confirm administrative changes.</p></div></div><section class="admin-table-wrap"><div class="admin-section-title"><h3>Pending Admission Applications</h3><small>Current Term: 1st Semester</small></div><table><thead><tr><th>Request Type</th><th>Details</th><th>Requested By</th><th>Status</th><th>Action</th></tr></thead><tbody id="pending-table"><tr><td colspan="5">Loading pending requests...</td></tr></tbody></table></section><section class="admin-table-wrap admin-announcements"><div class="admin-section-title"><h3>Announcements</h3><button class="admin-primary" type="button">+ Add</button></div><p>No announcements configured.</p></section></main>
+    <main><div class="admin-page-head"><div><h2>Admin Dashboard</h2><p>Review pending registrar requests and confirm administrative changes.</p></div></div><section class="admin-table-wrap"><div class="admin-section-title"><h3>Pending Admission Applications</h3><small>Current Term: 1st Semester</small></div><table><thead><tr><th>Request Type</th><th>Details</th><th>Requested By</th><th>Status</th><th>Action</th></tr></thead><tbody id="pending-table"><tr><td colspan="5">Loading pending requests...</td></tr></tbody></table></section><section class="admin-table-wrap admin-announcements"><div class="admin-section-title"><h3>Announcements</h3><button id="add-announcement" class="admin-primary" type="button">+ Add</button></div><table><thead><tr><th>Title</th><th>Message</th><th>Posted</th></tr></thead><tbody id="announcements-table"><tr><td colspan="3">Loading announcements...</td></tr></tbody></table></section></main>
+    <div id="announcement-modal" class="admin-modal hidden">
+      <div class="admin-modal-box">
+        <div class="admin-modal-head"><h3>New Announcement</h3><button type="button" id="close-announcement">x</button></div>
+        <form id="announcement-form">
+          <label class="admin-full">Title<input id="announcement-title" required maxlength="200"></label>
+          <label class="admin-full">Message<textarea id="announcement-message" rows="4" maxlength="1000"></textarea></label>
+          <div class="admin-actions admin-full"><button type="button" id="cancel-announcement" class="admin-cancel">Cancel</button><button type="submit" class="admin-primary">Post</button></div>
+        </form>
+      </div>
+    </div>
     <div id="review-modal" class="admin-modal hidden">
       <div class="admin-modal-box review-box">
         <div class="admin-modal-head"><h3>Review Admission Application</h3><button type="button" id="close-review">x</button></div>
         <div id="review-details" class="admin-full review-summary"></div>
         <label class="admin-full">Remarks<textarea id="review-remarks" rows="3" maxlength="500" placeholder="Optional notes for the registrar or guardian"></textarea></label>
+        <p id="review-lock" class="admin-full review-countdown hidden"><span id="review-lock-text"></span></p>
         <p id="review-countdown" class="admin-full review-countdown">Please review the details above — decisions unlock in <span id="review-countdown-seconds">3</span>s...</p>
         <div class="admin-actions">
           <button type="button" id="decline-application" class="admin-remove" disabled>Decline</button>
-          <button type="button" id="approve-application" class="admin-primary" disabled>Approve</button>
+          <button type="button" id="approve-application" class="admin-approve" disabled>Approve</button>
         </div>
       </div>
     </div>
@@ -29,6 +40,7 @@
       import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
       import { applyUiTheme, mountProfile, mountSidebar, withBusy } from './ui-theme.js'
+      import { isEditLocked, editLockMessage } from './edit-lock.js'
       applyUiTheme()
       const user = await requireRole(1)
       if (user) mountProfile(user, 'Administrator', signOut)
@@ -50,17 +62,24 @@
 
       async function loadApplications() {
         const pendingTable = document.getElementById('pending-table')
-        const { data, error } = await supabase.from('admission_applications').select('id,first_name,last_name,grade_level,status,created_at').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false })
+        const { data, error } = await supabase.from('admission_applications').select('id,first_name,last_name,grade_level,status,created_at,editing_by,editing_since').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false })
         if (error) return pendingTable.innerHTML = `<tr><td colspan="5">${escape(error.message)}</td></tr>`
         applications = data || []
-        pendingTable.innerHTML = applications.map(application => `<tr><td>Admission Review</td><td>${escape(application.first_name)} ${escape(application.last_name)} - Grade ${escape(application.grade_level)}</td><td>Registrar</td><td>${escape(application.status)}</td><td><button class="admin-view" data-review="${application.id}">Review</button></td></tr>`).join('') || '<tr><td colspan="5">No pending requests.</td></tr>'
+        pendingTable.innerHTML = applications.map(application => {
+          const editing = isEditLocked(application)
+          return `<tr><td>Admission Review</td><td>${escape(application.first_name)} ${escape(application.last_name)} - Grade ${escape(application.grade_level)}</td><td>Registrar</td><td>${escape(application.status)}${editing ? ' <b title="The registrar has this file open for correction.">✏️ editing</b>' : ''}</td><td><button class="admin-view" data-review="${application.id}">Review</button></td></tr>`
+        }).join('') || '<tr><td colspan="5">No pending requests.</td></tr>'
         document.querySelectorAll('[data-review]').forEach(button => button.onclick = () => openReview(button.dataset.review))
       }
 
+      let editingLocked = false
       function openReview(id) {
         selectedApplication = applications.find(a => String(a.id) === String(id))
         if (!selectedApplication) return
         const a = selectedApplication
+        editingLocked = isEditLocked(a)
+        document.getElementById('review-lock').classList.toggle('hidden', !editingLocked)
+        if (editingLocked) document.getElementById('review-lock-text').textContent = editLockMessage(a)
         document.getElementById('review-details').innerHTML = `
           <div class="review-grid">
             <div><small>Student</small><p>${escape(a.first_name)} ${escape(a.last_name)}</p></div>
@@ -89,8 +108,10 @@
           if (secondsLeft <= 0) {
             clearInterval(countdownTimer)
             countdownEl.classList.add('hidden')
-            approveBtn.disabled = false
-            declineBtn.disabled = false
+            if (!editingLocked) {
+              approveBtn.disabled = false
+              declineBtn.disabled = false
+            }
             return
           }
           secondsEl.textContent = secondsLeft
@@ -99,7 +120,10 @@
 
       function closeReview() {
         clearInterval(countdownTimer)
+        editingLocked = false
+        document.getElementById('review-lock').classList.add('hidden')
         document.getElementById('review-modal').classList.add('hidden')
+        loadApplications()
       }
       document.getElementById('close-review').onclick = closeReview
 
@@ -123,6 +147,30 @@
       document.getElementById('decline-application').onclick = event => reviewApplication('rejected', event.currentTarget)
 
       await loadApplications()
+      setInterval(loadApplications, 30000)
+
+      async function loadAnnouncements() {
+        const table = document.getElementById('announcements-table')
+        const { data, error } = await supabase.from('announcements').select('id,title,message,posted_at').order('posted_at', { ascending: false }).limit(20)
+        if (error) return table.innerHTML = `<tr><td colspan="3">${escape(error.message)}</td></tr>`
+        table.innerHTML = (data || []).map(a => `<tr><td>${escape(a.title)}</td><td>${escape(a.message || '-')}</td><td>${new Date(a.posted_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="3">No announcements posted.</td></tr>'
+      }
+      document.getElementById('add-announcement').onclick = () => {
+        document.getElementById('announcement-form').reset()
+        document.getElementById('announcement-modal').classList.remove('hidden')
+      }
+      document.getElementById('close-announcement').onclick = document.getElementById('cancel-announcement').onclick = () => document.getElementById('announcement-modal').classList.add('hidden')
+      document.getElementById('announcement-form').addEventListener('submit', async (event) => {
+        event.preventDefault()
+        const title = document.getElementById('announcement-title').value.trim()
+        if (!title) return
+        const message = document.getElementById('announcement-message').value.trim()
+        const { error } = await supabase.from('announcements').insert({ title, message: message || null, created_by: user.user_id })
+        if (error) return window.alert(error.message)
+        document.getElementById('announcement-modal').classList.add('hidden')
+        await loadAnnouncements()
+      })
+      await loadAnnouncements()
     </script>
   </body>
 </html>

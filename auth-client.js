@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { createSessionTimeout } from './session-timeout.js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -6,26 +7,17 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
 
 export const supabase = isSupabaseConfigured ? createClient(supabaseUrl, supabaseAnonKey) : null
 
-const inactivityTimeoutMs = 30 * 60 * 1000
-let inactivityTimer
-
-function resetInactivityTimer() {
-  sessionStorage.setItem('tcsms_last_activity', String(Date.now()))
-  clearTimeout(inactivityTimer)
-  inactivityTimer = setTimeout(signOut, inactivityTimeoutMs)
-}
+// Activity events only reach a visible tab, so the visibility listener hands the session
+// over to the 4-hour background clock while the tab is hidden.
+const sessionTimeout = createSessionTimeout({ onTimeout: () => { signOut() } })
+const ACTIVITY_EVENTS = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart']
 
 function startInactivityTimeout() {
-  const lastActivity = Number(sessionStorage.getItem('tcsms_last_activity'))
-  if (lastActivity && Date.now() - lastActivity >= inactivityTimeoutMs) {
-    signOut()
-    return
-  }
-
-  ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'].forEach((eventName) => {
-    window.addEventListener(eventName, resetInactivityTimer, { passive: true })
+  ACTIVITY_EVENTS.forEach((eventName) => {
+    window.addEventListener(eventName, () => sessionTimeout.resetInactivity(), { passive: true })
   })
-  resetInactivityTimer()
+  document.addEventListener('visibilitychange', () => sessionTimeout.visibilityChanged())
+  sessionTimeout.start()
 }
 
 export async function requireRole(roleId) {
@@ -67,8 +59,7 @@ export function showConfigurationError() {
 }
 
 export async function signOut() {
-  clearTimeout(inactivityTimer)
-  sessionStorage.removeItem('tcsms_last_activity')
+  sessionTimeout.stop()
   await supabase.auth.signOut()
   window.location.href = '/index.html'
 }

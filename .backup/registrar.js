@@ -1,14 +1,12 @@
 import { supabase, requireRole, signOut } from './auth-client.js'
 import { applyUiTheme, mountProfile, mountSidebar, withBusy } from './ui-theme.js'
 import { hideLoadingScreen } from './loading-screen.js'
-import { planBalancedAssignments } from './sectioning.js'
-import { attendanceSummaryLine } from './attendance.js'
-import { generalAverage, letterGrade } from './grades.js'
-import { buildReportCard } from './report-card.js'
+import { planBalancedAssignments, studentsForSection } from './sectioning.js'
+
 applyUiTheme()
 
 const $ = (id) => document.getElementById(id)
-const state = { applications: [], drafts: [], sections: [], students: [], academic: [], selectedApplication: null, enrolledByStudent: new Map(), enrolledSections: new Map(), autoAssignPlan: null, academicStudentId: null }
+const state = { applications: [], drafts: [], sections: [], students: [], academic: [], selectedApplication: null }
 const gradeToNumber = (value) => value === 'Kindergarten' ? 0 : Number(String(value).replace('Grade ', ''))
 const gradeLabel = (value) => Number(value) === 0 ? 'Kindergarten' : `Grade ${value}`
 // Grade is stored as a number but the select options are labels, so map back on resume.
@@ -42,6 +40,8 @@ const studentDirectory = document.createElement('div')
 studentDirectory.className = 'card student-directory'
 studentDirectory.innerHTML = '<div class="toolbar"><h2>Student Directory</h2><input id="student-directory-search" placeholder="Search student name or ID..."></div><table><thead><tr><th>Student ID</th><th>Name</th><th>Birth Date</th><th>Gender</th><th>Grade</th><th>Enrollment Status</th><th>Actions</th></tr></thead><tbody id="student-directory-table"></tbody></table>'
 document.querySelector('#sectioning').appendChild(studentDirectory)
+const sectionCard = document.querySelector('#sectioning > .card')
+sectionCard.innerHTML = '<div class="toolbar"><h2>Sectioning</h2><button id="auto-assign-sections" class="btn secondary">Auto-Assign Grades 1-10</button><button id="open-placement" class="btn">Placement Tool</button></div><div class="filterbar"><input id="section-search" placeholder="Search Section Name..."><select id="section-grade-filter"><option value="">All Grades</option></select><button id="filter-sections" class="btn">Filter</button></div><table><thead><tr><th>Section Name</th><th>Grade</th><th>Students</th><th>Action</th></tr></thead><tbody id="section-table"></tbody></table>'
 
 const tabs = [...document.querySelectorAll('[data-tab]')]
 const panels = [...document.querySelectorAll('[data-panel]')]
@@ -50,7 +50,6 @@ tabs.forEach((tab) => tab.addEventListener('click', () => {
   panels.forEach(p => p.classList.add('hidden'))
   tab.classList.add('active')
   $(tab.dataset.tab).classList.remove('hidden')
-  if (tab.dataset.tab === 'sectioning') loadSections()
 }))
 
 function toast(message, type='success') {
@@ -235,14 +234,11 @@ async function openStudentDetails(studentId) {
   if (!student) return $('student-details').innerHTML = '<p class="empty-state">Student record not found.</p>'
   const [enrollments, academics] = await Promise.all([
     supabase.from('enrollments').select('school_year,status,enrolled_at,sections(section_name)').eq('student_id', studentId).order('enrolled_at', { ascending: false }),
-    supabase.from('academic_history').select('school_year,subject,grade,letter_grade,remarks').eq('student_id', studentId).order('school_year', { ascending: false })
+    supabase.from('academic_history').select('school_year,subject,grade,remarks').eq('student_id', studentId).order('school_year', { ascending: false })
   ])
   const enrollmentRows = enrollments.data || []
   const academicRows = academics.data || []
   const active = enrollmentRows.find(row => row.status === 'active')
-  const currentYearAverage = generalAverage(academicRows.filter(row => row.school_year === active?.school_year))
-  const attendanceTotals = await supabase.rpc('attendance_totals', { p_student_id: studentId, p_school_year: active?.school_year || null })
-  const attendanceLine = attendanceTotals.error ? attendanceTotals.error.message : attendanceSummaryLine(attendanceTotals.data)
   const photo = student.profile_picture_url
     ? `<img class="photo-preview" src="${escapeHtml(student.profile_picture_url)}" alt="Profile picture">`
     : '<div class="photo-preview photo-preview-empty" aria-hidden="true">No photo</div>'
@@ -256,45 +252,28 @@ async function openStudentDetails(studentId) {
       <div><b>School Year</b><p>${escapeHtml(active?.school_year || '-')}</p></div>
       <div><b>Contact Number</b><p>${escapeHtml(student.contact_number || '-')}</p></div>
       <div><b>Address</b><p>${escapeHtml(student.address || '-')}</p></div>
-      <div><b>Attendance</b><p>${escapeHtml(attendanceLine)}</p></div>
-      <div><b>General Average (${escapeHtml(active?.school_year || 'current year')})</b><p>${currentYearAverage == null ? '-' : `${currentYearAverage} (${escapeHtml(letterGrade(currentYearAverage)?.letter || '-')})`}</p></div>
     </div></div>
     <h3>Enrollment History</h3>
     <table><thead><tr><th>School Year</th><th>Section</th><th>Status</th><th>Enrolled On</th></tr></thead><tbody>${enrollmentRows.map(row => `<tr><td>${escapeHtml(row.school_year || '-')}</td><td>${escapeHtml(row.sections?.section_name || 'No Section')}</td><td>${statusBadge(row.status || 'active')}</td><td>${row.enrolled_at ? new Date(row.enrolled_at).toLocaleDateString() : '-'}</td></tr>`).join('') || '<tr><td colspan="4" class="empty-state">No enrollment records.</td></tr>'}</tbody></table>
     <h3>Academic History</h3>
-    <table><thead><tr><th>School Year</th><th>Subject</th><th>Grade</th><th>Letter</th><th>Remarks</th></tr></thead><tbody>${academicRows.map(row => `<tr><td>${escapeHtml(row.school_year || '')}</td><td>${escapeHtml(row.subject || '')}</td><td>${row.grade ?? ''}</td><td>${escapeHtml(row.letter_grade || letterGrade(row.grade)?.letter || '')}</td><td>${escapeHtml(row.remarks || '')}</td></tr>`).join('') || '<tr><td colspan="5" class="empty-state">No academic records.</td></tr>'}</tbody></table>`
+    <table><thead><tr><th>School Year</th><th>Subject</th><th>Grade</th><th>Remarks</th></tr></thead><tbody>${academicRows.map(row => `<tr><td>${escapeHtml(row.school_year || '')}</td><td>${escapeHtml(row.subject || '')}</td><td>${row.grade ?? ''}</td><td>${escapeHtml(row.remarks || '')}</td></tr>`).join('') || '<tr><td colspan="4" class="empty-state">No academic records.</td></tr>'}</tbody></table>`
 }
 
 
 // Opens the application with a database-held edit lock so the administrator cannot
 // approve or decline it while the registrar is correcting it.
 async function openReview(id) {
-  if (state.selectedApplication) return toast('Close the current review first.', 'error')
   const { data, error } = await supabase.rpc('begin_application_edit', { p_application_id: Number(id) })
   if (error) return toast(error.message, 'error')
   state.selectedApplication = data
   const field = (label, name, type = 'text') => `<label>${label}<input name="${name}" type="${type}" value="${escapeHtml(data[name] ?? '')}"></label>`
   $('review-content').innerHTML = `<div class="note">Editing as <b>${escapeHtml(data.editing_by || 'registrar')}</b>. The administrator cannot approve or decline this file while it is open here. Closing the form releases it.</div>
-  <form id="review-form">${field('First Name','first_name')}${field('Middle Name','middle_name')}${field('Last Name','last_name')}${field('Birth Date','birth_date','date')}${field('Sex','sex')}${field('Grade Level','grade_level')}${field('Address','address')}${field('Guardian Name','guardian_name')}${field('Relationship','guardian_relationship')}${field('Guardian Phone','guardian_phone')}${field('Guardian Email','guardian_email')}${field('Prior School','prior_school')}${field('Prior Grade','prior_grade')}${field('Special Program','special_program')}<label>Registrar remarks<textarea name="remarks">${escapeHtml(data.remarks || '')}</textarea></label><label>Status<select name="status" disabled><option>draft</option><option>under_review</option></select></label><div class="actions"><button class="btn-approve">Save Review</button></div></form>`
+  <form id="review-form">${field('First Name','first_name')}${field('Middle Name','middle_name')}${field('Last Name','last_name')}${field('Birth Date','birth_date','date')}${field('Sex','sex')}${field('Grade Level','grade_level')}${field('Address','address')}${field('Guardian Name','guardian_name')}${field('Relationship','guardian_relationship')}${field('Guardian Phone','guardian_phone')}${field('Guardian Email','guardian_email')}${field('Prior School','prior_school')}${field('Prior Grade','prior_grade')}${field('Special Program','special_program')}<label>Registrar remarks<textarea name="remarks">${escapeHtml(data.remarks || '')}</textarea></label><label>Status<select name="status"><option>under_review</option><option>approved</option><option>rejected</option></select></label><div class="actions"><button class="btn-approve">Save Review</button></div></form>`
   $('review-content').querySelector('[name=status]').value = data.status === 'submitted' ? 'under_review' : data.status
   $('review-modal').classList.remove('hidden')
-  // Renew the lease; stale tokens are rejected by the server even after tab suspension.
-  data.heartbeat = setInterval(async () => {
-    try {
-      const { error } = await supabase.rpc('renew_application_edit', { p_application_id: data.id, p_token: data.editing_token })
-      if (error) throw error
-    } catch (error) {
-      clearInterval(data.heartbeat)
-      if (state.selectedApplication === data) {
-        $('review-content').querySelector('button').disabled = true
-        toast(`Edit lock lost. Copy your corrections, close and reopen: ${error.message}`, 'error')
-      }
-    }
-  }, 60000)
 }
 $('close-review').addEventListener('click', async () => {
   const app = state.selectedApplication
-  clearInterval(app?.heartbeat)
   $('review-modal').classList.add('hidden')
   if (app?.editing_token) await supabase.rpc('end_application_edit', { p_application_id: app.id, p_token: app.editing_token })
   state.selectedApplication = null
@@ -304,7 +283,6 @@ async function saveReviewEdits() {
   const { error } = await supabase.rpc('save_application_edit', { p_application_id: state.selectedApplication.id, p_token: state.selectedApplication.editing_token, p_payload: payload })
   if (error) return toast(error.message, 'error')
   $('review-modal').classList.add('hidden')
-  clearInterval(state.selectedApplication?.heartbeat)
   state.selectedApplication = null
   toast('Application updated.'); loadApplications()
 }
@@ -400,61 +378,32 @@ async function removeEnrollment(id) {
 }
 $('filter-enrollment').onclick = loadEnrollments
 async function openPlacement(sectionId='') {
-  const [studentResult, enrollmentResult] = await Promise.all([
-    supabase.from('students').select('*').order('last_name'),
-    supabase.from('enrollments').select('student_id,section_id,sections(section_name)').eq('status','active')
-  ])
-  if (studentResult.error) return toast(`Could not load placement students: ${studentResult.error.message}`,'error')
-  state.students = studentResult.data || []
-  state.enrolledSections = new Map((enrollmentResult.data || []).map(row => [String(row.student_id), row.sections?.section_name || 'Another section']))
+  const { data, error } = await supabase.from('students').select('*').order('last_name')
+  if (error) return toast(`Could not load placement students: ${error.message}`,'error'); state.students=data||[]
   if (!state.students.length) return toast('No students are available for placement. Check the students table and RLS policy.', 'error')
   const grades=[...new Set(state.sections.map(s=>s.grade_level))].sort((a,b)=>a-b)
   $('placement-grade').innerHTML=grades.map(g=>`<option value="${g}">${escapeHtml(gradeLabel(g))}</option>`).join('')
-  $('placement-search').value=''
-  $('placement-filter').value=''
   renderPlacementStudents()
-  if (sectionId) $('placement-section').value=sectionId
-  renderPlacementStudents()
+  if(sectionId) $('placement-section').value=sectionId
   $('placement-modal').classList.remove('hidden')
 }
-// The grade's students render as a table with a title, a search box and a
-// "without a section" filter, so the registrar can see who is being moved before placing.
-function placementRows() {
-  const grade = $('placement-grade').value
-  const sections = state.sections.filter(section => Number(section.grade_level) === Number(grade)).sort((a,b)=>(a.section_name||'').localeCompare(b.section_name||''))
-  const currentSection = $('placement-section').value
-  $('placement-section').innerHTML = sections.map(s=>`<option value="${s.section_id}">${escapeHtml(s.section_name)} (${s.capacity} seats)</option>`).join('')
-  if (sections.some(section => String(section.section_id) === currentSection)) $('placement-section').value = currentSection
-  const search = $('placement-search').value.trim().toLowerCase()
-  const unassignedOnly = $('placement-filter').value === 'unassigned'
-  return state.students.filter(student => {
-    const level = Number(student.grade_level)
-    if (level !== Number(grade)) return false
-    if (unassignedOnly && state.enrolledSections.has(String(student.student_id))) return false
-    return !search || `${student.lrn_number||''} ${student.student_id} ${student.first_name||''} ${student.last_name||''}`.toLowerCase().includes(search)
-  })
-}
 function renderPlacementStudents() {
-  const rows = placementRows()
-  const section = state.sections.find(item => String(item.section_id) === $('placement-section').value)
-  $('placement-list-title').textContent = `${gradeLabel($('placement-grade').value)} students${section ? ` - ${section.section_name}` : ''} (${rows.length})`
-  $('placement-students').innerHTML = rows.map(s => `<tr><td><input type="checkbox" value="${s.student_id}" aria-label="Select ${escapeHtml(`${s.first_name||''} ${s.last_name||''}`)}"></td><td>${escapeHtml(s.lrn_number||s.student_id)}</td><td>${escapeHtml(`${s.first_name||''} ${s.last_name||''}`)}</td><td>${escapeHtml(gradeLabel(s.grade_level))}</td><td>${escapeHtml(state.enrolledSections.get(String(s.student_id)) || 'No Section')}</td></tr>`).join('') || '<tr><td colspan="5" class="empty-state">No students match this filter.</td></tr>'
+  const grade = $('placement-grade').value
+  const sections = state.sections.filter(s => Number(s.grade_level) === Number(grade)).sort((a,b)=>String(a.section_name).localeCompare(String(b.section_name)))
+  $('placement-section').innerHTML = sections.map(s=>`<option value="${s.section_id}">${escapeHtml(s.section_name)} (${s.enrolled ?? 0}/${s.capacity})</option>`).join('')
+  const sectionId = Number($('placement-section').value) || null
+  $('placement-students').innerHTML = state.students
+    .filter(s => Number(s.grade_level) === Number(grade))
+    .map(s => `<label><input type="checkbox" value="${s.student_id}"> ${escapeHtml(s.lrn_number || s.student_id)} — ${escapeHtml(`${s.first_name} ${s.last_name}`)}</label>`)
+    .join('') || '<small>No students in this grade.</small>'
 }
 $('placement-grade').addEventListener('change', renderPlacementStudents)
 $('placement-section').addEventListener('change', renderPlacementStudents)
-$('placement-search').addEventListener('input', renderPlacementStudents)
-$('placement-filter').addEventListener('change', renderPlacementStudents)
-$('placement-select-all').onclick = () => {
-  const boxes = [...$('placement-students').querySelectorAll('input[type=checkbox]')]
-  const select = boxes.some(box => !box.checked)
-  boxes.forEach(box => { box.checked = select })
-}
 $('open-placement').onclick=()=>openPlacement()
 $('close-placement').onclick=()=>$('placement-modal').classList.add('hidden')
-$('close-placement-2').onclick=()=>$('placement-modal').classList.add('hidden')
 $('place-selected').onclick=async()=>{
   const sectionId=$('placement-section').value
-  const studentIds=[...$('placement-students').querySelectorAll('input:checked')].map(option => +option.value)
+  const studentIds=[...$('placement-students').querySelectorAll('input:checked')].map(i=>Number(i.value))
   if(!sectionId||!studentIds.length)return toast('Select a section and at least one student.','error')
   withBusy($('place-selected'),'Placing…',async()=>{
     const { data, error }=await supabase.rpc('apply_section_assignments',{p_assignments:studentIds.map(id=>({student_id:id,section_id:Number(sectionId)}))})
@@ -463,83 +412,23 @@ $('place-selected').onclick=async()=>{
     toast(`Placed ${data?.placed??studentIds.length} student(s).`); await Promise.all([loadSections(), loadEnrollments()])
   })
 }
-// Auto-assign: the registrar picks the grade levels to run and may exclude individual
-// students. The plan is previewed on every change and written in one validated RPC call.
-const autoAssignGrades = () => [...$('auto-assign-grades').querySelectorAll('input[type=checkbox]')]
-const chosenGrades = () => autoAssignGrades().filter(box => box.checked).map(box => +box.value)
-const autoAssignExclusions = () => new Set([...$('auto-assign-exclude-list').querySelectorAll('input:checked')].map(box => +box.value))
-function renderAutoAssignGrades() {
-  const grades = [...new Set(state.sections.map(section => Number(section.grade_level)))].sort((a,b)=>a-b)
-  $('auto-assign-grades').innerHTML = grades.map(grade => `<label><input type="checkbox" value="${grade}" checked> ${escapeHtml(gradeLabel(grade))}</label>`).join('')
-    || '<small>No sections are configured, so there is nothing to auto-assign.</small>'
-}
-function renderAutoAssignExclusions() {
-  const search = $('auto-assign-exclude-search').value.trim().toLowerCase()
-  const grades = new Set(chosenGrades())
-  const students = state.students.filter(student => {
-    if (!grades.has(Number(student.grade_level))) return false
-    return !search || `${student.lrn_number||''} ${student.student_id} ${student.first_name||''} ${student.last_name||''}`.toLowerCase().includes(search)
-  })
-  $('auto-assign-exclude-list').innerHTML = students.map(student => `<label><input type="checkbox" value="${student.student_id}"> ${escapeHtml(student.lrn_number||student.student_id)} — ${escapeHtml(`${student.first_name||''} ${student.last_name||''}`)}</label>`).join('')
-    || '<small>No students in the selected grade levels.</small>'
-}
-function planAutoAssign() {
-  const grades = chosenGrades()
-  if (!grades.length) return null
-  return planBalancedAssignments({
-    students: state.students,
-    sections: state.sections.map(section => ({ ...section, enrolled: [...state.enrolledByStudent.values()].filter(id => +id === Number(section.section_id)).length })),
-    enrolledByStudent: state.enrolledByStudent,
-    grades,
-    excludedStudentIds: autoAssignExclusions()
-  })
-}
-// The count lives in the summary (not the button) so withBusy can restyle the button freely.
-function previewAutoAssign() {
-  const plan = planAutoAssign()
-  state.autoAssignPlan = plan
-  if (!plan) {
-    $('auto-assign-summary').innerHTML = '<p class="empty-state"><b id="auto-assign-count">0</b> — select at least one grade level to auto-assign.</p>'
-    $('confirm-auto-assign').disabled = true
-    return
-  }
-  $('confirm-auto-assign').disabled = false
-  const excluded = autoAssignExclusions().size
-  const sections = plan.summary.filter(row=>row.total).map(row=> `<small>${escapeHtml(row.section_name)} — ${row.boys} boy(s), ${row.girls} girl(s)</small>`).join('<br>')
-  const unplaced = plan.unplaced.length ? `<br><small class="empty-state">Unplaced: ${plan.unplaced.map(row=>escapeHtml(row.student_id)).join(', ')}</small>` : ''
-  $('auto-assign-summary').innerHTML = `<p><b id="auto-assign-count">${plan.assignments.length}</b> student(s) will be placed in ${escapeHtml(chosenGrades().map(gradeLabel).join(', '))}; <b>${plan.unplaced.length}</b> cannot be placed${excluded ? `; <b>${excluded}</b> excluded` : ''}.</p>${sections}${unplaced}`
-}
-$('auto-assign-sections').onclick=async()=>{
+// Auto-assign grades 1-10: balanced, randomized allocator, then one validated write.
+$('auto-assign-sections').onclick=()=>{
   if(!state.students.length||!state.sections.length)return toast('Load students and sections first.','error')
-  const { data: enrollments, error } = await supabase.from('enrollments').select('student_id,section_id').eq('status','active')
-  if (error) return toast(error.message, 'error')
-  state.enrolledByStudent = new Map((enrollments || []).map(row => [row.student_id, row.section_id]))
-  $('auto-assign-exclude-search').value = ''
-  renderAutoAssignGrades()
-  renderAutoAssignExclusions()
-  previewAutoAssign()
+  const enrolledByStudent=new Map(state.enrollments.filter(e=>e.id).map(e=>[e.student_id,e.section_id]))
+  const plan=planBalancedAssignments({students:state.students,sections:state.sections.map(s=>({...s,enrolled:[...enrolledByStudent.values()].filter(v=>v===s.section_id).length})),enrolledByStudent})
+  $('auto-assign-summary').innerHTML=`<p><b>${plan.assignments.length}</b> student(s) will be placed across grades 1-10; <b>${plan.unplaced.length}</b> cannot be placed.</p>`+(plan.summary.filter(s=>s.total).map(s=>`<small>${escapeHtml(s.section_name)} — ${s.boys} boy(s), ${s.girls} girl(s)</small>`).join('<br>')||'')+(plan.unplaced.length?`<br><small class="empty-state">Unplaced: ${plan.unplaced.map(u=>u.student_id).join(', ')}</small>`:'')
+  $('auto-assign-count').textContent=String(plan.assignments.length)
+  $('auto-assign-count').dataset.assignments=JSON.stringify(plan.assignments)
   $('auto-assign-modal').classList.remove('hidden')
 }
-$('auto-assign-all-grades').onclick=()=>{
-  const boxes = autoAssignGrades()
-  const select = boxes.some(box => !box.checked)
-  boxes.forEach(box => { box.checked = select })
-  renderAutoAssignExclusions()
-  previewAutoAssign()
-}
-$('auto-assign-exclude-search').oninput = renderAutoAssignExclusions
-$('auto-assign-grades').addEventListener('change', () => { renderAutoAssignExclusions(); previewAutoAssign() })
-$('auto-assign-exclude-list').addEventListener('change', previewAutoAssign)
 $('close-auto-assign').onclick=()=>$('auto-assign-modal').classList.add('hidden')
-document.querySelectorAll('[data-close]').forEach(button => { button.onclick = () => $(button.dataset.close).classList.add('hidden') })
 $('confirm-auto-assign').onclick=()=>{
-  const plan = state.autoAssignPlan
-  if (!plan || !plan.assignments.length) return toast('Nothing to assign with the current grade levels and exclusions.', 'error')
   withBusy($('confirm-auto-assign'),'Assigning…',async()=>{
-    const { data, error }=await supabase.rpc('apply_section_assignments',{p_assignments:plan.assignments})
+    const { data, error }=await supabase.rpc('apply_section_assignments',{p_assignments:JSON.parse($('auto-assign-count').dataset.assignments||'[]')})
     if(error)return toast(error.message,'error')
     $('auto-assign-modal').classList.add('hidden')
-    toast(`Auto-assigned ${data?.placed??plan.assignments.length} student(s).`); await Promise.all([loadSections(), loadEnrollments()])
+    toast(`Auto-assigned ${data?.placed??0} student(s).`); await Promise.all([loadSections(), loadEnrollments()])
   })
 }
 
@@ -556,118 +445,20 @@ function renderPromotionExclusions() {
 $('promotion-exclude-search').oninput = renderPromotionExclusions
 $('promotion-grade').onchange = renderPromotionExclusions
 
-// Academic history is read-only for the registrar: faculty record the grades, the
-// registrar reviews a student's record and prints it as an academic record card.
-const ACADEMIC_COLUMNS = ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2', 'midterm', 'final']
-const ACADEMIC_LABELS = { first_sem_q1: 'Q1', first_sem_q2: 'Q2', second_sem_q1: 'Q3', second_sem_q2: 'Q4', midterm: 'Midterm', final: 'Final' }
-function academicRowsFor(studentId) {
-  return state.academic
-    .filter(record => `${record.student_id}` === `${studentId}`)
-    .sort((a,b)=>(a.school_year||'').localeCompare(b.school_year||'') || (a.subject||'').localeCompare(b.subject||''))
-}
-function academicTableHtml(rows) {
-  const head = `<tr><th>School Year</th><th>Subject</th>${ACADEMIC_COLUMNS.map(key => `<th>${ACADEMIC_LABELS[key]}</th>`).join('')}<th>Grade</th><th>Letter</th><th>Remarks</th></tr>`
-  const body = rows.map(record => `<tr><td>${escapeHtml(record.school_year)}</td><td>${escapeHtml(record.subject)}</td>${ACADEMIC_COLUMNS.map(key => `<td>${record[key] ?? ''}</td>`).join('')}<td>${record.grade ?? ''}</td><td>${escapeHtml(record.letter_grade || '')}</td><td>${escapeHtml(record.remarks || '')}</td></tr>`).join('')
-  return `<table><thead>${head}</thead><tbody>${body || `<tr><td colspan="${ACADEMIC_COLUMNS.length + 5}" class="empty-state">No academic records yet.</td></tr>`}</tbody></table>`
-}
-// The panel lists students, not raw records: the counts and the latest school year come
-// from the records already loaded, so no per-student query is needed.
-function renderAcademicStudents() {
-  const search = $('academic-search').value.trim().toLowerCase()
-  const grade = Number($('academic-grade-filter').value) || 0
-  const summaries = new Map()
-  state.academic.forEach(record => {
-    const key = `${record.student_id}`
-    const summary = summaries.get(key) || { count: 0, latest: '' }
-    summary.count += 1
-    const year = `${record.school_year || ''}`
-    if (summary.latest.localeCompare(year) < 0) summary.latest = year
-    summaries.set(key, summary)
-  })
-  const students = state.students.filter(student => {
-    const level = Number(student.grade_level)
-    if (level < 1 || level >= 13) return false
-    if (grade && level !== grade) return false
-    return !search || `${student.lrn_number||''} ${student.student_id} ${student.first_name||''} ${student.last_name||''}`.toLowerCase().includes(search)
-  })
-  $('academic-table').innerHTML = students.map(student => {
-    const summary = summaries.get(`${student.student_id}`) || { count: 0, latest: '' }
-    return `<tr><td>${escapeHtml(student.lrn_number || student.student_id)}</td><td>${escapeHtml(`${student.first_name||''} ${student.last_name||''}`)}</td><td>${escapeHtml(gradeLabel(student.grade_level))}</td><td>${summary.count}</td><td>${escapeHtml(summary.latest || '-')}</td><td><button class="small btn-view" data-view-academic="${student.student_id}">View History</button> <button class="small btn-view" data-print-academic="${student.student_id}">Print Card</button></td></tr>`
-  }).join('') || '<tr><td colspan="6" class="empty-state">No students found.</td></tr>'
-  document.querySelectorAll('[data-view-academic]').forEach(button => { button.onclick = () => openAcademicHistory(button.dataset.viewAcademic) })
-  document.querySelectorAll('[data-print-academic]').forEach(button => { button.onclick = () => printAcademicCard(button.dataset.printAcademic) })
-}
-let academicLoadSequence = 0
-async function loadAcademic() {
-  const sequence = ++academicLoadSequence
-  const data = []
-  state.academic = []
-  $('academic-table').innerHTML = '<tr><td colspan="6">Loading academic history…</td></tr>'
-  // Fetch every school year with stable pages, not a school-wide 1000-row cap.
-  for (let start = 0; ; start += 500) {
-    const { data: page, error } = await supabase.from('academic_history').select('*').order('school_year').order('subject').order('id').range(start, start + 499)
-    if (sequence !== academicLoadSequence) return
-    if (error) {
-      $('academic-table').innerHTML = '<tr><td colspan="6">History could not be loaded.</td></tr>'
-      return toast(error.message, 'error')
-    }
-    data.push(...(page || []))
-    if (!page || page.length < 500) break
-  }
-  state.academic = data
-  renderAcademicStudents()
-}
-$('academic-search').oninput = renderAcademicStudents
-$('academic-grade-filter').addEventListener('change', renderAcademicStudents)
-$('refresh-academic').onclick = loadAcademic
-function openAcademicHistory(studentId) {
-  const student = state.students.find(item => `${item.student_id}` === `${studentId}`) || {}
-  const rows = academicRowsFor(studentId)
-  state.academicStudentId = studentId
-  $('academic-history-title').textContent = `Academic History — ${student.first_name || ''} ${student.last_name || ''}`.trim()
-  $('academic-history-body').innerHTML = `<div class="review-grid"><div><small>Student No.</small><p>${escapeHtml(student.lrn_number || student.student_id || '')}</p></div><div><small>Grade Level</small><p>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</p></div><div><small>Academic Records</small><p>${rows.length}</p></div></div><div class="academic-scroll">${academicTableHtml(rows)}</div>`
-  $('academic-history-modal').classList.remove('hidden')
-}
-$('close-academic-history').onclick = () => $('academic-history-modal').classList.add('hidden')
-$('close-academic-history-2').onclick = () => $('academic-history-modal').classList.add('hidden')
-$('print-academic-card').onclick = () => printAcademicCard(state.academicStudentId)
-// Report card = grades + attendance + remarks + general average, printed the same way
-// (see printAcademicCard()): the theme hides every other body child while the body
-// carries the printing-report-card class.
-async function printReportCard(studentId) {
-  const student = state.students.find(item => `${item.student_id}` === `${studentId}`)
-  if (!student) return toast('Open a student record first.', 'error')
-  const rows = academicRowsFor(studentId)
-  if (!rows.length) return toast('No academic records to print for this student.', 'error')
-  const schoolYear = rows[rows.length - 1].school_year
-  const yearRows = rows.filter(row => row.school_year === schoolYear)
-  const enrollment = await supabase.from('enrollments').select('sections(section_name)').eq('student_id', studentId).eq('school_year', schoolYear).maybeSingle()
-  const totals = await supabase.rpc('attendance_totals', { p_student_id: studentId, p_school_year: schoolYear })
-  $('report-print-card').innerHTML = buildReportCard({
-    student, gradeLevel: gradeLabel(student.grade_level), schoolYear, sectionName: enrollment.data?.sections?.section_name,
-    academicRows: yearRows, attendance: totals.data, remarks: yearRows.map(row => row.remarks).filter(Boolean).join('; ')
-  })
-  document.body.classList.add('printing-report-card')
-  window.print()
-  document.body.classList.remove('printing-report-card')
-}
-$('print-report-card').onclick = () => printReportCard(state.academicStudentId)
-// The card prints from the page itself instead of a pop-up: the theme hides every other
-// body child while body carries the printing-card class.
-function printAcademicCard(studentId) {
-  const student = state.students.find(item => `${item.student_id}` === `${studentId}`)
-  if (!student) return toast('Open a student record first.', 'error')
-  const rows = academicRowsFor(studentId)
-  if (!rows.length) return toast('No academic records to print for this student.', 'error')
-  const name = `${student.first_name || ''} ${student.last_name || ''}`.trim()
-  $('academic-print-card').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--ui-navy);padding-bottom:8px"><div><b>THOMPSON CHRISTIAN SCHOOL</b><div style="font-size:10px;letter-spacing:.18em;color:var(--ui-muted)">STUDENT ACADEMIC RECORD CARD</div></div><img src="/assets/logo.png" alt="" style="width:54px;height:54px;object-fit:contain"></div><div style="text-align:center;font-weight:700;letter-spacing:.14em;color:var(--ui-blue);margin:10px 0 8px">ACADEMIC RECORD — ${escapeHtml(gradeLabel(student.grade_level))}</div><div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:10px"><div><small>Student</small><p>${escapeHtml(name)}</p></div><div><small>Student No.</small><p>${escapeHtml(student.lrn_number || student.student_id || '')}</p></div><div><small>Records</small><p>${rows.length}</p></div></div>${academicTableHtml(rows)}<div style="display:flex;justify-content:space-between;gap:24px;margin-top:28px;font-size:11px"><div style="flex:1;border-top:1px solid #111;padding-top:4px;text-align:center">Registrar</div><div style="flex:1;border-top:1px solid #111;padding-top:4px;text-align:center">School Seal / Signature</div></div>`
-  document.body.classList.add('printing-card')
-  window.print()
-  document.body.classList.remove('printing-card')
-}
+$('academic-form').addEventListener('submit', async e=>{
+  e.preventDefault(); const d=Object.fromEntries(new FormData(e.target).entries());
+  const {error}=await supabase.from('academic_history').insert(d); if(error)return toast(error.message,'error'); toast('Academic record saved.'); e.target.reset(); loadAcademic()
+})
+$('import-csv').addEventListener('change', async e=>{
+  const file=e.target.files?.[0]; if(!file)return
+  const rows=(await file.text()).trim().split(/\r?\n/).map(r=>r.split(',').map(x=>x.trim().replace(/^"|"$/g,''))); const headers=rows.shift()
+  const records=rows.filter(r=>r.length>=headers.length).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]])))
+  const {error}=await supabase.from('academic_history').insert(records); if(error)return toast(error.message,'error'); toast(`${records.length} academic records imported.`); loadAcademic()
+})
+async function loadAcademic(){const {data,error}=await supabase.from('academic_history').select('*').order('school_year',{ascending:false}).limit(100);if(error)return toast(error.message,'error');state.academic=data||[];const studentsById=Object.fromEntries(state.students.map(s=>[s.student_id,s]));$('academic-table').innerHTML=state.academic.map(r=>{const s=studentsById[r.student_id]||{};return `<tr><td>${escapeHtml(s.lrn_number||'')}</td><td>${escapeHtml(`${s.first_name||''} ${s.last_name||''}`)}</td><td>${escapeHtml(r.school_year)}</td><td>${escapeHtml(r.subject)}</td><td>${r.grade ?? ''}</td><td>${escapeHtml(r.remarks||'')}</td></tr>`}).join('')||'<tr><td colspan="6">No records found.</td></tr>'}
 
 $('transcript-form').addEventListener('submit', async e=>{e.preventDefault();const studentId=$('transcript-student').value;if(!studentId)return;await generateTranscript(studentId)})
-async function loadStudents(){const {data,error}=await supabase.from('students').select('*').order('last_name');if(error)return toast(`Could not load students: ${error.message}`,'error');state.students=data||[];const html=state.students.map(s=>`<option value="${s.student_id}">${escapeHtml(s.lrn_number||s.student_id)} — ${escapeHtml(s.first_name||'')} ${escapeHtml(s.last_name||'')}</option>`).join('');$('transcript-student').innerHTML=html;$('shift-student').innerHTML=html;renderStudentDirectory();renderAcademicStudents()}
+async function loadStudents(){const {data,error}=await supabase.from('students').select('*').order('last_name');if(error)return toast(`Could not load students: ${error.message}`,'error');state.students=data||[];const html=state.students.map(s=>`<option value="${s.student_id}">${escapeHtml(s.lrn_number||s.student_id)} — ${escapeHtml(s.first_name||'')} ${escapeHtml(s.last_name||'')}</option>`).join('');$('academic-student').innerHTML=html;$('transcript-student').innerHTML=html;$('shift-student').innerHTML=html;renderStudentDirectory()}
 function renderStudentDirectory(){const search=($('student-directory-search')?.value||'').trim().toLowerCase();const rows=state.students.filter(s=>`${s.lrn_number} ${s.student_id} ${s.first_name||''} ${s.last_name||''}`.toLowerCase().includes(search));$('student-directory-table').innerHTML=rows.map(s=>`<tr><td>${escapeHtml(s.lrn_number||s.student_id)}</td><td>${escapeHtml(`${s.first_name||''} ${s.last_name||''}`)}</td><td>${escapeHtml(s.date_of_birth||s.birth_date||'-')}</td><td>${escapeHtml(s.gender||s.sex||'-')}</td><td>${escapeHtml(s.grade_level == null ? '-' : gradeLabel(s.grade_level))}</td><td>${statusBadge(s.enrollment_status||'Enrolled')}</td><td><button class="small btn-view" data-view-student="${s.student_id}">View</button></td></tr>`).join('')||'<tr><td colspan="7" class="empty-state">No students found.</td></tr>';bindViewStudentButtons($('student-directory-table'))}
 $('student-directory-search').oninput=renderStudentDirectory
 async function generateTranscript(studentId){const {data:s,error:se}=await supabase.from('students').select('*').eq('student_id',studentId).single();if(se)return toast(se.message,'error');const {data:g,error:ge}=await supabase.from('academic_history').select('*').eq('student_id',studentId).order('school_year');if(ge)return toast(ge.message,'error');const win=window.open('','_blank');if(!win)return toast('Allow pop-ups to generate the transcript.','error');win.document.write(`<html><head><title>Official Transcript - ${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}</title><style>body{font-family:Arial;padding:40px}header{text-align:center;border-bottom:2px solid #111;padding-bottom:15px}.student{margin:25px 0}.student span{display:inline-block;width:48%}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #333;padding:8px;text-align:left}.sign{display:flex;justify-content:space-between;margin-top:80px}.sign div{width:40%;border-top:1px solid #111;text-align:center;padding-top:6px}@media print{button{display:none}}</style></head><body><header><h1>THOMPSON CHRISTIAN SCHOOL</h1><p>OFFICIAL TRANSCRIPT OF RECORDS</p></header><div class="student"><span><b>Student No:</b> ${escapeHtml(s.lrn_number||'')}</span><span><b>Name:</b> ${escapeHtml(`${s.first_name} ${s.last_name}`)}</span><span><b>Grade Level:</b> ${escapeHtml(gradeLabel(s.grade_level))}</span></div><table><thead><tr><th>School Year</th><th>Subject</th><th>Grade</th><th>Remarks</th></tr></thead><tbody>${g.map(r=>`<tr><td>${escapeHtml(r.school_year)}</td><td>${escapeHtml(r.subject)}</td><td>${r.grade??''}</td><td>${escapeHtml(r.remarks||'')}</td></tr>`).join('')}</tbody></table><div class="sign"><div>Registrar</div><div>School Seal / Signature</div></div><button onclick="window.print()">Print / Save as PDF</button></body></html>`);win.document.close();win.focus()}

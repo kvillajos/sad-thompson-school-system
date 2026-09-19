@@ -264,7 +264,6 @@ button.btn-remove, .admin-remove { background:#fee2e2 !important; color:#c0392b 
 .modal button:disabled { opacity:.65; cursor:not-allowed; }
 .modalbox { max-height:90vh; overflow:auto; }
 .exclude-list input[type=checkbox] { width:auto; }
-.exclude-list label { display:block; padding:3px 0; font-weight:400; }
 .academic-scroll { overflow-x:auto; }
 .academic-scroll input { min-width:65px; }
 
@@ -286,15 +285,6 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .modalbox h3 { color:var(--ui-blue-dark); margin:18px 0 8px; font-size:15px; }
 .modalbox table { width:100%; border-collapse:collapse; }
 .modalbox th, .modalbox td { text-align:left; padding:8px; border-bottom:1px solid var(--ui-border); font-size:12px; }
-/* Registrar academic record card: printed from the page itself (see printAcademicCard). */
-.academic-print-card { display: none; }
-.report-print-card { display: none; }
-@media print {
-  body.printing-card > *:not(.academic-print-card) { display: none !important; }
-  body.printing-card .academic-print-card { display: block !important; padding: 18px; border: 2px solid var(--ui-navy); border-radius: 10px; background: #fff; }
-  body.printing-report-card > *:not(.report-print-card) { display: none !important; }
-  body.printing-report-card .report-print-card { display: block !important; padding: 18px; border: 2px solid var(--ui-navy); border-radius: 10px; background: #fff; }
-}
 .modalbox th { background:var(--ui-navy); color:#fff; }
 .login-panel .app-version { margin:14px 0 0; text-align:center; color:#93a7c4; font-size:11px; letter-spacing:.03em; }
 `;

@@ -16,6 +16,10 @@ const dashboardPages = {
   4: '/student-dashboard.html'
 }
 
+// Build/version label so the login screen shows which branch and commit is deployed.
+const versionLabel = document.getElementById('app-version')
+if (versionLabel) versionLabel.textContent = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'v1.1.0 · local build'
+
 hideLoadingScreen()
 
 if (!isSupabaseConfigured) {

@@ -1,10 +1,21 @@
 {
   "name": "thompson-school-system",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "dev": "vite",
+    "check:sort": "node scripts/check-table-sort.mjs",
+    "check:sectioning": "node scripts/check-sectioning.mjs",
+    "check:timeout": "node scripts/check-session-timeout.mjs",
+    "check:faculty": "node scripts/check-faculty-grades.mjs",
+    "check:attendance": "node scripts/check-attendance.mjs",
+    "check:grades-upload": "node scripts/check-grade-upload.mjs",
+    "check:report-card": "node scripts/check-report-card.mjs",
+    "check:edit-lock": "node scripts/check-edit-lock.mjs",
+    "check:admin-lock": "node scripts/check-admin-lock.mjs",
+    "check:registrar-flow": "node scripts/check-registrar-flow.mjs",
+    "check:registrar": "node scripts/check-registrar-ui.mjs",
     "seed:students": "node scripts/seed-students.mjs",
     "seed:staff": "node scripts/seed-staff.mjs",
     "provision:accounts": "node scripts/provision-accounts.mjs"

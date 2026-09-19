@@ -24,7 +24,8 @@
 
       <section data-panel="grades" class="hidden">
         <div class="admin-page-head"><div><h2>Grades</h2></div></div>
-        <section class="admin-table-wrap"><table><thead><tr><th>School Year</th><th>Subject</th><th>Grade</th><th>Remarks</th></tr></thead><tbody id="grades-table"><tr><td colspan="4">Loading grades...</td></tr></tbody></table></section>
+        <p id="grades-average" class="admin-note"></p>
+        <section class="admin-table-wrap"><table><thead><tr><th>School Year</th><th>Subject</th><th>Grade</th><th>Letter</th><th>Remarks</th></tr></thead><tbody id="grades-table"><tr><td colspan="5">Loading grades...</td></tr></tbody></table></section>
       </section>
 
       <section data-panel="schedule" class="hidden">
@@ -55,13 +56,15 @@
           <input type="file" id="profile-picture-input" accept="image/png,image/jpeg,image/webp">
           <button class="admin-primary" type="button" id="save-picture" style="margin-top:10px">Save</button>
         </section>
-        <section class="admin-table-wrap" style="margin-top:20px"><div class="admin-section-title"><h3>Attendance Record</h3></div><table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody id="attendance-table"><tr><td colspan="2">Loading attendance...</td></tr></tbody></table></section>
+        <section class="admin-table-wrap" style="margin-top:20px"><div class="admin-section-title"><h3>Attendance Record</h3></div><p id="attendance-summary" class="admin-note"></p><table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody id="attendance-table"><tr><td colspan="2">Loading attendance...</td></tr></tbody></table></section>
       </section>
     </main>
     <script type="module">
       import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
       import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
+      import { attendanceSummaryLine } from './attendance.js'
+      import { generalAverage, letterGrade } from './grades.js'
       applyUiTheme()
       const user = await requireRole(4)
       if (!user) throw new Error('Unauthorized')
@@ -129,10 +132,13 @@
 
       async function loadGrades() {
         const table = document.getElementById('grades-table')
-        if (!user.student_id) return table.innerHTML = '<tr><td colspan="4">No student record linked.</td></tr>'
-        const { data, error } = await supabase.from('academic_history').select('school_year,subject,grade,remarks').eq('student_id', user.student_id).order('school_year', { ascending: false })
-        if (error) return table.innerHTML = `<tr><td colspan="4">${escape(error.message)}</td></tr>`
-        table.innerHTML = (data || []).map(g => `<tr><td>${escape(g.school_year)}</td><td>${escape(g.subject)}</td><td>${escape(g.grade)}</td><td>${escape(g.remarks || '-')}</td></tr>`).join('') || '<tr><td colspan="4">No grades recorded yet.</td></tr>'
+        if (!user.student_id) return table.innerHTML = '<tr><td colspan="5">No student record linked.</td></tr>'
+        const { data, error } = await supabase.from('academic_history').select('school_year,subject,grade,letter_grade,remarks').eq('student_id', user.student_id).order('school_year', { ascending: false })
+        if (error) return table.innerHTML = `<tr><td colspan="5">${escape(error.message)}</td></tr>`
+        const rows = data || []
+        table.innerHTML = rows.map(g => `<tr><td>${escape(g.school_year)}</td><td>${escape(g.subject)}</td><td>${escape(g.grade)}</td><td>${escape(g.letter_grade || letterGrade(g.grade)?.letter || '')}</td><td>${escape(g.remarks || '-')}</td></tr>`).join('') || '<tr><td colspan="5">No grades recorded yet.</td></tr>'
+        const average = generalAverage(rows.filter(g => g.school_year === schoolYear))
+        document.getElementById('grades-average').textContent = average == null ? '' : `General Average (${schoolYear}): ${average} (${letterGrade(average)?.letter || '-'})`
       }
 
       async function loadAnnouncements() {
@@ -145,9 +151,13 @@
       async function loadAttendance() {
         const table = document.getElementById('attendance-table')
         if (!user.student_id) return table.innerHTML = '<tr><td colspan="2">No student record linked.</td></tr>'
-        const { data, error } = await supabase.from('attendance').select('attendance_date,status').eq('student_id', user.student_id).order('attendance_date', { ascending: false }).limit(20)
-        if (error) return table.innerHTML = `<tr><td colspan="2">${escape(error.message)}</td></tr>`
-        table.innerHTML = (data || []).map(a => `<tr><td>${new Date(a.attendance_date).toLocaleDateString()}</td><td>${escape(a.status)}</td></tr>`).join('') || '<tr><td colspan="2">No attendance recorded yet.</td></tr>'
+        const [totals, history] = await Promise.all([
+          supabase.rpc('attendance_totals', { p_student_id: user.student_id, p_school_year: schoolYear || null }),
+          supabase.from('attendance').select('attendance_date,status').eq('student_id', user.student_id).order('attendance_date', { ascending: false }).limit(20)
+        ])
+        document.getElementById('attendance-summary').textContent = totals.error ? totals.error.message : attendanceSummaryLine(totals.data)
+        if (history.error) return table.innerHTML = `<tr><td colspan="2">${escape(history.error.message)}</td></tr>`
+        table.innerHTML = (history.data || []).map(a => `<tr><td>${new Date(a.attendance_date).toLocaleDateString()}</td><td>${escape(a.status)}</td></tr>`).join('') || '<tr><td colspan="2">No attendance recorded yet.</td></tr>'
       }
 
       document.getElementById('save-picture').onclick = async () => {
