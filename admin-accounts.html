@@ -22,13 +22,13 @@
   const user = await requireRole(1)
   if (!user) throw new Error('Unauthorized')
   mountProfile(user, 'Administrator', signOut)
-  hideLoadingScreen()
   mountSidebar([
     { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
     { label: 'Manage Accounts', href: '/admin-accounts.html', active: true, icon: '▣' },
     { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
     { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
     { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
+    { label: 'Manage Schedules', href: '/admin-schedules.html', icon: '▱' },
     { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' },
     { label: 'Audit Trail', href: '/admin-audit.html', icon: '▤' }
   ], 'Administrative<br>Control')
@@ -95,7 +95,8 @@
   document.getElementById('account-search').oninput = renderAccounts
   document.getElementById('account-role').onchange = renderAccounts
   document.getElementById('close-account-details').onclick = () => document.getElementById('account-details-modal').classList.add('hidden')
-  loadAccounts()
+  await loadAccounts()
+  hideLoadingScreen()
 </script>
 </body>
 </html>

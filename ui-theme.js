@@ -109,8 +109,14 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .admin-modal-head button { border:0; background:#eaf1ff; color:var(--ui-blue-dark); border-radius:4px; padding:5px 9px; cursor:pointer }
 .admin-modal-box form { display:grid; grid-template-columns:1fr 1fr; gap:14px }
 .faculty-assign-box { width:min(100%, 620px) !important; }
+.faculty-assign-box form { grid-template-columns:1fr; }
 .assignment-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 14px; max-height:55vh; overflow:auto; border:1px solid var(--ui-border); border-radius:6px; padding:8px; }
 .assignment-list .admin-check { min-width:0; }
+.moderator-box { width:min(100%, 760px) !important; }
+.moderator-box table { min-width:0 !important; }
+.moderator-box .table-scroll { max-height:55vh; }
+.moderator-picker { margin-left:8px; }
+#selected-moderator { display:inline-block; margin-left:8px; }
 .faculty-details-box { width:min(100%, 720px) !important; }
 .faculty-details-box h4 { color:var(--ui-blue-dark); margin:20px 0 8px; }
 .faculty-details-box ul { margin:0; padding-left:20px; color:var(--ui-text); }
@@ -123,7 +129,7 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .profile-crop-box { width:min(100%,420px) !important; }
 .profile-crop-box canvas { display:block; width:240px; height:240px; margin:0 auto 14px; background:#102a43; border-radius:6px; }
 .profile-crop-box label { display:block; margin-top:8px; }
-@media (max-width:700px) { header:not(.profile-header) { margin-left:0; padding:1rem 1.25rem } .admin-sidebar { position:static; width:100%; min-height:0; display:block }.admin-sidebar nav { flex-direction:row; flex-wrap:wrap }.admin-sidebar nav a { border:0 }.admin-sidebar-logo { display:block; margin:0 auto 12px }.admin-sidebar ~ main { margin-left:0; padding:20px 14px } body.has-app-sidebar > main { margin-left:0; padding:20px 14px } .admin-page-head { align-items:flex-start; flex-direction:column } .admin-modal-box form { grid-template-columns:1fr } }
+@media (max-width:700px) { header:not(.profile-header) { margin-left:0; padding:1rem 1.25rem } .admin-sidebar { position:static; width:100%; min-height:0; display:block }.admin-sidebar nav { flex-direction:row; flex-wrap:wrap }.admin-sidebar nav a { border:0 }.admin-sidebar-logo { display:block; margin:0 auto 12px }.admin-sidebar ~ main { margin-left:0; padding:20px 14px } body.has-app-sidebar > main { margin-left:0; padding:20px 14px } .admin-page-head { align-items:flex-start; flex-direction:column } .admin-modal-box form { grid-template-columns:1fr } .assignment-list { grid-template-columns:1fr; } .moderator-picker, #selected-moderator { margin-left:0; } #selected-moderator { display:block; margin-top:8px; } }
 @media (max-width:700px) { .login-layout { grid-template-columns:1fr } .login-photo { display:none } }
 @media (max-width:700px) { body.has-app-sidebar > #tcsms-loading-screen { left:0 !important; width:100% !important; } }
 .main, .card, .student-directory {
@@ -344,9 +350,9 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .app-sidebar .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: var(--sidebar-curve);      /* gap = curve size, so neighbouring curves never overlap */
+  gap: 14px;
   margin-top: 0;
-  padding: 24px 0 20px 0;
+  padding: 18px 0 16px 0;
   background: transparent;
   min-height: calc(100vh - 120px);
 }
@@ -356,15 +362,15 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
   grid-template-columns: var(--sidebar-rail) minmax(0, 1fr);
   align-items: center;
   width: calc(100% - 12px);       /* runs all the way to the sidebar's right edge */
-  min-height: 42px;
+  min-height: 36px;
   box-sizing: border-box;
   margin-left: 12px;
-  padding: 0 20px 0 0;
+  padding: 0 16px 0 0;
   border: 0;
   background: transparent;
   color: var(--sidebar-text);
   background: var(--sidebar-unselected);
-  font: 700 15px/1.25 Arial, 'Helvetica Neue', sans-serif;
+  font: 700 14px/1.2 Arial, 'Helvetica Neue', sans-serif;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
@@ -376,7 +382,7 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
   display: grid;
   place-items: center;
   width: var(--sidebar-rail);
-  height: 42px;
+  height: 36px;
   color: inherit;
   font-weight: 600;
   text-align: center;
@@ -412,7 +418,7 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
   animation: sidebar-tab-in .28s ease both;
 }
 @keyframes sidebar-tab-in {
-  from { opacity: .5; transform: translateX(10px); }
+  from { opacity: 1; transform: translateX(10px); }
   to { opacity: 1; transform: translateX(0); }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -443,7 +449,6 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 body.has-app-sidebar > header { display:none; }
 body.has-app-sidebar > main { margin-left:244px; max-width:none; padding:36px 36px; }
 body.has-app-sidebar > .app-sidebar { position:fixed; inset:0 auto 0 0; z-index:90; }
-body.has-app-sidebar > #tcsms-loading-screen { left:244px !important; right:auto !important; width:calc(100% - 244px) !important; }
 /* Mobile: sidebar becomes a top bar with wrapped pill links.
    Placed AFTER the desktop rules above so it actually overrides them. */
 @media (max-width:700px) {
@@ -622,14 +627,15 @@ export async function withBusy(button, busyLabel, action) {
 }
 
 export function applyUiTheme() {
+  if (!document.getElementById('shared-ui-theme')) {
+    const style = document.createElement('style');
+    style.id = 'shared-ui-theme';
+    style.textContent = sharedTheme;
+    document.head.appendChild(style);
+  }
   installSpamGuard();
   installTableSort();
   installGlobalErrorHandler();
-  if (document.getElementById('shared-ui-theme')) return;
-  const style = document.createElement('style');
-  style.id = 'shared-ui-theme';
-  style.textContent = sharedTheme;
-  document.head.appendChild(style);
 }
 
 export function mountSidebar(items, brand) {
@@ -725,7 +731,7 @@ export function mountProfile(user, roleLabel, onSignOut) {
     const profileResult = user.student_id
       ? await supabase.from('students').select('first_name,last_name,profile_picture_url').eq('student_id', user.student_id).maybeSingle()
       : Number(user.role_id) === 1
-        ? await supabase.from('admins').select('first_name,last_name').eq('user_id', user.user_id).maybeSingle()
+        ? await supabase.from('admins').select('first_name,middle_name,last_name').eq('user_id', user.user_id).maybeSingle()
         : await supabase.from('staff_profiles').select('first_name,last_name').eq('user_id', user.user_id).maybeSingle();
     const accountResult = await supabase.from('users').select('profile_picture_url').eq('user_id', user.user_id).maybeSingle();
     const data = profileResult.data || {};
@@ -767,7 +773,7 @@ function openProfileModal(user, roleLabel, profile) {
     const profileResult = user.student_id
       ? await supabase.from('students').select('first_name,middle_name,last_name,profile_picture_url').eq('student_id', user.student_id).maybeSingle()
       : Number(user.role_id) === 1
-        ? await supabase.from('admins').select('first_name,last_name').eq('user_id', user.user_id).maybeSingle()
+        ? await supabase.from('admins').select('first_name,middle_name,last_name').eq('user_id', user.user_id).maybeSingle()
         : await supabase.from('staff_profiles').select('first_name,middle_name,last_name').eq('user_id', user.user_id).maybeSingle();
     const pictureResult = await supabase.from('users').select('profile_picture_url').eq('user_id', user.user_id).maybeSingle();
     if (profileResult.error) return window.alert(`Could not load your profile details: ${profileResult.error.message}`);

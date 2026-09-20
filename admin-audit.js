@@ -5,7 +5,6 @@ import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
 applyUiTheme()
 const user = await requireRole(1)
 if (user) mountProfile(user, 'Administrator', signOut)
-hideLoadingScreen()
 
 mountSidebar([
   { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
@@ -13,6 +12,7 @@ mountSidebar([
   { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
   { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
   { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
+  { label: 'Manage Schedules', href: '/admin-schedules.html', icon: '▱' },
   { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' },
   { label: 'Audit Trail', href: '/admin-audit.html', active: true, icon: '▤' }
 ], 'Administrative<br>Control')
@@ -61,3 +61,4 @@ document.getElementById('audit-date').onchange = loadAuditArchive
 document.getElementById('export-audit').onclick = exportAudit
 await loadAudit()
 await loadAuditArchive()
+hideLoadingScreen()

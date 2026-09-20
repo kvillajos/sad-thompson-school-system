@@ -21,7 +21,6 @@ const user = await requireRole(2)
 if (!user) throw new Error('Unauthorized')
 
 mountProfile(user, 'Registrar', signOut)
-hideLoadingScreen()
 
 mountSidebar([
   { label: 'Manage Enrollment', tab: 'enrollment', active: true, icon: '▣' },
@@ -843,5 +842,6 @@ async function init(){
   await loadAcademic()
   renderPromotionExclusions()
   await refreshShiftSections()
+  hideLoadingScreen()
 }
 init()

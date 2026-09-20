@@ -114,14 +114,7 @@ export function installTableSort(doc = document) {
     })
   }
 
-  let scheduled = false
-  const schedule = () => {
-    if (scheduled) return
-    scheduled = true
-    const run = () => { scheduled = false; refresh() }
-    if (typeof window !== 'undefined') window.requestAnimationFrame(run)
-    else run()
-  }
+  const schedule = () => refresh()
 
   // Tables re-render through innerHTML all over this app, so re-apply the remembered
   // sort whenever rows land. ponytail: one document-wide observer for ~20 small tables;

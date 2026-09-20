@@ -21,13 +21,13 @@
   const user = await requireRole(1)
   if (!user) throw new Error('Unauthorized')
   mountProfile(user, 'Administrator', signOut)
-  hideLoadingScreen()
   mountSidebar([
     { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
     { label: 'Manage Accounts', href: '/admin-accounts.html', icon: '▣' },
     { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
     { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
     { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
+    { label: 'Manage Schedules', href: '/admin-schedules.html', icon: '▱' },
     { label: 'Curriculum Review', href: '/admin-curriculum.html', active: true, icon: '☷' },
     { label: 'Audit Trail', href: '/admin-audit.html', icon: '▤' }
   ], 'Administrative<br>Control')
@@ -43,7 +43,8 @@
     document.getElementById('schedule-count').textContent = schedules.error ? '!' : schedules.data.length
   }
   document.getElementById('refresh-summary').onclick = loadSummary
-  loadSummary()
+  await loadSummary()
+  hideLoadingScreen()
 </script>
 </body>
 </html>

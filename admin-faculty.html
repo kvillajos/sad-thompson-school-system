@@ -24,13 +24,13 @@
   const user = await requireRole(1)
   if (!user) throw new Error('Unauthorized')
   mountProfile(user, 'Administrator', signOut)
-  hideLoadingScreen()
   mountSidebar([
     { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
     { label: 'Manage Accounts', href: '/admin-accounts.html', icon: '▣' },
     { label: 'Manage Faculty', href: '/admin-faculty.html', active: true, icon: '♙' },
     { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
     { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
+    { label: 'Manage Schedules', href: '/admin-schedules.html', icon: '▱' },
     { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' },
     { label: 'Audit Trail', href: '/admin-audit.html', icon: '▤' }
   ], 'Administrative<br>Control')
@@ -108,7 +108,8 @@
     openFacultyDetails(profileId)
   }
   document.getElementById('faculty-search').oninput = renderFaculty
-  loadFaculty()
+  await loadFaculty()
+  hideLoadingScreen()
 </script>
 </body>
 </html>

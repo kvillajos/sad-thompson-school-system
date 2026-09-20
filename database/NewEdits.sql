@@ -134,9 +134,11 @@ create table if not exists admins (
 	user_id bigint not null unique references users(user_id) on delete cascade,
 	employee_code varchar not null unique,
 	first_name varchar not null,
+	middle_name varchar,
 	last_name varchar not null,
 	created_at timestamptz not null default now()
 );
+alter table admins add column if not exists middle_name varchar;
 alter table admins enable row level security;
 drop policy if exists admins_read_self_or_admin on admins;
 create policy admins_read_self_or_admin on admins for select to authenticated
@@ -168,7 +170,7 @@ begin
 	if nullif(trim(p_first_name), '') is null or nullif(trim(p_last_name), '') is null then raise exception 'First and last name are required'; end if;
 	if nullif(trim(p_email), '') is null then raise exception 'Email is required'; end if;
 	if exists (select 1 from users where lower(email) = lower(trim(p_email)) and user_id <> actor.user_id) then raise exception 'That email is already in use'; end if;
-	select jsonb_build_object('first_name', coalesce(ad.first_name, sp.first_name, st.first_name, ''), 'middle_name', coalesce(sp.middle_name, st.middle_name, ''), 'last_name', coalesce(ad.last_name, sp.last_name, st.last_name, ''), 'email', actor.email)
+	select jsonb_build_object('first_name', coalesce(ad.first_name, sp.first_name, st.first_name, ''), 'middle_name', coalesce(ad.middle_name, sp.middle_name, st.middle_name, ''), 'last_name', coalesce(ad.last_name, sp.last_name, st.last_name, ''), 'email', actor.email)
 		into before_data from (select 1) x left join admins ad on ad.user_id = actor.user_id left join staff_profiles sp on sp.user_id = actor.user_id left join students st on st.student_id = actor.student_id;
 	after_data := jsonb_build_object('first_name', trim(p_first_name), 'middle_name', coalesce(nullif(trim(p_middle_name), ''), ''), 'last_name', trim(p_last_name), 'email', lower(trim(p_email)));
 	insert into profile_change_requests(user_id, before_data, after_data) values (actor.user_id, before_data, after_data) returning profile_change_requests.request_id into new_request_id;

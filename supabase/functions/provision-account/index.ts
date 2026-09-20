@@ -70,8 +70,8 @@ Deno.serve(async (req) => {
         const { data: adminProfile, error: profileLookupError } = await admin.from('admins').select('admin_id').eq('user_id', request.user_id).maybeSingle()
         if (profileLookupError) return json({ error: profileLookupError.message }, 500)
         const profileResult = adminProfile
-          ? await admin.from('admins').update({ first_name: after.first_name, last_name: after.last_name }).eq('admin_id', adminProfile.admin_id)
-          : await admin.from('admins').insert({ user_id: request.user_id, employee_code: `ADM-${request.user_id}`, first_name: after.first_name, last_name: after.last_name })
+          ? await admin.from('admins').update(profileData).eq('admin_id', adminProfile.admin_id)
+          : await admin.from('admins').insert({ user_id: request.user_id, employee_code: `ADM-${request.user_id}`, ...profileData })
         if (profileResult.error) return json({ error: profileResult.error.message }, 500)
       } else {
         const { data: staffProfile, error: profileLookupError } = await admin.from('staff_profiles').select('profile_id').eq('user_id', request.user_id).maybeSingle()

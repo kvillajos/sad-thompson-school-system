@@ -27,6 +27,7 @@
     "check:sidebar": "node scripts/check-sidebar-notch.mjs",
     "seed:students": "node scripts/seed-students.mjs",
     "seed:staff": "node scripts/seed-staff.mjs",
+    "seed:admins": "node scripts/seed-admins.mjs",
     "provision:accounts": "node scripts/provision-accounts.mjs"
   },
   "keywords": [],
