@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
     <title>Administrative Control Module | TCSMS</title>
   </head>
   <body class="admin-shell">
@@ -12,7 +13,7 @@
       <p class="loading-subtitle" style="margin:0;color:#bcccdc;font-size:.85rem">Preparing your workspace</p>
       <div class="loading-spinner" aria-hidden="true" style="width:1.25rem;height:1.25rem;margin-top:.8rem;border:2px solid rgba(255,255,255,.25);border-top-color:#f0b429;border-radius:50%"></div>
     </div>
-    <main><div class="admin-page-head"><div><h2>Admin Dashboard</h2><p>Review pending registrar requests and confirm administrative changes.</p></div></div><section class="admin-table-wrap"><div class="admin-section-title"><h3>Pending Admission Applications</h3><small>Current Term: 1st Semester</small></div><table><thead><tr><th>Request Type</th><th>Details</th><th>Requested By</th><th>Status</th><th>Action</th></tr></thead><tbody id="pending-table"><tr><td colspan="5">Loading pending requests...</td></tr></tbody></table></section><section class="admin-table-wrap admin-announcements"><div class="admin-section-title"><h3>Announcements</h3><button id="add-announcement" class="admin-primary" type="button">+ Add</button></div><table><thead><tr><th>Title</th><th>Message</th><th>Posted</th></tr></thead><tbody id="announcements-table"><tr><td colspan="3">Loading announcements...</td></tr></tbody></table></section></main>
+    <main><div class="admin-page-head"><div><h2>Admin Dashboard</h2><p>Review pending registrar requests and confirm administrative changes.</p></div></div><section class="admin-table-wrap"><div class="admin-section-title"><h3>Pending Admission Applications</h3><small>Current Term: 1st Semester</small></div><table><thead><tr><th>Request Type</th><th>Details</th><th>Requested By</th><th>Status</th><th>Action</th></tr></thead><tbody id="pending-table"><tr><td colspan="5">Loading pending requests...</td></tr></tbody></table></section><section class="admin-table-wrap"><div class="admin-section-title"><h3>Pending Profile Changes</h3></div><table><thead><tr><th>Account</th><th>Before</th><th>After</th><th>Requested</th><th>Actions</th></tr></thead><tbody id="profile-requests-table"><tr><td colspan="5">Loading requests...</td></tr></tbody></table></section><section class="admin-table-wrap admin-announcements"><div class="admin-section-title"><h3>Announcements</h3><button id="add-announcement" class="admin-primary" type="button">+ Add</button></div><table><thead><tr><th>Title</th><th>Message</th><th>Posted</th></tr></thead><tbody id="announcements-table"><tr><td colspan="3">Loading announcements...</td></tr></table></section></main>
     <div id="announcement-modal" class="admin-modal hidden">
       <div class="admin-modal-box">
         <div class="admin-modal-head"><h3>New Announcement</h3><button type="button" id="close-announcement">x</button></div>
@@ -27,6 +28,7 @@
       <div class="admin-modal-box review-box">
         <div class="admin-modal-head"><h3>Review Admission Application</h3><button type="button" id="close-review">x</button></div>
         <div id="review-details" class="admin-full review-summary"></div>
+        <div class="admin-actions admin-full"><button type="button" id="view-enrollee-details" class="admin-secondary">View Documents &amp; Details</button></div>
         <label class="admin-full">Remarks<textarea id="review-remarks" rows="3" maxlength="500" placeholder="Optional notes for the registrar or guardian"></textarea></label>
         <p id="review-lock" class="admin-full review-countdown hidden"><span id="review-lock-text"></span></p>
         <p id="review-countdown" class="admin-full review-countdown">Please review the details above — decisions unlock in <span id="review-countdown-seconds">3</span>s...</p>
@@ -52,7 +54,8 @@
         { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
         { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
         { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
-        { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' }
+        { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' },
+        { label: 'Audit Trail', href: '/admin-audit.html', icon: '▤' }
       ], 'Administrative<br>Control')
 
       const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
@@ -70,6 +73,45 @@
           return `<tr><td>Admission Review</td><td>${escape(application.first_name)} ${escape(application.last_name)} - Grade ${escape(application.grade_level)}</td><td>Registrar</td><td>${escape(application.status)}${editing ? ' <b title="The registrar has this file open for correction.">✏️ editing</b>' : ''}</td><td><button class="admin-view" data-review="${application.id}">Review</button></td></tr>`
         }).join('') || '<tr><td colspan="5">No pending requests.</td></tr>'
         document.querySelectorAll('[data-review]').forEach(button => button.onclick = () => openReview(button.dataset.review))
+      }
+
+      async function loadProfileRequests() {
+        const table = document.getElementById('profile-requests-table')
+        const requestResult = await supabase.from('profile_change_requests').select('request_id,user_id,before_data,after_data,created_at').eq('status', 'pending').order('created_at', { ascending: false })
+        if (requestResult.error) return table.innerHTML = `<tr><td colspan="5">${escape(requestResult.error.message)}</td></tr>`
+        const requests = requestResult.data || []
+        const userIds = [...new Set(requests.map(request => request.user_id))]
+        const userResult = userIds.length ? await supabase.from('users').select('user_id,username,email').in('user_id', userIds) : { data: [], error: null }
+        if (userResult.error) return table.innerHTML = `<tr><td colspan="5">${escape(userResult.error.message)}</td></tr>`
+        const users = new Map((userResult.data || []).map(account => [account.user_id, account]))
+        table.innerHTML = requests.map(request => {
+          const account = users.get(request.user_id)
+          return `<tr><td>${escape(account?.username || account?.email || request.user_id)}</td><td>${escape(`${request.before_data.first_name} ${request.before_data.last_name} / ${request.before_data.email}`)}</td><td>${escape(`${request.after_data.first_name} ${request.after_data.last_name} / ${request.after_data.email}`)}</td><td>${new Date(request.created_at).toLocaleString()}</td><td><button class="admin-approve" data-profile-action="approve" data-request="${request.request_id}" data-user="${request.user_id}">Approve</button> <button class="admin-remove" data-profile-action="reject" data-request="${request.request_id}" data-user="${request.user_id}">Reject</button></td></tr>`
+        }).join('') || '<tr><td colspan="5">No pending profile changes.</td></tr>'
+        table.querySelectorAll('[data-profile-action]').forEach(button => button.onclick = () => reviewProfileChange(button.dataset.request, button.dataset.user, button.dataset.profileAction, button))
+      }
+
+      async function reviewProfileChange(requestId, userId, action, button) {
+        const originalLabel = button.textContent
+        button.disabled = true
+        button.textContent = action === 'approve' ? 'Approving...' : 'Rejecting...'
+        try {
+          const { error } = await supabase.functions.invoke('provision-account', { body: { user_id: Number(userId), action: `${action}-profile-change`, request_id: Number(requestId) } })
+          if (error) {
+            let message = error.message
+            try {
+              const details = await error.context?.json()
+              message = details?.error || details?.message || message
+            } catch {}
+            return window.alert(message)
+          }
+          await loadProfileRequests()
+        } catch (error) {
+          window.alert(error instanceof Error ? error.message : 'The profile change could not be processed.')
+        } finally {
+          button.disabled = false
+          button.textContent = originalLabel
+        }
       }
 
       let editingLocked = false
@@ -91,6 +133,31 @@
         document.getElementById('review-modal').classList.remove('hidden')
         startReviewCountdown()
       }
+
+      async function showEnrolleeDetails() {
+        if (!selectedApplication) return
+        const button = document.getElementById('view-enrollee-details')
+        await withBusy(button, 'Loading…', async () => {
+          const [applicationResult, documentsResult] = await Promise.all([
+            supabase.from('admission_applications').select('*').eq('id', selectedApplication.id).single(),
+            supabase.from('application_documents').select('document_type,original_name,file_path,uploaded_at').eq('application_id', selectedApplication.id).order('uploaded_at')
+          ])
+          if (applicationResult.error) return window.alert(applicationResult.error.message)
+          const a = applicationResult.data
+          const documents = documentsResult.data || []
+          const documentLinks = await Promise.all(documents.map(async document => {
+            const result = await supabase.storage.from('admission-documents').createSignedUrl(document.file_path, 600)
+            return `<li>${escape(document.document_type)}: ${result.error ? escape(result.error.message) : `<a href="${escape(result.data.signedUrl)}" target="_blank" rel="noopener">${escape(document.original_name)}</a>`}</li>`
+          }))
+          document.getElementById('review-details').innerHTML = `<div class="review-grid enrollee-details-grid">
+            <div><small>Student</small><p>${escape(`${a.first_name || ''} ${a.middle_name || ''} ${a.last_name || ''}`)}</p></div><div><small>Grade Level</small><p>${escape(a.grade_level || '-')}</p></div>
+            <div><small>Birth Date</small><p>${escape(a.birth_date || '-')}</p></div><div><small>Sex</small><p>${escape(a.sex || '-')}</p></div>
+            <div><small>Address</small><p>${escape(a.address || '-')}</p></div><div><small>Prior School</small><p>${escape(a.prior_school || '-')}</p></div>
+            <div><small>Guardian</small><p>${escape(a.guardian_name || '-')} (${escape(a.guardian_relationship || '-')})</p></div><div><small>Guardian Contact</small><p>${escape(a.guardian_phone || '-')} / ${escape(a.guardian_email || '-')}</p></div>
+          </div><h4>Uploaded Documents</h4><ul class="document-list">${documentLinks.join('') || '<li>No documents uploaded.</li>'}</ul>`
+        })
+      }
+      document.getElementById('view-enrollee-details').onclick = showEnrolleeDetails
 
       function startReviewCountdown() {
         const approveBtn = document.getElementById('approve-application')
@@ -147,7 +214,9 @@
       document.getElementById('decline-application').onclick = event => reviewApplication('rejected', event.currentTarget)
 
       await loadApplications()
+      await loadProfileRequests()
       setInterval(loadApplications, 30000)
+      setInterval(loadProfileRequests, 30000)
 
       async function loadAnnouncements() {
         const table = document.getElementById('announcements-table')

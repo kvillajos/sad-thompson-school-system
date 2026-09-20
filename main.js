@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured, showConfigurationError } from './auth-client.js'
-import { hideLoadingScreen } from './loading-screen.js'
+import { hideLoadingScreen, showLoadingScreen } from './loading-screen.js'
 import { applyUiTheme } from './ui-theme.js'
 
 applyUiTheme()
@@ -12,7 +12,7 @@ const messageDiv = document.getElementById('message')
 const dashboardPages = {
   1: '/admin-dashboard.html',
   2: '/student-records.html',
-  3: '/faculty-dashboard.html',
+  3: '/faculty/faculty-dashboard.html',
   4: '/student-dashboard.html'
 }
 
@@ -22,22 +22,7 @@ if (versionLabel) versionLabel.textContent = typeof __APP_VERSION__ === 'string'
 
 hideLoadingScreen()
 
-if (!isSupabaseConfigured) {
-  showConfigurationError()
-} else {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session) {
-    const { data: user } = await supabase
-      .from('users')
-      .select('role_id, is_active')
-      .eq('email', session.user.email)
-      .eq('is_active', true)
-      .single()
-
-    if (user && dashboardPages[user.role_id]) redirectToDashboard(user)
-    else await supabase.auth.signOut()
-  }
-}
+if (!isSupabaseConfigured) showConfigurationError()
 
 // Handle Login
 loginForm.addEventListener('submit', async (e) => {
@@ -51,8 +36,9 @@ loginForm.addEventListener('submit', async (e) => {
   const username = document.getElementById('username').value.trim()
   const password = document.getElementById('password').value
 
-  messageDiv.style.color = '#333'
-  messageDiv.textContent = 'Authenticating...'
+  const submitButton = loginForm.querySelector('[type="submit"]')
+  submitButton.disabled = true
+  showLoadingScreen()
 
   const { data: email, error: lookupError } = await supabase
     .rpc('find_login_email', { login_username: username })
@@ -60,6 +46,8 @@ loginForm.addEventListener('submit', async (e) => {
   if (lookupError || !email) {
     messageDiv.style.color = 'red'
     messageDiv.textContent = 'Invalid username or password!'
+    submitButton.disabled = false
+    hideLoadingScreen()
     return
   }
 
@@ -78,6 +66,8 @@ loginForm.addEventListener('submit', async (e) => {
   if (authError || profileError || !user || !dashboardPages[user.role_id]) {
     messageDiv.style.color = 'red'
     messageDiv.textContent = 'Invalid username or password!'
+    submitButton.disabled = false
+    hideLoadingScreen()
     return
   }
 

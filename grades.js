@@ -30,7 +30,7 @@ export function classOptions(schedules = []) {
 }
 
 // DepEd-style letter bands, cross-checked against the 75 passing mark batch_promote_students()
-// already enforces (database/supabase-migration.sql:239). One table so the grade sheet, the GPA
+// already enforces (database/backupsqlmigration.sql). One table so the grade sheet, the GPA
 // engine and the report card can never disagree; change the bands here and every reader follows.
 export const LETTER_GRADE_SCALE = [
   { min: 97, letter: 'A+', descriptor: 'Outstanding' },
@@ -50,7 +50,7 @@ export function letterGrade(value) {
 }
 
 // The single source of truth for Story 45: the mean of a student's stored subject grades
-// for one school year. Matches student_general_average (migration-v6-attendance-reports.sql).
+// for one school year. Matches student_general_average (database/backupsqlmigration.sql).
 export function generalAverage(records = []) {
   const grades = records.map(record => record.grade).filter(value => value != null && Number.isFinite(Number(value)))
   if (!grades.length) return null

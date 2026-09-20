@@ -1,5 +1,6 @@
 import { supabase } from './auth-client.js';
 import { installTableSort } from './table-sort.js';
+import { describeError } from './errors.js';
 
 const sharedTheme = `
 :root {
@@ -60,7 +61,7 @@ body {
 .login-panel .form-group { margin-bottom:8px }
 .login-panel form { width:100%; }
 .login-panel label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap }
-.login-panel input { display:block; width:100%; padding:.65rem .7rem; background:#e7ebf0; color:#172b4d; border:0; border-radius:10px; box-shadow:0 3px 10px rgba(0,0,0,.18); font-size:14px }
+.login-panel input { display:block; width:100%; box-sizing:border-box; padding:.65rem .7rem; background:#e7ebf0; color:#172b4d; border:0; border-radius:10px; box-shadow:0 3px 10px rgba(0,0,0,.18); font-size:14px }
 .login-panel button { display:block; width:100%; box-sizing:border-box; padding:.72rem; background:#2864c7; color:#fff; border:0; border-radius:10px; box-shadow:0 3px 10px rgba(0,0,0,.22); font-size:15px; cursor:pointer }
 .dashboard-info { background:#fff; padding:1rem; border-radius:8px; border:1px solid var(--ui-border); margin-bottom:1rem }
 .dashboard-info p { color:var(--ui-text) }
@@ -71,18 +72,19 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .welcome { padding:2rem; background:#fff; border-radius:8px; box-shadow:0 4px 20px rgba(7,27,58,.08) }
 .welcome h2 { color:var(--ui-blue-dark); font-size:22px }
 .admin-page-head { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:18px }
-.admin-sidebar { position:fixed; inset:0 auto 0 0; width:220px; z-index:90; display:flex; flex-direction:column; padding:18px 16px; background:var(--ui-navy); color:#fff }
+.admin-sidebar { position:fixed; inset:0 auto 0 0; width:220px; z-index:90; display:flex; flex-direction:column; padding:18px 16px; background:linear-gradient(180deg,#0d5ca8 0%,#0a4d8b 100%); color:#fff }
 .admin-brand { font-size:14px; font-weight:700; line-height:1.1; padding:0 8px 14px }
 .admin-sidebar-logo { width:66px; height:66px; object-fit:contain; margin:0 auto 18px }
 .admin-sidebar nav { display:flex; flex-direction:column; gap:0; margin-top:0 }
-.admin-sidebar nav a { display:flex; align-items:center; gap:8px; padding:11px 8px; color:#d8e3f7; border-bottom:1px solid rgba(255,255,255,.12); font-size:12px; font-weight:700; text-decoration:none }
+.admin-sidebar nav a { display:flex; align-items:center; gap:8px; padding:11px 8px; color:#dfeaff; border-bottom:1px solid rgba(255,255,255,.14); font-size:12px; font-weight:700; text-decoration:none }
 .admin-sidebar nav a::before { content:'▣'; width:18px; color:currentColor; text-align:center; }
 .admin-sidebar nav a:first-child::before { content:'⌂'; }
-.admin-sidebar nav a.active,.admin-sidebar nav a:hover { background:#17417e; color:#fff }
+.admin-sidebar nav a.active,.admin-sidebar nav a:hover { background:#dfeeff; color:#0d5ca8 }
 .admin-sidebar ~ main { margin-left:220px; max-width:none; padding:36px 36px; }
 .admin-page-head h2 { margin:0; color:var(--ui-blue-dark); font-size:24px }
 .admin-page-head p { margin:6px 0 0; color:var(--ui-muted) }
 .admin-primary { background:var(--ui-blue); color:#fff; border:0; border-radius:5px; padding:10px 14px; cursor:pointer; font-weight:700 }
+.admin-secondary { background:#eaf1ff; color:var(--ui-blue-dark); border:1px solid #c9dbfb; border-radius:5px; padding:8px 12px; cursor:pointer; font-weight:700 }
 .admin-filterbar { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 14px }
 .admin-filterbar input,.admin-filterbar select { min-width:180px; padding:9px; border:1px solid #b9c8dc; border-radius:5px; color:var(--ui-text); background:#fff }
 .admin-filterbar .admin-action { margin-left:auto }
@@ -96,6 +98,7 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .admin-table-wrap table { width:100%; border-collapse:collapse; min-width:760px }
 .admin-table-wrap th { background:var(--ui-navy); color:#fff; text-align:left; padding:10px; font-size:12px }
 .admin-table-wrap td { color:var(--ui-text); border-bottom:1px solid var(--ui-border); padding:10px; font-size:13px }
+.admin-table-wrap td { border-bottom:1px solid #d3dce8; }
 .admin-view,.admin-remove,.admin-approve { border:0; border-radius:4px; padding:6px 9px; margin-right:5px; cursor:pointer; font-size:12px }
 .admin-view { background:#eaf1ff; color:var(--ui-blue-dark) }
 .admin-remove { background:#fee2e2; color:var(--ui-danger) }
@@ -105,13 +108,24 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .admin-modal-head h3 { margin:0; color:var(--ui-blue-dark) }
 .admin-modal-head button { border:0; background:#eaf1ff; color:var(--ui-blue-dark); border-radius:4px; padding:5px 9px; cursor:pointer }
 .admin-modal-box form { display:grid; grid-template-columns:1fr 1fr; gap:14px }
+.faculty-assign-box { width:min(100%, 620px) !important; }
+.assignment-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 14px; max-height:55vh; overflow:auto; border:1px solid var(--ui-border); border-radius:6px; padding:8px; }
+.assignment-list .admin-check { min-width:0; }
+.faculty-details-box { width:min(100%, 720px) !important; }
+.faculty-details-box h4 { color:var(--ui-blue-dark); margin:20px 0 8px; }
+.faculty-details-box ul { margin:0; padding-left:20px; color:var(--ui-text); }
 .admin-modal-box label { color:var(--ui-text); font-weight:700; font-size:13px }
-.admin-modal-box input,.admin-modal-box select { width:100%; margin-top:6px; padding:9px; border:1px solid #b9c8dc; border-radius:5px; color:var(--ui-text); background:#fff }
+.admin-modal-box input,.admin-modal-box select,.admin-modal-box textarea { width:100%; box-sizing:border-box; margin-top:6px; padding:9px; border:1px solid #b9c8dc; border-radius:5px; color:var(--ui-text); background:#fff }
 .admin-full,.admin-actions { grid-column:1/-1 }
 .admin-actions { display:flex; justify-content:flex-end; gap:8px }
 .admin-cancel { border:0; border-radius:5px; padding:10px 14px; background:#fee2e2; color:var(--ui-danger); cursor:pointer }
-@media (max-width:700px) { header:not(.profile-header) { margin-left:0; padding:1rem 1.25rem } .admin-sidebar { position:static; width:100%; min-height:0; display:block }.admin-sidebar nav { flex-direction:row; flex-wrap:wrap }.admin-sidebar nav a { border:0 }.admin-sidebar-logo { display:block; margin:0 auto 12px }.admin-sidebar ~ main { margin-left:0; padding:20px 14px }.admin-page-head { align-items:flex-start; flex-direction:column } .admin-modal-box form { grid-template-columns:1fr } }
+.profile-picture-actions { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 5px; }
+.profile-crop-box { width:min(100%,420px) !important; }
+.profile-crop-box canvas { display:block; width:240px; height:240px; margin:0 auto 14px; background:#102a43; border-radius:6px; }
+.profile-crop-box label { display:block; margin-top:8px; }
+@media (max-width:700px) { header:not(.profile-header) { margin-left:0; padding:1rem 1.25rem } .admin-sidebar { position:static; width:100%; min-height:0; display:block }.admin-sidebar nav { flex-direction:row; flex-wrap:wrap }.admin-sidebar nav a { border:0 }.admin-sidebar-logo { display:block; margin:0 auto 12px }.admin-sidebar ~ main { margin-left:0; padding:20px 14px } body.has-app-sidebar > main { margin-left:0; padding:20px 14px } .admin-page-head { align-items:flex-start; flex-direction:column } .admin-modal-box form { grid-template-columns:1fr } }
 @media (max-width:700px) { .login-layout { grid-template-columns:1fr } .login-photo { display:none } }
+@media (max-width:700px) { body.has-app-sidebar > #tcsms-loading-screen { left:0 !important; width:100% !important; } }
 .main, .card, .student-directory {
   color: var(--ui-text) !important;
 }
@@ -160,7 +174,7 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .main td {
   color: var(--ui-text) !important;
   font-size: 13px !important;
-  border-color: var(--ui-border) !important;
+  border-bottom: 1px solid #d3dce8 !important;
 }
 .side {
   background: var(--ui-navy) !important;
@@ -175,21 +189,39 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
   color: #fff !important;
 }
 .profile-toggle {
-  display:flex;
+  display:flex !important;
   align-items:center;
   gap:10px;
-  min-width:190px;
-  min-height:42px;
-  padding:6px 10px !important;
+  width:212px !important;
+  min-height:53px;
+  box-sizing:border-box;
+  padding:6px 12px !important;
   border:1px solid #e1e8f2 !important;
   border-radius:9px !important;
   background:#fff !important;
   color: var(--ui-text) !important;
-  font-size: 13px !important;
+  font: 13px/1.2 Arial, 'Helvetica Neue', sans-serif !important;
+  cursor:pointer;
 }
 .profile-toggle strong,.profile-toggle small { display:block; text-align:left; }
 .profile-toggle small { margin-top:2px; color:#64748b; font-size:11px; }
-.profile-avatar { display:grid; place-items:center; width:34px; height:34px; flex:0 0 34px; border-radius:50%; background:#2161d1; color:#fff; font-weight:700; }
+.profile-avatar { display:grid; place-items:center; width:40px; height:40px; flex:0 0 40px; border-radius:50%; background:#2161d1; color:#fff; font-size:16px; font-weight:700; }
+.profile-avatar img { width:40px; height:40px; border-radius:50%; object-fit:cover; }
+.profile-readonly { margin:8px 0; color:var(--ui-muted); font-size:13px; }
+.profile-form { display:grid !important; grid-template-columns:1fr !important; gap:14px !important; }
+.profile-identity { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:center; }
+.profile-picture-preview { display:block; width:50px; height:50px; margin:0 auto 12px; border-radius:50%; object-fit:cover; border:2px solid #c9dbfb; background:#eaf1ff; }
+.profile-picture-placeholder { display:grid; place-items:center; color:#1756d1; font-weight:700; font-size:18px; }
+.profile-form > div:first-child { text-align:center; }
+.profile-form > label { display:block; }
+.profile-form > label input { box-sizing:border-box; margin-top:7px; }
+.profile-form input.has-value { color:#64748b !important; font-weight:400; }
+.profile-form input::placeholder { color:#64748b !important; opacity:1; font-weight:400; }
+.profile-identity { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; align-items:center; max-width:380px; margin:0 auto; text-align:left; }
+.profile-identity .profile-readonly { margin:8px 0 0; }
+.profile-picture-preview { display:block; width:96px; height:96px; margin:0 auto 16px; border-radius:50%; object-fit:cover; border:2px solid #c9dbfb; background:#eaf1ff; }
+.profile-picture-placeholder { display:grid; place-items:center; color:#1756d1; font-weight:700; font-size:28px; }
+.profile-modal-box { width:min(100%,520px) !important; }
 .profile-chevron { margin-left:8px; font-size:18px; }
 .floating-profile {
   position: fixed;
@@ -198,8 +230,8 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
   z-index: 100;
 }
 .floating-profile .profile-toggle {
-  min-width: 190px;
-  min-height: 42px;
+  width: 212px;
+  min-height: 53px;
   justify-content: flex-start;
   box-shadow: 0 3px 12px rgba(7,27,58,.1);
 }
@@ -207,7 +239,45 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .floating-profile .profile-toggle strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .floating-profile .profile-toggle small { display: block; margin-top: 3px; white-space: nowrap; }
 .floating-profile .profile-dropdown {
-  top: 48px;
+  top: 55px;
+  width: 212px;
+  box-sizing: border-box;
+}
+.profile-dropdown {
+  display:block !important;
+  position:absolute !important;
+  top:55px !important;
+  right:0 !important;
+  width:212px !important;
+  box-sizing:border-box;
+  padding:5px !important;
+  border:1px solid #dbe3ef !important;
+  border-radius:6px !important;
+  background:#fff !important;
+  box-shadow:0 5px 18px rgba(7,27,58,.14) !important;
+  overflow:hidden;
+}
+.profile-dropdown.hidden {
+  display:none !important;
+}
+.profile-dropdown button {
+  display:block !important;
+  width:100% !important;
+  box-sizing:border-box;
+  margin:0;
+  border:0 !important;
+  border-radius:4px !important;
+  background:#fff !important;
+  color:var(--ui-text) !important;
+  padding:9px 10px !important;
+  font: 12px/1.2 Arial, 'Helvetica Neue', sans-serif !important;
+  text-align:left !important;
+  cursor:pointer;
+}
+.profile-dropdown button:hover,
+.profile-dropdown button:focus-visible {
+  background:#eaf1ff !important;
+  color:var(--ui-blue) !important;
 }
 .new-enrollment-action {
   margin-left: auto !important;
@@ -222,22 +292,192 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .badge {
   font-size: 11px !important;
 }
-.app-sidebar { width:220px; min-height:100vh; box-sizing:border-box; background:var(--ui-navy); color:#fff; padding:18px 16px; }
-.app-sidebar .sidebar-brand { color:#fff; font-size:14px; font-weight:700; line-height:1.1; padding:0 8px 14px; }
-.app-sidebar .sidebar-logo { display:block; width:66px; height:66px; object-fit:contain; margin:0 auto 18px; }
-.app-sidebar .sidebar-nav { display:flex; flex-direction:column; gap:0; }
-.app-sidebar .sidebar-link { display:flex; align-items:center; gap:8px; width:100%; box-sizing:border-box; padding:11px 8px; border:0; border-bottom:1px solid rgba(255,255,255,.12); background:transparent; color:#d8e3f7; font:700 12px/1.45 Arial,'Helvetica Neue',sans-serif; text-align:left; text-decoration:none; cursor:pointer; }
-.app-sidebar .sidebar-link::before { content:var(--sidebar-icon, '▣'); width:18px; color:currentColor; text-align:center; }
-.app-sidebar .sidebar-link.active,.app-sidebar .sidebar-link:hover { background:#17417e; color:#fff; }
+/* ---- Sidebar: blue, with the active tab flooding into the page ----
+   The active tab uses the same color as the page body (--ui-bg) and two
+   curved "fillets" above and below it round off the blue, so the tab reads
+   as part of the main area. Change the colors in the variables below.        */
+.app-sidebar {
+  --sidebar-bg: #091c3c;
+  --sidebar-bg-end: #091c3c;
+  --sidebar-text: #fff;
+  --sidebar-unselected: #091c3c;
+  --sidebar-active-text: #091c3c; /* active link color           */
+  --sidebar-rail: 48px;
+  --sidebar-curve: 20px;          /* radius of the curved corners */
+  width: 244px;
+  min-height: 100vh;
+  box-sizing: border-box;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, var(--sidebar-bg-end) 100%);
+  color: #fff;
+  padding: 18px 0;
+  border-radius: 0 24px 24px 0;
+}
+.app-sidebar .sidebar-brand {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 18px 24px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+.app-sidebar .sidebar-logo {
+  position: static;
+  z-index: 2;
+  width: 145px;
+  height: 145px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 12px;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.25));
+}
+.app-sidebar .sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sidebar-curve);      /* gap = curve size, so neighbouring curves never overlap */
+  margin-top: 0;
+  padding: 24px 0 20px 0;
+  background: transparent;
+  min-height: calc(100vh - 120px);
+}
+.app-sidebar .sidebar-link {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--sidebar-rail) minmax(0, 1fr);
+  align-items: center;
+  width: calc(100% - 12px);       /* runs all the way to the sidebar's right edge */
+  min-height: 42px;
+  box-sizing: border-box;
+  margin-left: 12px;
+  padding: 0 20px 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--sidebar-text);
+  background: var(--sidebar-unselected);
+  font: 700 15px/1.25 Arial, 'Helvetica Neue', sans-serif;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 999px 0 0 999px;
+  transition: transform .18s ease, background-color .18s ease, color .18s ease;
+}
+.app-sidebar .sidebar-link .sidebar-icon {
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--sidebar-rail);
+  height: 42px;
+  color: inherit;
+  font-weight: 600;
+  text-align: center;
+}
+.app-sidebar .sidebar-link .sidebar-icon svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.app-sidebar .sidebar-link:hover:not(.active) {
+  background: #122b55;
+  transform: translateX(3px);
+}
+.app-sidebar .sidebar-link:focus-visible {
+  outline: 2px solid #bcd3ff;
+  outline-offset: -3px;
+}
+.app-sidebar .sidebar-link .sidebar-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Active tab: same color as the page, so it merges with the main area */
+.app-sidebar .sidebar-link.active {
+  z-index: 2;
+  color: var(--sidebar-active-text);
+  background: var(--ui-bg);
+  animation: sidebar-tab-in .28s ease both;
+}
+@keyframes sidebar-tab-in {
+  from { opacity: .5; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar .sidebar-link,
+  .app-sidebar .sidebar-link.active { animation: none; transition: none; }
+}
+.app-sidebar .sidebar-link.active::before,
+.app-sidebar .sidebar-link.active::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: var(--sidebar-curve);
+  height: var(--sidebar-curve);
+  pointer-events: none;
+}
+/* curve above the tab: quarter-circle left transparent so the blue shows through */
+.app-sidebar .sidebar-link.active::before {
+  top: calc(var(--sidebar-curve) * -1);
+  background: radial-gradient(circle at 0 0,
+    transparent calc(var(--sidebar-curve) - 0.5px), var(--ui-bg) var(--sidebar-curve));
+}
+/* curve below the tab */
+.app-sidebar .sidebar-link.active::after {
+  bottom: calc(var(--sidebar-curve) * -1);
+  background: radial-gradient(circle at 0 100%,
+    transparent calc(var(--sidebar-curve) - 0.5px), var(--ui-bg) var(--sidebar-curve));
+}
 body.has-app-sidebar > header { display:none; }
-body.has-app-sidebar > main { margin-left:220px; max-width:none; padding:36px 36px; }
+body.has-app-sidebar > main { margin-left:244px; max-width:none; padding:36px 36px; }
 body.has-app-sidebar > .app-sidebar { position:fixed; inset:0 auto 0 0; z-index:90; }
+body.has-app-sidebar > #tcsms-loading-screen { left:244px !important; right:auto !important; width:calc(100% - 244px) !important; }
+/* Mobile: sidebar becomes a top bar with wrapped pill links.
+   Placed AFTER the desktop rules above so it actually overrides them. */
+@media (max-width:700px) {
+  .app-sidebar,
+  body.has-app-sidebar > .app-sidebar { position: static; width: 100%; min-height: 0; overflow: visible; }
+  body.has-app-sidebar > main { margin-left: 0; padding: 20px 14px; }
+  body.has-app-sidebar > #tcsms-loading-screen { left: 0 !important; width: 100% !important; }
+  .app-sidebar .sidebar-brand { min-height: 64px; padding: 14px 60px 14px 16px; font-size: 15px; }
+  .app-sidebar .sidebar-logo { margin: 0 auto 8px; width: 42px; height: 42px; }
+  .app-sidebar .sidebar-nav { flex-direction: row; flex-wrap: wrap; gap: 8px; min-height: 0; padding: 4px 12px 14px; overflow: hidden; }
+  .app-sidebar .sidebar-link { flex: 1 1 180px; width: auto; margin-left: 0; min-height: 40px; grid-template-columns: 36px auto; padding-right: 16px; border-radius: 999px; font-size: 14px; }
+  .app-sidebar .sidebar-link .sidebar-icon { width: 36px; height: 40px; }
+  .app-sidebar .sidebar-link.active::before,
+  .app-sidebar .sidebar-link.active::after { display: none; }
+}
 .spam-guard-cooling { opacity: .6; cursor: not-allowed !important; pointer-events: none; }
 .review-box { width: min(100%, 560px); }
 .review-summary { margin-bottom: 14px; }
 .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 6px; }
 .review-grid small { display: block; color: var(--ui-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .review-grid p { margin: 4px 0 0; color: var(--ui-text); font-weight: 600; }
+.enrollee-details-grid { max-height:45vh; overflow:auto; }
+.document-list { margin:8px 0 0; padding-left:20px; color:var(--ui-text); }
+.document-list a { color:var(--ui-blue); font-weight:700; }
+.audit-export-controls { display:flex; align-items:center; gap:8px; }
+.audit-export-controls input { margin:0; padding:8px; border:1px solid #b9c8dc; border-radius:5px; color:var(--ui-text); }
+.audit-export-note { color:var(--ui-muted); font-size:12px; }
+.audit-print-area { display:none; }
+@media print {
+  body.printing-audit > *:not(.audit-print-area) { display:none !important; }
+  body.printing-audit .audit-print-area { display:block !important; padding:24px; color:#111; }
+  body.printing-audit .audit-print-area table { width:100%; border-collapse:collapse; }
+  body.printing-audit .audit-print-area th, body.printing-audit .audit-print-area td { padding:8px; border-bottom:1px solid #cbd5e1; text-align:left; font-size:11px; }
+}
 .review-countdown { margin: 10px 0 0; padding: 9px 12px; background: #fff4d6; color: var(--ui-warning); border-radius: 5px; font-size: 12px; font-weight: 700; }
 .admin-actions button[disabled] { opacity: .55; cursor: not-allowed; }
 .admin-modal-box textarea { width:100%; box-sizing:border-box; margin-top:6px; padding:9px; border:1px solid #b9c8dc; border-radius:5px; color:var(--ui-text); background:#fff; resize:vertical; min-height:72px; max-height:160px; font:inherit; }
@@ -263,6 +503,27 @@ button.btn-remove, .admin-remove { background:#fee2e2 !important; color:#c0392b 
 .modal .btn.danger { background:#b91c1c !important; color:#fff !important; border:1px solid #991b1b !important; }
 .modal button:disabled { opacity:.65; cursor:not-allowed; }
 .modalbox { max-height:90vh; overflow:auto; }
+.modalbox > .modalhead,
+.admin-modal-box > .admin-modal-head {
+  position:sticky;
+  top:-20px;
+  z-index:2;
+  padding:20px 0 12px;
+  margin-top:-20px;
+  background:#fff;
+}
+.admin-modal-box > .admin-modal-head { top:-20px; }
+.academic-history-box { width:min(100%, 1040px) !important; }
+.academic-profile-summary { display:flex; gap:22px; align-items:flex-start; margin:4px 0 22px; }
+.academic-profile-summary .review-grid { flex:1; margin:0; }
+.academic-profile-photo { width:148px; height:148px; flex:0 0 148px; border-radius:8px; object-fit:cover; border:1px solid var(--ui-border); background:#eaf1ff; }
+.academic-profile-photo.photo-preview-empty { display:grid; place-items:center; color:var(--ui-muted); font-size:12px; text-align:center; }
+.camera-box { width:min(100%, 560px) !important; }
+.camera-box video { display:block; width:100%; max-height:65vh; object-fit:cover; border-radius:6px; background:#071b3a; }
+.camera-box .admin-actions { margin-top:14px; }
+.selected-row { background:#eaf1ff; }
+.table-scroll { overflow:auto; max-height:360px; }
+.shift-student-picker table { min-width:0 !important; }
 .exclude-list input[type=checkbox] { width:auto; }
 .exclude-list label { display:block; padding:3px 0; font-weight:400; }
 .academic-scroll { overflow-x:auto; }
@@ -286,14 +547,19 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .modalbox h3 { color:var(--ui-blue-dark); margin:18px 0 8px; font-size:15px; }
 .modalbox table { width:100%; border-collapse:collapse; }
 .modalbox th, .modalbox td { text-align:left; padding:8px; border-bottom:1px solid var(--ui-border); font-size:12px; }
+.modalbox td { border-bottom-color:#d3dce8; }
 /* Registrar academic record card: printed from the page itself (see printAcademicCard). */
 .academic-print-card { display: none; }
 .report-print-card { display: none; }
+.transcript-print-card { display: none; }
 @media print {
+  @page { size: A4; margin: 12mm; }
   body.printing-card > *:not(.academic-print-card) { display: none !important; }
   body.printing-card .academic-print-card { display: block !important; padding: 18px; border: 2px solid var(--ui-navy); border-radius: 10px; background: #fff; }
   body.printing-report-card > *:not(.report-print-card) { display: none !important; }
   body.printing-report-card .report-print-card { display: block !important; padding: 18px; border: 2px solid var(--ui-navy); border-radius: 10px; background: #fff; }
+  body.printing-transcript > *:not(.transcript-print-card) { display: none !important; }
+  body.printing-transcript .transcript-print-card { display: block !important; padding: 18px; border: 2px solid var(--ui-navy); border-radius: 10px; background: #fff; }
 }
 .modalbox th { background:var(--ui-navy); color:#fff; }
 .login-panel .app-version { margin:14px 0 0; text-align:center; color:#93a7c4; font-size:11px; letter-spacing:.03em; }
@@ -322,6 +588,25 @@ function installSpamGuard() {
   }, true);
 }
 
+function installGlobalErrorHandler() {
+  if (window.__tcsmsErrorHandlerInstalled) return;
+  window.__tcsmsErrorHandlerInstalled = true;
+  window.addEventListener('unhandledrejection', event => {
+    event.preventDefault();
+    const toast = document.getElementById('toast') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'toast' });
+    toast.className = 'toast error';
+    toast.textContent = describeError(event.reason, 'Operation');
+    setTimeout(() => toast.classList.add('hidden'), 6000);
+  });
+  window.addEventListener('error', event => {
+    if (!event.error) return;
+    const toast = document.getElementById('toast') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'toast' });
+    toast.className = 'toast error';
+    toast.textContent = describeError(event.error, 'Page');
+    setTimeout(() => toast.classList.add('hidden'), 6000);
+  });
+}
+
 // Disables a button and swaps its label while an async action runs, restoring it after.
 export async function withBusy(button, busyLabel, action) {
   const originalLabel = button.textContent;
@@ -339,6 +624,7 @@ export async function withBusy(button, busyLabel, action) {
 export function applyUiTheme() {
   installSpamGuard();
   installTableSort();
+  installGlobalErrorHandler();
   if (document.getElementById('shared-ui-theme')) return;
   const style = document.createElement('style');
   style.id = 'shared-ui-theme';
@@ -347,17 +633,26 @@ export function applyUiTheme() {
 }
 
 export function mountSidebar(items, brand) {
+  const icons = {
+    '⌂': '<svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path></svg>',
+    '▣': '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M8 8h8v8H8z"></path></svg>',
+    '♙': '<svg viewBox="0 0 24 24"><path d="M12 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"></path><path d="m8 20 1-6 3-2 3 2 1 6"></path><path d="M6 20h12"></path></svg>',
+    '▤': '<svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="16"></rect><path d="M8 8h8M8 12h8M8 16h8"></path></svg>',
+    '♧': '<svg viewBox="0 0 24 24"><path d="M12 20v-5"></path><path d="M12 15a4 4 0 1 0-3-6 4 4 0 1 0 3 6Z"></path><path d="M12 15a4 4 0 1 0 3-6 4 4 0 1 0-3 6Z"></path></svg>',
+    '☷': '<svg viewBox="0 0 24 24"><path d="M4 6h4M12 6h8M4 12h8M16 12h4M4 18h4M12 18h8"></path></svg>'
+  };
   const existing = document.querySelector('.app-sidebar, .side, .admin-sidebar');
   if (existing) existing.remove();
   document.body.classList.add('has-app-sidebar');
   const sidebar = document.createElement('aside');
   sidebar.className = 'app-sidebar';
-  sidebar.innerHTML = `<div class="sidebar-brand">${brand}</div><img src="/assets/logo.png" alt="Thompson Christian School" class="sidebar-logo"><nav class="sidebar-nav"></nav>`;
+  sidebar.innerHTML = `<img src="/assets/logo.png" alt="Thompson Christian School" class="sidebar-logo"><div class="sidebar-brand">${brand}</div><nav class="sidebar-nav"></nav>`;
   const nav = sidebar.querySelector('.sidebar-nav');
   items.forEach(item => {
     const link = item.tab ? document.createElement('button') : document.createElement('a');
     link.className = 'sidebar-link';
-    link.textContent = item.label;
+    link.innerHTML = `<span class="sidebar-icon" aria-hidden="true">${icons[item.icon] || icons['▣']}</span><span class="sidebar-label"></span>`;
+    link.querySelector('.sidebar-label').textContent = item.label;
     link.dataset.icon = item.icon || '';
     if (item.tab) link.dataset.tab = item.tab;
     if (item.href) link.href = item.href;
@@ -382,7 +677,9 @@ export function mountProfile(user, roleLabel, onSignOut) {
   const profile = document.createElement('div');
   profile.className = 'floating-profile profile-menu';
   const name = user?.username || roleLabel;
-  profile.innerHTML = `<button class="profile-toggle" aria-expanded="false"><span class="profile-avatar">${String(name).charAt(0).toUpperCase()}</span><span><strong>${name}</strong><small>${roleLabel}</small></span><span class="profile-chevron">⌄</span></button><div class="profile-dropdown hidden"><button class="profile-change-password"><span aria-hidden="true">⚿</span> Change Password</button><button class="profile-signout"><span aria-hidden="true">↪</span> Sign Out</button></div>`;
+  const safeName = String(name).replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]));
+  const safeRole = String(roleLabel).replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]));
+  profile.innerHTML = `<button class="profile-toggle" aria-expanded="false"><span class="profile-avatar">${safeName.charAt(0).toUpperCase()}</span><span><strong>${safeName}</strong><small>${safeRole}</small></span><span class="profile-chevron">⌄</span></button><div class="profile-dropdown hidden"><button class="profile-edit"><span aria-hidden="true">✎</span> Edit Profile</button><button class="profile-change-password"><span aria-hidden="true">⚿</span> Change Password</button><button class="profile-signout"><span aria-hidden="true">↪</span> Sign Out</button></div>`;
   document.body.appendChild(profile);
   const toggle = profile.querySelector('.profile-toggle');
   const dropdown = profile.querySelector('.profile-dropdown');
@@ -390,12 +687,164 @@ export function mountProfile(user, roleLabel, onSignOut) {
     dropdown.classList.toggle('hidden');
     toggle.setAttribute('aria-expanded', String(!dropdown.classList.contains('hidden')));
   });
+  document.addEventListener('click', event => {
+    if (profile.contains(event.target)) return;
+    dropdown.classList.add('hidden');
+    toggle.setAttribute('aria-expanded', 'false');
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    dropdown.classList.add('hidden');
+    toggle.setAttribute('aria-expanded', 'false');
+  });
   profile.querySelector('.profile-signout').addEventListener('click', onSignOut);
+  profile.querySelector('.profile-edit').addEventListener('click', () => {
+    dropdown.classList.add('hidden');
+    openProfileModal(user, roleLabel, profile);
+  });
   profile.querySelector('.profile-change-password').addEventListener('click', () => {
     dropdown.classList.add('hidden');
     openPasswordModal();
   });
+  const avatar = profile.querySelector('.profile-avatar');
+  const setAvatar = (url, firstName, lastName) => {
+    avatar.textContent = '';
+    if (url) {
+      const image = document.createElement('img');
+      image.src = url;
+      image.alt = '';
+      image.width = 40;
+      image.height = 40;
+      avatar.appendChild(image);
+      return;
+    }
+    const initials = [firstName, lastName].filter(Boolean).map(value => value.trim().charAt(0)).join('').toUpperCase();
+    avatar.textContent = initials || safeName.charAt(0).toUpperCase();
+  };
+  const loadAvatar = async () => {
+    const profileResult = user.student_id
+      ? await supabase.from('students').select('first_name,last_name,profile_picture_url').eq('student_id', user.student_id).maybeSingle()
+      : Number(user.role_id) === 1
+        ? await supabase.from('admins').select('first_name,last_name').eq('user_id', user.user_id).maybeSingle()
+        : await supabase.from('staff_profiles').select('first_name,last_name').eq('user_id', user.user_id).maybeSingle();
+    const accountResult = await supabase.from('users').select('profile_picture_url').eq('user_id', user.user_id).maybeSingle();
+    const data = profileResult.data || {};
+    setAvatar(data.profile_picture_url || accountResult.data?.profile_picture_url, data.first_name, data.last_name);
+  };
+  loadAvatar();
   showLoginNotice();
+}
+
+function openProfileModal(user, roleLabel, profile) {
+  document.getElementById('tcsms-profile-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'tcsms-profile-modal';
+  modal.className = 'admin-modal';
+  const safeRole = String(roleLabel).replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]));
+  modal.innerHTML = `<div class="admin-modal-box profile-modal-box">
+    <div class="admin-modal-head"><h3>Edit Profile</h3><button type="button" id="tcsms-profile-close">x</button></div>
+    <form id="tcsms-profile-form" class="profile-form" novalidate>
+      <div><img id="tcsms-profile-preview" class="profile-picture-preview" alt="Current profile picture"><div class="profile-identity"><p class="profile-readonly"><b>Username:</b> ${String(user?.username || '-')}</p><p class="profile-readonly"><b>Role:</b> ${safeRole}</p></div></div>
+      <label class="admin-full">First Name<input id="tcsms-profile-first-name" maxlength="80" required></label>
+      <label class="admin-full">Middle Name<input id="tcsms-profile-middle-name" maxlength="80"></label>
+      <label class="admin-full">Last Name<input id="tcsms-profile-last-name" maxlength="80" required></label>
+      <label class="admin-full">Email<input id="tcsms-profile-email" type="email" data-current="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))}" placeholder="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))}" required></label>
+      <div class="admin-full"><label>Profile Picture</label><div class="profile-picture-actions"><input id="tcsms-profile-picture" type="file" accept="image/png,image/jpeg,image/webp" hidden><button type="button" class="admin-view" id="tcsms-profile-upload">Upload Image</button><button type="button" class="admin-view" id="tcsms-profile-camera">Use Camera</button><button type="button" class="admin-cancel" id="tcsms-profile-remove">Remove Existing</button></div><small>Images are cropped and saved as 50x50 pixels.</small></div>
+      <div class="admin-actions"><button type="button" id="tcsms-profile-cancel" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Confirm Changes</button></div>
+    </form>
+  </div>`;
+  document.body.appendChild(modal);
+  const setProfilePicture = url => {
+    const avatar = profile.querySelector('.profile-avatar');
+    const preview = modal.querySelector('#tcsms-profile-preview');
+    if (url) { preview.src = url; preview.classList.remove('profile-picture-placeholder'); }
+    else { preview.removeAttribute('src'); preview.classList.add('profile-picture-placeholder'); preview.alt = 'No profile picture'; preview.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='25' fill='%23eaf1ff'/%3E%3Ctext x='25' y='32' text-anchor='middle' fill='%231756d1' font-size='22' font-family='Arial'%3E${String(user?.username || roleLabel).charAt(0).toUpperCase()}%3C/text%3E%3C/svg%3E`; }
+    avatar.textContent = '';
+    if (url) { const image = document.createElement('img'); image.src = url; image.alt = ''; image.width = 40; image.height = 40; avatar.appendChild(image); }
+    else avatar.textContent = String(user?.username || roleLabel).charAt(0).toUpperCase();
+  };
+  const loadProfile = async () => {
+    const profileResult = user.student_id
+      ? await supabase.from('students').select('first_name,middle_name,last_name,profile_picture_url').eq('student_id', user.student_id).maybeSingle()
+      : Number(user.role_id) === 1
+        ? await supabase.from('admins').select('first_name,last_name').eq('user_id', user.user_id).maybeSingle()
+        : await supabase.from('staff_profiles').select('first_name,middle_name,last_name').eq('user_id', user.user_id).maybeSingle();
+    const pictureResult = await supabase.from('users').select('profile_picture_url').eq('user_id', user.user_id).maybeSingle();
+    if (profileResult.error) return window.alert(`Could not load your profile details: ${profileResult.error.message}`);
+    if (pictureResult.error) return window.alert(`Could not load your profile picture: ${pictureResult.error.message}`);
+    const data = profileResult.data || {};
+    [['#tcsms-profile-first-name', data.first_name], ['#tcsms-profile-middle-name', data.middle_name], ['#tcsms-profile-last-name', data.last_name]].forEach(([selector, value]) => {
+      const input = modal.querySelector(selector);
+      input.dataset.current = value || '';
+      input.placeholder = value || '';
+      input.classList.toggle('has-value', Boolean(value));
+    });
+    const email = modal.querySelector('#tcsms-profile-email');
+    email.classList.add('has-value');
+    setProfilePicture(data.profile_picture_url || pictureResult.data?.profile_picture_url);
+  };
+  modal.querySelectorAll('#tcsms-profile-first-name, #tcsms-profile-middle-name, #tcsms-profile-last-name, #tcsms-profile-email').forEach(input => {
+    input.addEventListener('input', () => input.classList.toggle('has-value', Boolean(input.value.trim())));
+    input.addEventListener('focus', () => {
+      if (!input.value && input.dataset.current) input.dataset.current = '';
+    }, { once: false });
+  });
+  loadProfile();
+  const close = () => modal.remove();
+  modal.querySelector('#tcsms-profile-close').addEventListener('click', close);
+  modal.querySelector('#tcsms-profile-cancel').addEventListener('click', close);
+  modal.querySelector('#tcsms-profile-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const valueFor = selector => { const input = modal.querySelector(selector); return input.value.trim() || input.dataset.current || ''; };
+    const firstName = valueFor('#tcsms-profile-first-name');
+    const middleName = valueFor('#tcsms-profile-middle-name');
+    const lastName = valueFor('#tcsms-profile-last-name');
+    const email = valueFor('#tcsms-profile-email');
+    if (!firstName || !lastName || !email) return window.alert('Enter your name and email.');
+    const result = await confirmProfileChange(user.email, () => supabase.rpc('submit_profile_change', { p_first_name: firstName, p_middle_name: middleName || null, p_last_name: lastName, p_email: email }));
+    if (!result) return;
+    if (modal.profilePictureBlob) {
+      const picture = modal.profilePictureBlob;
+      const path = `users/${user.user_id}/${crypto.randomUUID()}-${picture.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const upload = await supabase.storage.from('profile-pictures').upload(path, picture, { upsert: false });
+      if (upload.error) return window.alert(upload.error.message);
+      const publicUrl = supabase.storage.from('profile-pictures').getPublicUrl(path).data.publicUrl;
+      const pictureResult = await supabase.rpc('update_own_profile_picture', { p_url: publicUrl });
+      if (pictureResult.error) return window.alert(pictureResult.error.message);
+      setProfilePicture(publicUrl);
+    }
+    close();
+    window.alert('Profile changes submitted for administrator approval.');
+  });
+  const cropImage = (source, name = 'profile.png') => new Promise(resolve => {
+    const crop = document.createElement('div');
+    crop.className = 'admin-modal';
+    crop.innerHTML = `<div class="admin-modal-box profile-crop-box"><div class="admin-modal-head"><h3>Crop Profile Picture</h3><button type="button" data-crop-close>x</button></div><canvas width="240" height="240" id="tcsms-crop-canvas"></canvas><label>Zoom<input type="range" id="tcsms-crop-zoom" min="1" max="3" step="0.01" value="1"></label><label>Horizontal Position<input type="range" id="tcsms-crop-x" min="0" max="100" value="50"></label><label>Vertical Position<input type="range" id="tcsms-crop-y" min="0" max="100" value="50"></label><div class="admin-actions"><button type="button" class="admin-cancel" data-crop-cancel>Cancel</button><button type="button" class="admin-primary" data-crop-save>Use Cropped Image</button></div></div>`;
+    document.body.appendChild(crop);
+    const canvas = crop.querySelector('canvas'); const context = canvas.getContext('2d');
+    const draw = () => { const zoom = Number(crop.querySelector('#tcsms-crop-zoom').value); const side = Math.min(source.width, source.height) / zoom; const left = (source.width - side) * Number(crop.querySelector('#tcsms-crop-x').value) / 100; const top = (source.height - side) * Number(crop.querySelector('#tcsms-crop-y').value) / 100; context.clearRect(0, 0, 240, 240); context.drawImage(source, left, top, side, side, 0, 0, 240, 240); };
+    crop.querySelectorAll('input').forEach(input => input.addEventListener('input', draw)); draw();
+    const close = () => { crop.remove(); resolve(null); };
+    crop.querySelector('[data-crop-close]').onclick = crop.querySelector('[data-crop-cancel]').onclick = close;
+    crop.querySelector('[data-crop-save]').onclick = () => canvas.toBlob(blob => { crop.remove(); resolve(new File([blob], name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' })); }, 'image/png');
+  });
+  const chooseImage = file => { if (!file || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return window.alert('Use PNG, JPG, or WEBP for the profile picture.'); const image = new Image(); image.onload = async () => { modal.profilePictureBlob = await cropImage(image, file.name); }; image.src = URL.createObjectURL(file); };
+  modal.querySelector('#tcsms-profile-upload').onclick = () => modal.querySelector('#tcsms-profile-picture').click();
+  modal.querySelector('#tcsms-profile-picture').onchange = event => chooseImage(event.target.files?.[0]);
+  modal.querySelector('#tcsms-profile-camera').onclick = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ video: true }); const camera = document.createElement('div'); camera.className = 'admin-modal'; camera.innerHTML = `<div class="admin-modal-box camera-box"><div class="admin-modal-head"><h3>Take Profile Picture</h3><button type="button" data-camera-close>x</button></div><video autoplay playsinline style="width:100%"></video><div class="admin-actions"><button type="button" class="admin-cancel" data-camera-cancel>Cancel</button><button type="button" class="admin-primary" data-camera-capture>Capture</button></div></div>`; document.body.appendChild(camera); const video = camera.querySelector('video'); video.srcObject = stream; const stop = () => { stream.getTracks().forEach(track => track.stop()); camera.remove(); }; camera.querySelector('[data-camera-close]').onclick = camera.querySelector('[data-camera-cancel]').onclick = stop; camera.querySelector('[data-camera-capture]').onclick = async () => { const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.getContext('2d').drawImage(video, 0, 0); const image = new Image(); image.onload = async () => { stop(); modal.profilePictureBlob = await cropImage(image); }; image.src = canvas.toDataURL('image/png'); }; } catch { window.alert('Camera access was not available.'); } };
+  modal.querySelector('#tcsms-profile-remove').onclick = async () => { const result = await confirmProfileChange(user.email, () => supabase.rpc('remove_own_profile_picture')); if (result) { setProfilePicture(null); window.alert('Profile picture removed.'); } };
+}
+
+function confirmProfileChange(email, action) {
+  return new Promise(resolve => {
+    const prompt = document.createElement('div'); prompt.className = 'admin-modal';
+    prompt.innerHTML = `<div class="admin-modal-box" style="width:min(100%,420px)"><div class="admin-modal-head"><h3>Confirm Changes</h3><button type="button" data-password-close>x</button></div><p>Enter your password to confirm this change.</p><input type="password" data-profile-password autocomplete="current-password"><div class="admin-actions"><button type="button" class="admin-cancel" data-password-cancel>Cancel</button><button type="button" class="admin-primary" data-password-confirm>Confirm</button></div></div>`;
+    document.body.appendChild(prompt);
+    const close = () => { prompt.remove(); resolve(null); };
+    prompt.querySelector('[data-password-close]').onclick = prompt.querySelector('[data-password-cancel]').onclick = close;
+    prompt.querySelector('[data-password-confirm]').onclick = async () => { const password = prompt.querySelector('[data-profile-password]').value; if (!password) return window.alert('Enter your password.'); const confirmation = await supabase.auth.signInWithPassword({ email, password }); if (confirmation.error) return window.alert('Password verification failed.'); const result = await action(); prompt.remove(); resolve(result.error ? (window.alert(result.error.message), null) : result); };
+    prompt.querySelector('[data-profile-password]').focus();
+  });
 }
 
 function openPasswordModal() {

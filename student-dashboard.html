@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
     <title>Student Dashboard | TCSMS</title>
   </head>
   <body>
@@ -24,8 +25,16 @@
 
       <section data-panel="grades" class="hidden">
         <div class="admin-page-head"><div><h2>Grades</h2></div></div>
+        <div><label>School Year <select id="grade-year-filter"><option value="">All school years</option></select></label> <label>Semester <select id="grade-semester-filter"><option value="">Both semesters</option><option value="first">1st Semester</option><option value="second">2nd Semester</option></select></label></div>
         <p id="grades-average" class="admin-note"></p>
-        <section class="admin-table-wrap"><table><thead><tr><th>School Year</th><th>Subject</th><th>Grade</th><th>Letter</th><th>Remarks</th></tr></thead><tbody id="grades-table"><tr><td colspan="5">Loading grades...</td></tr></tbody></table></section>
+        <section class="admin-table-wrap"><table><thead><tr><th>School Year</th><th>Semester</th><th>Subject</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Grade</th><th>Letter</th><th>Remarks</th></tr></thead><tbody id="grades-table"><tr><td colspan="10">Loading grades...</td></tr></tbody></table></section>
+      </section>
+
+      <section data-panel="transcript" class="hidden">
+        <div class="admin-page-head"><div><h2>Unofficial Transcript</h2></div></div>
+        <label>School Year <select id="transcript-year-filter"><option value="">All school years</option></select></label>
+        <div id="transcript-preview" class="admin-table-wrap" style="margin-top:16px"></div>
+        <button class="admin-primary" id="print-unofficial-transcript" type="button">Print / Save as PDF</button>
       </section>
 
       <section data-panel="schedule" class="hidden">
@@ -59,12 +68,16 @@
         <section class="admin-table-wrap" style="margin-top:20px"><div class="admin-section-title"><h3>Attendance Record</h3></div><p id="attendance-summary" class="admin-note"></p><table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody id="attendance-table"><tr><td colspan="2">Loading attendance...</td></tr></tbody></table></section>
       </section>
     </main>
+    <section id="student-transcript-print" class="transcript-print-card" aria-hidden="true"></section>
     <script type="module">
       import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
       import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
       import { attendanceSummaryLine } from './attendance.js'
       import { generalAverage, letterGrade } from './grades.js'
+      import { semesterRows } from './semester-grades.js'
+      import { buildTranscript } from './transcript.js'
+      import { printElement } from './print.js'
       applyUiTheme()
       const user = await requireRole(4)
       if (!user) throw new Error('Unauthorized')
@@ -72,6 +85,7 @@
       mountSidebar([
         { label: 'Dashboard', tab: 'dashboard', active: true, icon: '⌂' },
         { label: 'Grades', tab: 'grades', icon: '♧' },
+        { label: 'Transcript', tab: 'transcript', icon: '▱' },
         { label: 'Schedule', tab: 'schedule', icon: '▤' },
         { label: 'Profile', tab: 'profile', icon: '☷' }
       ], 'Student Portal')
@@ -92,6 +106,7 @@
       let sectionId = null
       let sectionName = ''
       let schoolYear = ''
+      let gradeRows = []
 
       async function loadStudent() {
         if (!user.student_id) return
@@ -132,13 +147,32 @@
 
       async function loadGrades() {
         const table = document.getElementById('grades-table')
-        if (!user.student_id) return table.innerHTML = '<tr><td colspan="5">No student record linked.</td></tr>'
-        const { data, error } = await supabase.from('academic_history').select('school_year,subject,grade,letter_grade,remarks').eq('student_id', user.student_id).order('school_year', { ascending: false })
-        if (error) return table.innerHTML = `<tr><td colspan="5">${escape(error.message)}</td></tr>`
-        const rows = data || []
-        table.innerHTML = rows.map(g => `<tr><td>${escape(g.school_year)}</td><td>${escape(g.subject)}</td><td>${escape(g.grade)}</td><td>${escape(g.letter_grade || letterGrade(g.grade)?.letter || '')}</td><td>${escape(g.remarks || '-')}</td></tr>`).join('') || '<tr><td colspan="5">No grades recorded yet.</td></tr>'
-        const average = generalAverage(rows.filter(g => g.school_year === schoolYear))
-        document.getElementById('grades-average').textContent = average == null ? '' : `General Average (${schoolYear}): ${average} (${letterGrade(average)?.letter || '-'})`
+        if (!user.student_id) return table.innerHTML = '<tr><td colspan="10">No student record linked.</td></tr>'
+        const { data, error } = await supabase.from('academic_history').select('school_year,subject,grade,letter_grade,remarks,first_sem_q1,first_sem_q2,second_sem_q1,second_sem_q2').eq('student_id', user.student_id).order('school_year', { ascending: false })
+        if (error) return table.innerHTML = `<tr><td colspan="10">${escape(error.message)}</td></tr>`
+        gradeRows = data || []
+        const years = [...new Set(gradeRows.map(row => row.school_year).filter(Boolean))].sort().reverse()
+        document.getElementById('grade-year-filter').innerHTML = '<option value="">All school years</option>' + years.map(year => `<option>${escape(year)}</option>`).join('')
+        document.getElementById('transcript-year-filter').innerHTML = '<option value="">All school years</option>' + years.map(year => `<option>${escape(year)}</option>`).join('')
+        renderGrades()
+        renderTranscript()
+      }
+
+      function renderGrades() {
+        const year = document.getElementById('grade-year-filter').value
+        const semester = document.getElementById('grade-semester-filter').value
+        const rows = semesterRows(gradeRows).filter(row => (!year || row.school_year === year) && (!semester || row.semester === semester))
+        document.getElementById('grades-table').innerHTML = rows.map(g => `<tr><td>${escape(g.school_year)}</td><td>${escape(g.semesterLabel)}</td><td>${escape(g.subject)}</td><td>${escape(g.first_sem_q1 ?? '')}</td><td>${escape(g.first_sem_q2 ?? '')}</td><td>${escape(g.second_sem_q1 ?? '')}</td><td>${escape(g.second_sem_q2 ?? '')}</td><td>${escape(g.semesterGrade ?? g.grade ?? '')}</td><td>${escape(g.letter_grade || letterGrade(g.semesterGrade ?? g.grade)?.letter || '')}</td><td>${escape(g.remarks || '-')}</td></tr>`).join('') || '<tr><td colspan="10">No grades recorded yet.</td></tr>'
+        const averageRows = year ? gradeRows.filter(row => row.school_year === year) : gradeRows
+        const average = generalAverage(averageRows)
+        document.getElementById('grades-average').textContent = average == null ? '' : `General Average (${year || 'all school years'}): ${average} (${letterGrade(average)?.letter || '-'})`
+      }
+
+      function renderTranscript() {
+        const year = document.getElementById('transcript-year-filter').value
+        const html = buildTranscript({ student, rows: gradeRows, mode: 'unofficial', schoolYear: year, sectionName })
+        document.getElementById('transcript-preview').innerHTML = html
+        document.getElementById('student-transcript-print').innerHTML = html
       }
 
       async function loadAnnouncements() {
@@ -173,6 +207,11 @@
         document.getElementById('profile-picture-preview').src = publicUrlData.publicUrl
         window.alert('Profile picture updated.')
       }
+
+      document.getElementById('grade-year-filter').onchange = renderGrades
+      document.getElementById('grade-semester-filter').onchange = renderGrades
+      document.getElementById('transcript-year-filter').onchange = renderTranscript
+      document.getElementById('print-unofficial-transcript').onclick = () => printElement(document.getElementById('student-transcript-print'), 'printing-transcript')
 
       await loadStudent()
       await Promise.all([loadSchedule(), loadGrades(), loadAnnouncements(), loadAttendance()])

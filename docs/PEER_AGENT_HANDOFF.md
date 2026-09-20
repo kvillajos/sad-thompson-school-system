@@ -58,7 +58,7 @@ The agent must read the complete output of every command it runs. Do not claim s
 - Use `ui-theme.js` for shared sidebar and profile changes.
 - Use `auth-client.js` for role checks and sign-out.
 - Do not put Supabase service-role keys, passwords, or `.env` files in Git.
-- Apply `database/supabase-migration.sql` before testing newly added tables or policies.
+- Apply `database/backupsqlmigration.sql` before testing newly added tables or policies.
 - If Supabase reports a legacy table such as `student_enrollments` while the app uses `enrollments`, stop and reconcile the schema instead of guessing.
 
 ## Validation

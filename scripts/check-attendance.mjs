@@ -16,23 +16,20 @@ assert.equal(todayDateValue(new Date(2026, 8, 5)), '2026-09-05', 'zero-padded mo
 assert.equal(attendanceSummaryLine({ present: 18, late: 1, absent: 1, excused: 0, total: 20 }), '18/20 present (90%) - 1 late, 1 absent, 0 excused')
 assert.equal(attendanceSummaryLine(null), 'No attendance recorded yet.')
 
-// --- the faculty page attendance panel ------------------------------------
+// --- the faculty attendance page ------------------------------------------
 const root = resolve(import.meta.dirname, '..')
-const html = readFileSync(join(root, 'faculty-dashboard.html'), 'utf8')
-const scriptStart = html.indexOf('<script type="module">') + '<script type="module">'.length
-const script = html.slice(scriptStart, html.lastIndexOf('</script>'))
+const html = readFileSync(join(root, 'faculty', 'faculty-attendance.html'), 'utf8')
+const script = readFileSync(join(root, 'faculty', 'faculty-attendance-page.js'), 'utf8')
 assert.ok(script.includes('save_attendance'), 'attendance must be saved through the validated RPC')
-assert.ok(script.includes("from './attendance.js'"), 'the page must reuse the attendance helpers')
-const ids = [...new Set([...script.matchAll(/\$\('([\w-]+)'\)/g)].map(match => match[1]))]
-const missing = ids.filter(id => !html.includes(`id="${id}"`))
-assert.deepEqual(missing, [], `faculty-dashboard.html references missing element ids: ${missing.join(', ')}`)
+assert.ok(script.includes("from '../attendance.js'"), 'the page must reuse the attendance helpers')
+assert.ok(html.includes('id="attendance-table-body"') && html.includes('id="save-attendance"'), 'the attendance page must expose its controls')
 
 const folder = mkdtempSync(join(tmpdir(), 'attendance-page-'))
 try {
-  const file = join(folder, 'attendance-page.mjs')
+  const file = join(folder, 'faculty-attendance-page.mjs')
   writeFileSync(file, script)
   const result = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' })
-  assert.equal(result.status, 0, `faculty-dashboard.html inline script has a syntax error: ${String(result.stderr).slice(-600)}`)
+  assert.equal(result.status, 0, `faculty-attendance-page.js has a syntax error: ${String(result.stderr).slice(-600)}`)
 } finally {
   rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }

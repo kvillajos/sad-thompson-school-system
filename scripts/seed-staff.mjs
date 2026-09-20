@@ -12,7 +12,7 @@ const supabase = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: f
 
 function requireMigrationTable(error, tableName) {
   if (error?.code === 'PGRST205') {
-    throw new Error(`Supabase table "${tableName}" is missing from the schema cache. Run database/supabase-migration.sql, wait a few seconds, and rerun npm run seed:staff.`)
+    throw new Error(`Supabase table "${tableName}" is missing from the schema cache. Run database/backupsqlmigration.sql, wait a few seconds, and rerun npm run seed:staff.`)
   }
   throw error
 }

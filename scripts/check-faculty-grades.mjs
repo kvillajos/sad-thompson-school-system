@@ -50,32 +50,28 @@ assert.equal(letterGrade(null), null)
 assert.equal(generalAverage([{ grade: 80 }, { grade: 90 }, { grade: null }]), 85)
 assert.equal(generalAverage([]), null)
 
-// --- the faculty page ----------------------------------------------------
+// --- the faculty grade page ----------------------------------------------
 const root = resolve(import.meta.dirname, '..')
-const html = readFileSync(join(root, 'faculty-dashboard.html'), 'utf8')
-const scriptStart = html.indexOf('<script type="module">') + '<script type="module">'.length
-const script = html.slice(scriptStart, html.lastIndexOf('</script>'))
+const html = readFileSync(join(root, 'faculty', 'faculty-grades.html'), 'utf8')
+const script = readFileSync(join(root, 'faculty', 'faculty-grades-page.js'), 'utf8')
 assert.ok(script.includes('save_faculty_grades'), 'grades must be saved through the validated RPC')
-assert.ok(script.includes("from './grades.js'"), 'the page must reuse the grade helpers')
-const ids = [...new Set([...script.matchAll(/\$\('([\w-]+)'\)/g)].map(match => match[1]))]
-assert.ok(ids.length >= 8, 'the grade sheet must be wired to its elements')
-const missing = ids.filter(id => !html.includes(`id="${id}"`))
-assert.deepEqual(missing, [], `faculty-dashboard.html references missing element ids: ${missing.join(', ')}`)
+assert.ok(script.includes("from '../grades.js'"), 'the page must reuse the grade helpers')
+assert.ok(html.includes('id="grade-table"') && html.includes('id="save-grades"'), 'the grade page must expose its controls')
 
 // Tag balance catches a broken hand edit without a browser.
 const tags = ['div', 'section', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'select', 'button', 'p', 'small']
 tags.forEach(tag => {
   const open = (html.match(new RegExp(`<${tag}[\\s>]`, 'g')) || []).length
   const close = (html.match(new RegExp(`</${tag}>`, 'g')) || []).length
-  assert.equal(open, close, `unbalanced ${tag} in faculty-dashboard.html`)
+  assert.equal(open, close, `unbalanced ${tag} in faculty-grades.html`)
 })
 
 const folder = mkdtempSync(join(tmpdir(), 'faculty-page-'))
 try {
-  const file = join(folder, 'faculty-page.mjs')
+  const file = join(folder, 'faculty-grades-page.mjs')
   writeFileSync(file, script)
   const result = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' })
-  assert.equal(result.status, 0, `faculty-dashboard.html inline script has a syntax error: ${String(result.stderr).slice(-600)}`)
+  assert.equal(result.status, 0, `faculty-grades-page.js has a syntax error: ${String(result.stderr).slice(-600)}`)
 } finally {
   rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }

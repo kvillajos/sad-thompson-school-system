@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Curriculum Review | TCSMS</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link rel="icon" type="image/png" href="/assets/logo.png"><title>Curriculum Review | TCSMS</title></head>
 <body class="admin-shell">
 <div id="tcsms-loading-screen" class="loading-screen" role="status" aria-label="Loading Thompson Christian School Management System" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:.5rem;background:#102a43;color:#f7fbff">
   <div class="loading-mark" aria-hidden="true" style="display:grid;place-items:center;width:4.25rem;height:4.25rem;margin-bottom:.4rem;border:2px solid #f0b429;border-radius:50%;color:#f0b429;font-family:Georgia,serif;font-size:2rem;font-weight:700">T</div>
@@ -28,7 +28,8 @@
     { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
     { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
     { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
-    { label: 'Curriculum Review', href: '/admin-curriculum.html', active: true, icon: '☷' }
+    { label: 'Curriculum Review', href: '/admin-curriculum.html', active: true, icon: '☷' },
+    { label: 'Audit Trail', href: '/admin-audit.html', icon: '▤' }
   ], 'Administrative<br>Control')
   const checks = ['Subjects have codes and names', 'Sections have grade and capacity', 'Every schedule has a valid time range', 'No schedule conflicts are reported', 'Student placement rules are ready for demo']
   const checklist = document.getElementById('review-checklist')

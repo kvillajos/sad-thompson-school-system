@@ -1,6 +1,6 @@
 // Registrar edit-lock decision shared by the admin dashboard.
 // Mirrors review_admission_application's 10-minute stale-lock window in
-// database/migration-v4-registrar-workflows.sql — keep both in sync.
+// database/backupsqlmigration.sql — keep new workflow changes in separate edit migrations.
 export const EDIT_LOCK_WINDOW_MS = 10 * 60 * 1000
 
 export function isEditLocked(application, now = Date.now()) {

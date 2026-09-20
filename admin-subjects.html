@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/assets/logo.png">
   <title>Manage Subjects | TCSMS</title>
 </head>
 <body class="admin-shell">
@@ -14,7 +15,7 @@
 </div>
   <main>
     <div class="admin-page-head"><div><h2>Manage Subjects</h2><p>Create subjects and schedule them for sections.</p></div></div>
-    <div class="admin-filterbar"><input id="subject-search" type="search" placeholder="Search subject code or name"><select id="subject-status"><option value="">All statuses</option><option value="true">Active</option><option value="false">Inactive</option></select><button id="filter-subjects" class="admin-primary" type="button">Filter</button><button id="add-subject" class="admin-primary admin-action" type="button">+ Add Subject</button></div>
+    <div class="admin-filterbar"><input id="subject-search" type="search" placeholder="Search subject code or name"><select id="subject-status"><option value="">All statuses</option><option value="true">Active</option><option value="false">Inactive</option></select><button id="add-subject" class="admin-primary admin-action" type="button">+ Add Subject</button></div>
     <section class="admin-table-wrap"><table><thead><tr><th>Code</th><th>Subject</th><th>Grade</th><th>Status</th><th>Actions</th></tr></thead><tbody id="subjects-table"><tr><td colspan="5">Loading subjects...</td></tr></tbody></table></section>
     <div class="admin-page-head" style="margin-top:28px"><div><h2>Schedules</h2><p>Conflicts are rejected when section, faculty, or room times overlap.</p></div></div>
     <div class="admin-filterbar"><button id="add-schedule" class="admin-primary admin-action" type="button">+ Add Schedule</button></div>
@@ -37,7 +38,8 @@
       { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
       { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
       { label: 'Manage Subjects', href: '/admin-subjects.html', active: true, icon: '♧' },
-      { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' }
+      { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' },
+      { label: 'Audit Trail', href: '/admin-audit.html', icon: '▤' }
     ], 'Administrative<br>Control')
 
     const subjectModal = document.getElementById('subject-modal')
@@ -101,8 +103,8 @@
     document.getElementById('add-schedule').onclick = () => openSchedule()
     document.getElementById('close-schedule').onclick = () => closeModal(scheduleModal, scheduleForm)
     document.getElementById('cancel-schedule').onclick = () => closeModal(scheduleModal, scheduleForm)
-    document.getElementById('filter-subjects').onclick = renderSubjects
-    document.getElementById('subject-search').onkeydown = event => { if (event.key === 'Enter') renderSubjects() }
+    document.getElementById('subject-search').oninput = renderSubjects
+    document.getElementById('subject-status').onchange = renderSubjects
     loadData()
   </script>
 </body>

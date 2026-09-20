@@ -1,7 +1,7 @@
 // Creates the real Supabase Auth login for students whose admission was approved
 // in the browser (admin-dashboard.html). The browser can only insert the
 // username/temp-password into the custom `users` table via a Postgres function
-// (see database/migration-v2-features.sql); it cannot call the Auth Admin API
+// (see database/backupsqlmigration.sql); it cannot call the Auth Admin API
 // directly because that requires the service-role key, which must never be
 // exposed to the browser. Run this script (with the service role key) after
 // approving applications so those accounts can actually log in.

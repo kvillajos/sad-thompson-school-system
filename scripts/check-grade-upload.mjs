@@ -24,12 +24,11 @@ assert.equal(parseGradeCsv('student_id,final').length, 0, 'a header-only file pa
 
 // --- the faculty page bulk upload wiring ----------------------------------
 const root = resolve(import.meta.dirname, '..')
-const html = readFileSync(join(root, 'faculty-dashboard.html'), 'utf8')
-assert.ok(html.includes('id="grade-csv-input"') && html.includes('accept=".csv"'), 'a CSV file input must be present')
-assert.ok(html.includes('id="save-grade-csv"') && html.includes('disabled'), 'bulk save must start disabled until a clean file is loaded')
-const scriptStart = html.indexOf('<script type="module">') + '<script type="module">'.length
-const script = html.slice(scriptStart, html.lastIndexOf('</script>'))
+const html = readFileSync(join(root, 'faculty', 'faculty-upload.html'), 'utf8')
+const script = readFileSync(join(root, 'faculty', 'faculty-upload-page.js'), 'utf8')
+assert.ok(html.includes('id="upload-file"') && html.includes('accept=".csv"'), 'a CSV file input must be present')
+assert.ok(html.includes('id="save-upload"') && html.includes('disabled'), 'bulk save must start disabled until a clean file is loaded')
 assert.ok(script.includes('parseGradeCsv'), 'the page must reuse the CSV parser')
-assert.ok(script.includes('row.errors.length === 0'), 'save must filter to error-free rows only')
+assert.ok(script.includes('!row.errors.length'), 'save must filter to error-free rows only')
 
 console.log('grade upload checks passed')

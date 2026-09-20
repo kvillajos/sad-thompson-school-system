@@ -14,5 +14,5 @@ const buildLabel = branch && commit ? `${branch}@${commit}` : 'local build'
 export default defineConfig({
   // Shown on the login screen so a branch/build can be identified at a glance.
   define: { __APP_VERSION__: JSON.stringify(`v${pkg.version} · ${buildLabel}`) },
-  build: { rollupOptions: { input: { index:'index.html', admin:'admin-dashboard.html', adminAccounts:'admin-accounts.html', adminFaculty:'admin-faculty.html', adminSections:'admin-sections.html', adminSubjects:'admin-subjects.html', adminCurriculum:'admin-curriculum.html', registrar:'student-records.html', faculty:'faculty-dashboard.html', student:'student-dashboard.html' } } }
+  build: { rollupOptions: { input: { index:'index.html', admin:'admin-dashboard.html', adminAccounts:'admin-accounts.html', adminFaculty:'admin-faculty.html', adminSections:'admin-sections.html', adminSubjects:'admin-subjects.html', adminCurriculum:'admin-curriculum.html', adminAudit:'admin-audit.html', registrar:'student-records.html', faculty:'faculty/faculty-dashboard.html', facultyClassList:'faculty/faculty-class-list.html', facultyGrades:'faculty/faculty-grades.html', facultyUpload:'faculty/faculty-upload.html', facultyAttendance:'faculty/faculty-attendance.html', facultyReports:'faculty/faculty-reports.html', student:'student-dashboard.html' } } }
 })

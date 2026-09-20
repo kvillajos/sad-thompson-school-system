@@ -34,6 +34,10 @@ if (!loadingStyles.isConnected) loadingStyles.textContent = `
     opacity: 1;
     transition: opacity .35s ease, visibility .35s ease;
   }
+  .loading-screen.auth-overlay {
+    background: rgba(7, 27, 58, .58);
+    backdrop-filter: blur(3px);
+  }
   .loading-screen.is-hidden {
     opacity: 0;
     visibility: hidden;
@@ -84,4 +88,12 @@ if (!loadingStyles.isConnected) document.head.appendChild(loadingStyles)
 
 export function hideLoadingScreen() {
   requestAnimationFrame(() => loadingScreen.classList.add('is-hidden'))
+}
+
+export function showLoadingScreen(subtitle = 'Signing you in...') {
+  const subtitleElement = loadingScreen.querySelector('.loading-subtitle')
+  if (subtitleElement) subtitleElement.textContent = subtitle
+  loadingScreen.style.background = 'rgba(7, 27, 58, .58)'
+  loadingScreen.classList.add('auth-overlay')
+  loadingScreen.classList.remove('is-hidden')
 }

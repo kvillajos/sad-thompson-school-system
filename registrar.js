@@ -5,10 +5,13 @@ import { planBalancedAssignments } from './sectioning.js'
 import { attendanceSummaryLine } from './attendance.js'
 import { generalAverage, letterGrade } from './grades.js'
 import { buildReportCard } from './report-card.js'
+import { buildSemesterTable } from './semester-grades.js'
+import { buildTranscript } from './transcript.js'
+import { printElement } from './print.js'
 applyUiTheme()
 
 const $ = (id) => document.getElementById(id)
-const state = { applications: [], drafts: [], sections: [], students: [], academic: [], selectedApplication: null, enrolledByStudent: new Map(), enrolledSections: new Map(), autoAssignPlan: null, academicStudentId: null }
+const state = { applications: [], drafts: [], sections: [], students: [], academic: [], studentSections: new Map(), selectedApplication: null, enrolledByStudent: new Map(), enrolledSections: new Map(), autoAssignPlan: null, academicStudentId: null }
 const gradeToNumber = (value) => value === 'Kindergarten' ? 0 : Number(String(value).replace('Grade ', ''))
 const gradeLabel = (value) => Number(value) === 0 ? 'Kindergarten' : `Grade ${value}`
 // Grade is stored as a number but the select options are labels, so map back on resume.
@@ -35,12 +38,12 @@ const enrollmentPanel = document.createElement('section')
 enrollmentPanel.id = 'enrollment'
 enrollmentPanel.dataset.panel = ''
 enrollmentPanel.className = ''
-enrollmentPanel.innerHTML = `<div class="toolbar"><h2>Manage Enrollment</h2></div><div class="card"><div class="filterbar"><input id="enrollment-search" placeholder="Search Student ID or Name..."><select id="enrollment-section-filter"><option value="">All Sections</option></select><button class="btn" id="filter-enrollment">Filter</button><button class="btn new-enrollment-action" id="new-enrollment">+ New Admission</button></div><table><thead><tr><th>Student ID</th><th>Name</th><th>Year</th><th>Registration Date</th><th>Section</th><th>Status</th><th>Actions</th></tr></thead><tbody id="enrollment-table"></tbody></table></div>`
+enrollmentPanel.innerHTML = `<div class="toolbar"><h2>Manage Enrollment</h2></div><div class="card"><div class="filterbar"><input id="enrollment-search" placeholder="Search Student ID or Name..."><select id="enrollment-section-filter"><option value="">All Sections</option></select><button class="btn new-enrollment-action" id="new-enrollment">+ New Admission</button></div><table><thead><tr><th>Student ID</th><th>Name</th><th>Year</th><th>Registration Date</th><th>Section</th><th>Status</th><th>Actions</th></tr></thead><tbody id="enrollment-table"></tbody></table></div>`
 document.querySelector('.main').prepend(enrollmentPanel)
 $('new-enrollment').onclick = () => document.querySelector('[data-tab="admission"]').click()
 const studentDirectory = document.createElement('div')
 studentDirectory.className = 'card student-directory'
-studentDirectory.innerHTML = '<div class="toolbar"><h2>Student Directory</h2><input id="student-directory-search" placeholder="Search student name or ID..."></div><table><thead><tr><th>Student ID</th><th>Name</th><th>Birth Date</th><th>Gender</th><th>Grade</th><th>Enrollment Status</th><th>Actions</th></tr></thead><tbody id="student-directory-table"></tbody></table>'
+studentDirectory.innerHTML = '<div class="toolbar"><h2>Student Directory</h2><input id="student-directory-search" placeholder="Search student name or ID..."></div><table><thead><tr><th>Student ID</th><th>Name</th><th>Birth Date</th><th>Gender</th><th>Grade</th><th>Section</th><th>Enrollment Status</th><th>Actions</th></tr></thead><tbody id="student-directory-table"></tbody></table>'
 document.querySelector('#sectioning').appendChild(studentDirectory)
 
 const tabs = [...document.querySelectorAll('[data-tab]')]
@@ -60,6 +63,60 @@ function toast(message, type='success') {
 function escapeHtml(v='') { return String(v).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])) }
 function statusBadge(s) { return `<span class="badge ${String(s).toLowerCase().replaceAll(' ','-')}">${escapeHtml(s)}</span>` }
 const photoPlaceholder = $('application-photo-preview')?.getAttribute('src') || ''
+if ($('application-photo')) {
+  $('application-photo').setAttribute('capture', 'user')
+  $('application-photo').closest('label')?.querySelector('small')?.replaceChildren('Optional — choose a file or use the device camera')
+}
+document.querySelector('#academic-table')?.closest('table')?.querySelector('thead tr')?.insertAdjacentHTML('beforeend', '<th>Section</th>')
+let cameraStream = null
+let cameraModal = null
+function stopCamera() {
+  cameraStream?.getTracks().forEach(track => track.stop())
+  cameraStream = null
+  cameraModal?.classList.add('hidden')
+}
+function openCamera() {
+  if (!navigator.mediaDevices?.getUserMedia) return toast('Camera capture is not supported by this browser.', 'error')
+  if (!cameraModal) {
+    cameraModal = document.createElement('div')
+    cameraModal.id = 'profile-camera-modal'
+    cameraModal.className = 'admin-modal hidden'
+    cameraModal.innerHTML = '<div class="admin-modal-box camera-box"><div class="admin-modal-head"><h3>Capture Profile Picture</h3><button type="button" id="close-profile-camera">x</button></div><video id="profile-camera-video" autoplay playsinline></video><div class="admin-actions"><button type="button" id="cancel-profile-camera" class="admin-cancel">Cancel</button><button type="button" id="capture-profile-camera" class="admin-primary">Capture Photo</button></div></div>'
+    document.body.appendChild(cameraModal)
+    cameraModal.querySelector('#close-profile-camera').onclick = stopCamera
+    cameraModal.querySelector('#cancel-profile-camera').onclick = stopCamera
+    cameraModal.querySelector('#capture-profile-camera').onclick = () => {
+      const video = cameraModal.querySelector('#profile-camera-video')
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      canvas.getContext('2d').drawImage(video, 0, 0)
+      canvas.toBlob(blob => {
+        if (!blob) return toast('Could not capture the camera image.', 'error')
+        const file = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' })
+        const transfer = new DataTransfer()
+        transfer.items.add(file)
+        $('application-photo').files = transfer.files
+        removeSavedPhoto = false
+        setApplicationPhoto(URL.createObjectURL(file))
+        stopCamera()
+      }, 'image/jpeg', 0.9)
+    }
+  }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }).then(stream => {
+    cameraStream = stream
+    cameraModal.querySelector('#profile-camera-video').srcObject = stream
+    cameraModal.classList.remove('hidden')
+  }).catch(error => toast(`Camera could not be opened: ${error.message}`, 'error'))
+}
+if ($('application-photo')) {
+  const cameraButton = document.createElement('button')
+  cameraButton.type = 'button'
+  cameraButton.className = 'btn secondary'
+  cameraButton.textContent = 'Use Camera'
+  cameraButton.onclick = openCamera
+  $('application-photo').after(cameraButton)
+}
 let photoObjectUrl = null
 let removeSavedPhoto = false
 function setApplicationPhoto(url) {
@@ -151,7 +208,7 @@ async function saveProfilePicture(applicationId) {
   if (uploadError) return toast(`Profile picture upload failed: ${uploadError.message}`, 'error')
   const publicUrl = supabase.storage.from('profile-pictures').getPublicUrl(path).data.publicUrl
   const { error } = await supabase.from('admission_applications').update({ profile_picture_url: publicUrl }).eq('id', applicationId)
-  if (error) toast(`Profile picture saved to storage, but it could not be linked to the application. Run database/migration-v3-registrar-ui.sql and try again (${error.message})`, 'error')
+  if (error) toast(`Profile picture saved to storage, but it could not be linked to the application. Run database/backupsqlmigration.sql and try again (${error.message})`, 'error')
 }
 
 async function uploadDocuments(applicationId) {
@@ -326,9 +383,12 @@ async function loadSections() {
   document.querySelectorAll('[data-view-section]').forEach(b => b.onclick=()=>viewSectionStudents(Number(b.dataset.viewSection)))
   const grades=[...new Set(state.sections.map(s=>s.grade_level))]; $('placement-grade').innerHTML=grades.map(g=>`<option value="${g}">${escapeHtml(gradeLabel(g))}</option>`).join(''); $('section-grade-filter').innerHTML='<option value="">All Grades</option>'+grades.map(g=>`<option value="${g}">${escapeHtml(gradeLabel(g))}</option>`).join('')
   $('enrollment-section-filter').innerHTML = '<option value="">All Sections</option>' + state.sections.map(s=>`<option value="${s.section_id}">${escapeHtml(s.section_name)}</option>`).join('')
+  const shiftSections = [...new Set([...state.studentSections.values()].filter(Boolean))].sort()
+  $('shift-student-filter').innerHTML = '<option value="">All sections</option>' + shiftSections.map(section => `<option>${escapeHtml(section)}</option>`).join('')
 }
-document.querySelector('#filter-sections').onclick = loadSections
-document.querySelector('#section-search').onkeydown = event => { if (event.key === 'Enter') loadSections() }
+document.querySelector('#section-search').oninput = loadSections
+document.querySelector('#section-grade-filter').onchange = loadSections
+document.querySelector('#filter-sections')?.remove()
 async function viewSectionStudents(sectionId) {
   const section = state.sections.find(item => Number(item.section_id) === sectionId)
   if (!section) return
@@ -398,7 +458,8 @@ async function removeEnrollment(id) {
   closeRemoveEnrollmentModal()
   toast('Enrollment removed.'); loadEnrollments()
 }
-$('filter-enrollment').onclick = loadEnrollments
+$('enrollment-search').oninput = loadEnrollments
+$('enrollment-section-filter').onchange = loadEnrollments
 async function openPlacement(sectionId='') {
   const [studentResult, enrollmentResult] = await Promise.all([
     supabase.from('students').select('*').order('last_name'),
@@ -592,8 +653,8 @@ function renderAcademicStudents() {
   })
   $('academic-table').innerHTML = students.map(student => {
     const summary = summaries.get(`${student.student_id}`) || { count: 0, latest: '' }
-    return `<tr><td>${escapeHtml(student.lrn_number || student.student_id)}</td><td>${escapeHtml(`${student.first_name||''} ${student.last_name||''}`)}</td><td>${escapeHtml(gradeLabel(student.grade_level))}</td><td>${summary.count}</td><td>${escapeHtml(summary.latest || '-')}</td><td><button class="small btn-view" data-view-academic="${student.student_id}">View History</button> <button class="small btn-view" data-print-academic="${student.student_id}">Print Card</button></td></tr>`
-  }).join('') || '<tr><td colspan="6" class="empty-state">No students found.</td></tr>'
+    return `<tr><td>${escapeHtml(student.lrn_number || student.student_id)}</td><td>${escapeHtml(`${student.first_name||''} ${student.last_name||''}`)}</td><td>${escapeHtml(gradeLabel(student.grade_level))}</td><td>${summary.count}</td><td>${escapeHtml(summary.latest || '-')}</td><td>${escapeHtml(state.studentSections.get(String(student.student_id)) || 'No Section')}</td><td><button class="small btn-view" data-view-academic="${student.student_id}">View History</button> <button class="small btn-view" data-print-academic="${student.student_id}">Print Card</button></td></tr>`
+  }).join('') || '<tr><td colspan="7" class="empty-state">No students found.</td></tr>'
   document.querySelectorAll('[data-view-academic]').forEach(button => { button.onclick = () => openAcademicHistory(button.dataset.viewAcademic) })
   document.querySelectorAll('[data-print-academic]').forEach(button => { button.onclick = () => printAcademicCard(button.dataset.printAcademic) })
 }
@@ -602,13 +663,13 @@ async function loadAcademic() {
   const sequence = ++academicLoadSequence
   const data = []
   state.academic = []
-  $('academic-table').innerHTML = '<tr><td colspan="6">Loading academic history…</td></tr>'
+  $('academic-table').innerHTML = '<tr><td colspan="7">Loading academic history…</td></tr>'
   // Fetch every school year with stable pages, not a school-wide 1000-row cap.
   for (let start = 0; ; start += 500) {
     const { data: page, error } = await supabase.from('academic_history').select('*').order('school_year').order('subject').order('id').range(start, start + 499)
     if (sequence !== academicLoadSequence) return
     if (error) {
-      $('academic-table').innerHTML = '<tr><td colspan="6">History could not be loaded.</td></tr>'
+      $('academic-table').innerHTML = '<tr><td colspan="7">History could not be loaded.</td></tr>'
       return toast(error.message, 'error')
     }
     data.push(...(page || []))
@@ -620,16 +681,24 @@ async function loadAcademic() {
 $('academic-search').oninput = renderAcademicStudents
 $('academic-grade-filter').addEventListener('change', renderAcademicStudents)
 $('refresh-academic').onclick = loadAcademic
-function openAcademicHistory(studentId) {
+async function openAcademicHistory(studentId) {
   const student = state.students.find(item => `${item.student_id}` === `${studentId}`) || {}
   const rows = academicRowsFor(studentId)
   state.academicStudentId = studentId
-  $('academic-history-title').textContent = `Academic History — ${student.first_name || ''} ${student.last_name || ''}`.trim()
-  $('academic-history-body').innerHTML = `<div class="review-grid"><div><small>Student No.</small><p>${escapeHtml(student.lrn_number || student.student_id || '')}</p></div><div><small>Grade Level</small><p>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</p></div><div><small>Academic Records</small><p>${rows.length}</p></div></div><div class="academic-scroll">${academicTableHtml(rows)}</div>`
+  $('academic-history-title').textContent = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'View History'
+  const years = [...new Set(rows.map(row => row.school_year).filter(Boolean))].sort().reverse()
+  const { data: enrollment } = await supabase.from('enrollments').select('school_year,sections(section_name)').eq('student_id', studentId).eq('status', 'active').maybeSingle()
+  const photo = student.profile_picture_url
+    ? `<img class="academic-profile-photo" src="${escapeHtml(student.profile_picture_url)}" alt="Profile picture of ${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`.trim())}">`
+    : '<div class="academic-profile-photo photo-preview-empty" aria-hidden="true">No photo</div>'
+  $('academic-history-body').innerHTML = `<div class="academic-profile-summary">${photo}<div class="review-grid"><div><small>Student No.</small><p>${escapeHtml(student.lrn_number || student.student_id || '')}</p></div><div><small>Grade Level</small><p>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</p></div><div><small>Section</small><p>${escapeHtml(enrollment?.sections?.section_name || 'No Section')}</p></div><div><small>School Year</small><p>${escapeHtml(enrollment?.school_year || '-')}</p></div><div><small>Academic Records</small><p>${rows.length}</p></div></div></div><label>School Year<select id="academic-term-filter"><option value="">All school years</option>${years.map(year => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join('')}</select></label><div id="academic-history-table" class="academic-scroll">${buildSemesterTable(rows)}</div>`
+  $('academic-term-filter').onchange = event => {
+    const selected = event.target.value
+    $('academic-history-table').innerHTML = buildSemesterTable(selected ? rows.filter(row => row.school_year === selected) : rows)
+  }
   $('academic-history-modal').classList.remove('hidden')
 }
 $('close-academic-history').onclick = () => $('academic-history-modal').classList.add('hidden')
-$('close-academic-history-2').onclick = () => $('academic-history-modal').classList.add('hidden')
 $('print-academic-card').onclick = () => printAcademicCard(state.academicStudentId)
 // Report card = grades + attendance + remarks + general average, printed the same way
 // (see printAcademicCard()): the theme hides every other body child while the body
@@ -647,9 +716,7 @@ async function printReportCard(studentId) {
     student, gradeLevel: gradeLabel(student.grade_level), schoolYear, sectionName: enrollment.data?.sections?.section_name,
     academicRows: yearRows, attendance: totals.data, remarks: yearRows.map(row => row.remarks).filter(Boolean).join('; ')
   })
-  document.body.classList.add('printing-report-card')
-  window.print()
-  document.body.classList.remove('printing-report-card')
+  printElement($('report-print-card'), 'printing-report-card')
 }
 $('print-report-card').onclick = () => printReportCard(state.academicStudentId)
 // The card prints from the page itself instead of a pop-up: the theme hides every other
@@ -661,16 +728,32 @@ function printAcademicCard(studentId) {
   if (!rows.length) return toast('No academic records to print for this student.', 'error')
   const name = `${student.first_name || ''} ${student.last_name || ''}`.trim()
   $('academic-print-card').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--ui-navy);padding-bottom:8px"><div><b>THOMPSON CHRISTIAN SCHOOL</b><div style="font-size:10px;letter-spacing:.18em;color:var(--ui-muted)">STUDENT ACADEMIC RECORD CARD</div></div><img src="/assets/logo.png" alt="" style="width:54px;height:54px;object-fit:contain"></div><div style="text-align:center;font-weight:700;letter-spacing:.14em;color:var(--ui-blue);margin:10px 0 8px">ACADEMIC RECORD — ${escapeHtml(gradeLabel(student.grade_level))}</div><div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:10px"><div><small>Student</small><p>${escapeHtml(name)}</p></div><div><small>Student No.</small><p>${escapeHtml(student.lrn_number || student.student_id || '')}</p></div><div><small>Records</small><p>${rows.length}</p></div></div>${academicTableHtml(rows)}<div style="display:flex;justify-content:space-between;gap:24px;margin-top:28px;font-size:11px"><div style="flex:1;border-top:1px solid #111;padding-top:4px;text-align:center">Registrar</div><div style="flex:1;border-top:1px solid #111;padding-top:4px;text-align:center">School Seal / Signature</div></div>`
-  document.body.classList.add('printing-card')
-  window.print()
-  document.body.classList.remove('printing-card')
+  printElement($('academic-print-card'), 'printing-card')
 }
 
 $('transcript-form').addEventListener('submit', async e=>{e.preventDefault();const studentId=$('transcript-student').value;if(!studentId)return;await generateTranscript(studentId)})
-async function loadStudents(){const {data,error}=await supabase.from('students').select('*').order('last_name');if(error)return toast(`Could not load students: ${error.message}`,'error');state.students=data||[];const html=state.students.map(s=>`<option value="${s.student_id}">${escapeHtml(s.lrn_number||s.student_id)} — ${escapeHtml(s.first_name||'')} ${escapeHtml(s.last_name||'')}</option>`).join('');$('transcript-student').innerHTML=html;$('shift-student').innerHTML=html;renderStudentDirectory();renderAcademicStudents()}
-function renderStudentDirectory(){const search=($('student-directory-search')?.value||'').trim().toLowerCase();const rows=state.students.filter(s=>`${s.lrn_number} ${s.student_id} ${s.first_name||''} ${s.last_name||''}`.toLowerCase().includes(search));$('student-directory-table').innerHTML=rows.map(s=>`<tr><td>${escapeHtml(s.lrn_number||s.student_id)}</td><td>${escapeHtml(`${s.first_name||''} ${s.last_name||''}`)}</td><td>${escapeHtml(s.date_of_birth||s.birth_date||'-')}</td><td>${escapeHtml(s.gender||s.sex||'-')}</td><td>${escapeHtml(s.grade_level == null ? '-' : gradeLabel(s.grade_level))}</td><td>${statusBadge(s.enrollment_status||'Enrolled')}</td><td><button class="small btn-view" data-view-student="${s.student_id}">View</button></td></tr>`).join('')||'<tr><td colspan="7" class="empty-state">No students found.</td></tr>';bindViewStudentButtons($('student-directory-table'))}
+async function loadStudents(){
+  const [{data,error},{data:enrollments}] = await Promise.all([
+    supabase.from('students').select('*').order('last_name'),
+    supabase.from('enrollments').select('student_id,section_id,sections(section_name)').eq('status','active')
+  ])
+  if(error)return toast(`Could not load students: ${error.message}`,'error')
+  state.students=data||[]
+  state.studentSections=new Map((enrollments||[]).map(row=>[String(row.student_id),row.sections?.section_name||'No Section']))
+  const shiftSections = [...new Set([...state.studentSections.values()].filter(Boolean))].sort()
+  $('shift-student-filter').innerHTML = '<option value="">All sections</option>' + shiftSections.map(section => `<option>${escapeHtml(section)}</option>`).join('')
+  const html=state.students.map(s=>`<option value="${s.student_id}">${escapeHtml(s.lrn_number||s.student_id)} — ${escapeHtml(s.first_name||'')} ${escapeHtml(s.last_name||'')}</option>`).join('')
+  $('transcript-student').innerHTML=html
+  renderStudentDirectory()
+  renderShiftStudents()
+  renderAcademicStudents()
+}
+function renderStudentDirectory(){const search=($('student-directory-search')?.value||'').trim().toLowerCase();const rows=state.students.filter(s=>`${s.lrn_number} ${s.student_id} ${s.first_name||''} ${s.last_name||''}`.toLowerCase().includes(search));$('student-directory-table').innerHTML=rows.map(s=>`<tr><td>${escapeHtml(s.lrn_number||s.student_id)}</td><td>${escapeHtml(`${s.first_name||''} ${s.last_name||''}`)}</td><td>${escapeHtml(s.date_of_birth||s.birth_date||'-')}</td><td>${escapeHtml(s.gender||s.sex||'-')}</td><td>${escapeHtml(s.grade_level == null ? '-' : gradeLabel(s.grade_level))}</td><td>${escapeHtml(state.studentSections.get(String(s.student_id)) || 'No Section')}</td><td>${statusBadge(s.enrollment_status||'Enrolled')}</td><td><button class="small btn-view" data-view-student="${s.student_id}">View</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty-state">No students found.</td></tr>';bindViewStudentButtons($('student-directory-table'))}
+function renderShiftStudents(){const search=($('shift-student-search')?.value||'').trim().toLowerCase();const section=String($('shift-student-filter')?.value||'');const rows=state.students.filter(s=>{const text=`${s.lrn_number||''} ${s.student_id} ${s.first_name||''} ${s.last_name||''}`.toLowerCase();const current=state.studentSections.get(String(s.student_id))||'No Section';return (!search||text.includes(search))&&(!section||current===section)});$('shift-student-table').innerHTML=rows.map(s=>`<tr class="${String($('shift-student')?.value||'')===String(s.student_id)?'selected-row':''}"><td>${escapeHtml(s.lrn_number||s.student_id)}</td><td>${escapeHtml(`${s.first_name||''} ${s.last_name||''}`)}</td><td>${escapeHtml(s.grade_level == null ? '-' : gradeLabel(s.grade_level))}</td><td>${escapeHtml(state.studentSections.get(String(s.student_id)) || 'No Section')}</td><td><button type="button" class="small btn-view" data-select-shift-student="${s.student_id}">Select</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty-state">No students found.</td></tr>';document.querySelectorAll('[data-select-shift-student]').forEach(button=>button.onclick=()=>{ $('shift-student').value=button.dataset.selectShiftStudent; renderShiftStudents(); refreshShiftSections() })}
 $('student-directory-search').oninput=renderStudentDirectory
-async function generateTranscript(studentId){const {data:s,error:se}=await supabase.from('students').select('*').eq('student_id',studentId).single();if(se)return toast(se.message,'error');const {data:g,error:ge}=await supabase.from('academic_history').select('*').eq('student_id',studentId).order('school_year');if(ge)return toast(ge.message,'error');const win=window.open('','_blank');if(!win)return toast('Allow pop-ups to generate the transcript.','error');win.document.write(`<html><head><title>Official Transcript - ${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}</title><style>body{font-family:Arial;padding:40px}header{text-align:center;border-bottom:2px solid #111;padding-bottom:15px}.student{margin:25px 0}.student span{display:inline-block;width:48%}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #333;padding:8px;text-align:left}.sign{display:flex;justify-content:space-between;margin-top:80px}.sign div{width:40%;border-top:1px solid #111;text-align:center;padding-top:6px}@media print{button{display:none}}</style></head><body><header><h1>THOMPSON CHRISTIAN SCHOOL</h1><p>OFFICIAL TRANSCRIPT OF RECORDS</p></header><div class="student"><span><b>Student No:</b> ${escapeHtml(s.lrn_number||'')}</span><span><b>Name:</b> ${escapeHtml(`${s.first_name} ${s.last_name}`)}</span><span><b>Grade Level:</b> ${escapeHtml(gradeLabel(s.grade_level))}</span></div><table><thead><tr><th>School Year</th><th>Subject</th><th>Grade</th><th>Remarks</th></tr></thead><tbody>${g.map(r=>`<tr><td>${escapeHtml(r.school_year)}</td><td>${escapeHtml(r.subject)}</td><td>${r.grade??''}</td><td>${escapeHtml(r.remarks||'')}</td></tr>`).join('')}</tbody></table><div class="sign"><div>Registrar</div><div>School Seal / Signature</div></div><button onclick="window.print()">Print / Save as PDF</button></body></html>`);win.document.close();win.focus()}
+$('shift-student-search').oninput=renderShiftStudents
+$('shift-student-filter').onchange=renderShiftStudents
+async function generateTranscript(studentId){const {data:s,error:se}=await supabase.from('students').select('*').eq('student_id',studentId).single();if(se)return toast(se.message,'error');const {data:g,error:ge}=await supabase.from('academic_history').select('*').eq('student_id',studentId).order('school_year');if(ge)return toast(ge.message,'error');const enrollment=await supabase.from('enrollments').select('sections(section_name)').eq('student_id',studentId).eq('status','active').maybeSingle();$('transcript-print-card').innerHTML=buildTranscript({student:s,rows:g||[],mode:'official',sectionName:enrollment.data?.sections?.section_name||''});printElement($('transcript-print-card'),'printing-transcript')}
 
  $('promotion-form').addEventListener('submit',async e=>{e.preventDefault();const grade=gradeToNumber($('promotion-grade').value);const excluded=[...document.querySelectorAll('#promotion-exclude-list input:checked')].map(input=>Number(input.value));const {data,error}=await supabase.rpc('batch_promote_students',{p_grade_level:grade,p_school_year:$('promotion-year').value,p_excluded_student_ids:excluded});if(error)return toast(error.message,'error');toast(`${data?.processed||0} students processed; ${data?.promoted||0} promoted.`);await Promise.all([loadStudents(), loadEnrollments()]); renderPromotionExclusions()})
 async function refreshShiftSections() {
@@ -741,7 +824,7 @@ $('cancel-transfer').addEventListener('click', closeTransferModal)
 async function transferStudentOut(studentId, reason) {
   const { data, error } = await supabase.rpc('transfer_student_out', { p_student_id: studentId, p_reason: reason })
   if (error) {
-    if (error.code === 'PGRST202') return toast('Transfer needs database/migration-v3-registrar-ui.sql applied first (transfer_student_out is missing).', 'error')
+    if (error.code === 'PGRST202') return toast('Transfer needs database/backupsqlmigration.sql applied first (transfer_student_out is missing).', 'error')
     // The database runs both updates in one transaction, so a rejection changes nothing.
     return toast(`Transfer was rolled back, nothing changed: ${error.message}`, 'error')
   }

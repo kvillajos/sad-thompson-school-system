@@ -1,0 +1,7 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="icon" type="image/png" href="/assets/logo.png"><title>Bulk Upload | TCSMS</title></head>
+<body class="admin-shell">
+<div id="tcsms-loading-screen" class="loading-screen" role="status" aria-label="Loading Thompson Christian School Management System" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:.5rem;background:#102a43;color:#f7fbff"><div class="loading-mark" aria-hidden="true">T</div><p class="loading-title">TCSMS</p><p class="loading-subtitle">Preparing your workspace</p><div class="loading-spinner" aria-hidden="true"></div></div>
+<main><div class="admin-page-head"><div><h2>Bulk Upload</h2><p>Preview a CSV file before saving grades for a class.</p></div></div><section class="admin-table-wrap"><div class="admin-filterbar"><select id="upload-class" aria-label="Class"></select><input id="upload-year" aria-label="School year" placeholder="2026-2027"><input id="upload-file" type="file" accept=".csv" aria-label="Grade CSV"><button id="save-upload" class="admin-primary" type="button" disabled>Save Upload</button></div><div id="upload-preview-wrap" class="hidden" style="overflow:auto"><table><thead><tr><th>Row</th><th>Student ID</th><th>Grade</th><th>Errors</th></tr></thead><tbody id="upload-preview"></tbody></table></div></section></main>
+<script type="module" src="/faculty/faculty-upload-page.js"></script></body></html>
