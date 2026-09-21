@@ -118,6 +118,65 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .moderator-picker { margin-left:8px; }
 #selected-moderator { display:inline-block; margin-left:8px; }
 .faculty-details-box { width:min(100%, 720px) !important; }
+.schedule-box { width:min(100%,1120px) !important; max-height:88vh; overflow:auto; }
+.schedule-box .admin-table-wrap table { min-width:0 !important; }
+.schedule-form-box { width:min(580px, calc(100vw - 24px)) !important; max-height:calc(100vh - 24px); padding:0 !important; border-radius:18px; overflow:hidden; font-family:Arial, 'Helvetica Neue', sans-serif; }
+.schedule-form-head { box-sizing:border-box; padding:24px 32px 18px; margin:0; align-items:flex-start; }
+.schedule-form-head h3 { font-size:22px; letter-spacing:-.01em; }
+.schedule-form-head p { margin:4px 0 0; color:var(--ui-muted); font-size:14px; }
+.schedule-form-head > button { width:34px; height:34px; border-radius:10px; font-size:18px; }
+.schedule-form { display:grid !important; grid-template-columns:1fr 1fr; gap:20px 16px !important; padding:4px 28px 22px; }
+.schedule-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start; gap:16px; min-width:0; }
+.schedule-field { display:grid; gap:7px; min-width:0; }
+.schedule-label { color:var(--ui-text); font-size:14px; font-weight:700; }
+.schedule-input,.schedule-picker { width:100%; min-height:46px; border:1.5px solid var(--ui-border); border-radius:11px; background:#fff; color:var(--ui-text); font:inherit; font-size:15px; transition:border-color .15s,box-shadow .15s; }
+.schedule-input { box-sizing:border-box; margin-top:0 !important; padding:0 14px !important; }
+.schedule-input::placeholder,.schedule-picker-input::placeholder { color:#8a97b0; }
+.schedule-input:focus,.schedule-picker:focus-within { outline:0; border-color:var(--ui-blue); box-shadow:0 0 0 4px #e6eefc; }
+.schedule-hint { color:var(--ui-muted); font-size:12.5px; line-height:1.35; }
+.schedule-picker { display:flex; align-items:center; gap:10px; min-width:0; box-sizing:border-box; padding:5px 5px 5px 14px; }
+.schedule-picker-value { min-width:0; flex:1; display:flex; align-items:center; gap:10px; }
+.schedule-picker-text { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:15px; }
+.schedule-picker-text.empty { color:#8a97b0; }
+.schedule-picker-input { min-width:0; width:100% !important; margin:0 !important; padding:0 !important; border:0 !important; box-shadow:none !important; font-size:15px !important; }
+.schedule-pick-button { flex:none; height:36px; max-width:100%; padding:0 14px; border:0; border-radius:8px; background:#e6eefc; color:#1445ae; font:inherit; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.schedule-pick-button:hover { background:#d3e1fb; }
+.schedule-days { margin:0; padding:0; border:0; min-width:0; }
+.schedule-days-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:9px; }
+.schedule-presets { display:flex; gap:6px; flex-wrap:wrap; }
+.schedule-preset { border:0; background:none; padding:2px 8px; border-radius:6px; color:var(--ui-blue); font:inherit; font-size:13px; font-weight:700; cursor:pointer; }
+.schedule-preset:hover { background:#e6eefc; }
+.schedule-day-chips { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+.schedule-chip { position:relative; min-width:0; }
+.schedule-chip input { position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; }
+.schedule-chip span { display:grid; place-items:center; height:46px; border:1.5px solid var(--ui-border); border-radius:11px; color:var(--ui-muted); background:#fff; font-size:14px; font-weight:700; user-select:none; transition:background .12s,border-color .12s,color .12s; }
+.schedule-chip:hover span { border-color:#b9c5da; }
+.schedule-chip input:checked + span { border-color:var(--ui-blue); background:var(--ui-blue); color:#fff; }
+.schedule-chip input:focus-visible + span { border-color:var(--ui-blue); box-shadow:0 0 0 4px #e6eefc; }
+.schedule-error { min-height:0; margin-top:7px; color:var(--ui-danger); font-size:12.5px; font-weight:600; }
+.schedule-summary { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--ui-border); border-radius:11px; background:var(--ui-bg); font-size:14px; line-height:1.4; }
+.schedule-summary-icon { color:var(--ui-blue); font-size:18px; }
+.schedule-summary .empty { color:var(--ui-muted); }
+.schedule-actions { justify-content:flex-end; gap:10px; margin:0 -28px -22px; padding:16px 28px; border-top:1px solid var(--ui-border); background:#fff; }
+.schedule-button { height:44px; padding:0 22px; border-radius:11px; font:inherit; font-size:15px; font-weight:700; cursor:pointer; }
+.schedule-button-ghost { border:1.5px solid var(--ui-border); background:#fff; color:var(--ui-text); }
+.schedule-button-ghost:hover { background:var(--ui-bg); }
+.schedule-button-primary { border:1.5px solid var(--ui-blue); background:var(--ui-blue); color:#fff; }
+.schedule-button-primary:hover { border-color:#1445ae; background:#1445ae; }
+.picker-box { width:min(100%, 820px) !important; }
+.stack-above { z-index:120; }
+.day-check-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:0 12px; border:1px solid var(--ui-border); padding:8px; margin:0; }
+.day-check-grid legend { grid-column:1/-1; padding:0 4px; color:var(--ui-text); font-weight:700; }
+.day-check-grid .admin-check { border-bottom:0; padding:8px 4px; }
+.picker-field { display:flex; align-items:end; gap:8px; }
+.picker-field input { flex:1; }
+.picker-field button { flex:0 0 auto; }
+.person-avatar { display:inline-grid; place-items:center; width:40px; height:40px; border-radius:50%; background:#2161d1; color:#fff; font-weight:700; vertical-align:middle; overflow:hidden; }
+.person-avatar img { width:100%; height:100%; object-fit:cover; }
+.moderator-card { display:flex; align-items:center; gap:10px; margin-top:8px; padding:10px; border:1px solid var(--ui-border); border-radius:6px; }
+.moderator-card strong,.moderator-card small { display:block; }
+.moderator-card small { color:var(--ui-muted); }
+.section-box { width:min(100%,760px) !important; }
 .faculty-details-box h4 { color:var(--ui-blue-dark); margin:20px 0 8px; }
 .faculty-details-box ul { margin:0; padding-left:20px; color:var(--ui-text); }
 .admin-modal-box label { color:var(--ui-text); font-weight:700; font-size:13px }
@@ -129,7 +188,8 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .profile-crop-box { width:min(100%,420px) !important; }
 .profile-crop-box canvas { display:block; width:240px; height:240px; margin:0 auto 14px; background:#102a43; border-radius:6px; }
 .profile-crop-box label { display:block; margin-top:8px; }
-@media (max-width:700px) { header:not(.profile-header) { margin-left:0; padding:1rem 1.25rem } .admin-sidebar { position:static; width:100%; min-height:0; display:block }.admin-sidebar nav { flex-direction:row; flex-wrap:wrap }.admin-sidebar nav a { border:0 }.admin-sidebar-logo { display:block; margin:0 auto 12px }.admin-sidebar ~ main { margin-left:0; padding:20px 14px } body.has-app-sidebar > main { margin-left:0; padding:20px 14px } .admin-page-head { align-items:flex-start; flex-direction:column } .admin-modal-box form { grid-template-columns:1fr } .assignment-list { grid-template-columns:1fr; } .moderator-picker, #selected-moderator { margin-left:0; } #selected-moderator { display:block; margin-top:8px; } }
+@media (max-width:700px) { header:not(.profile-header) { margin-left:0; padding:1rem 1.25rem } .admin-sidebar { position:static; width:100%; min-height:0; display:block }.admin-sidebar nav { flex-direction:row; flex-wrap:wrap }.admin-sidebar nav a { border:0 }.admin-sidebar-logo { display:block; margin:0 auto 12px }.admin-sidebar ~ main { margin-left:0; padding:20px 14px } body.has-app-sidebar > main { margin-left:0; padding:20px 14px } .admin-page-head { align-items:flex-start; flex-direction:column } .admin-modal-box form { grid-template-columns:1fr } .assignment-list { grid-template-columns:1fr; } .moderator-picker, #selected-moderator { margin-left:0; } #selected-moderator { display:block; margin-top:8px; } .day-check-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } .picker-field { align-items:stretch; flex-direction:column; } .picker-field button { width:100%; } .schedule-form { grid-template-columns:1fr !important; padding:4px 20px 20px; } .schedule-form-head { padding:20px 20px 14px; } .schedule-day-chips { grid-template-columns:repeat(4,1fr); } .schedule-actions { margin:0 -20px -20px; padding:14px 20px; } .schedule-actions .schedule-button { flex:1; } }
+@media (max-width:700px) { header:not(.profile-header) { margin-left:0; padding:1rem 1.25rem } .admin-sidebar { position:static; width:100%; min-height:0; display:block }.admin-sidebar nav { flex-direction:row; flex-wrap:wrap }.admin-sidebar nav a { border:0 }.admin-sidebar-logo { display:block; margin:0 auto 12px }.admin-sidebar ~ main { margin-left:0; padding:20px 14px } body.has-app-sidebar > main { margin-left:0; padding:20px 14px } .admin-page-head { align-items:flex-start; flex-direction:column } .admin-modal-box form { grid-template-columns:1fr } .assignment-list { grid-template-columns:1fr; } .moderator-picker, #selected-moderator { margin-left:0; } #selected-moderator { display:block; margin-top:8px; } .day-check-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } .picker-field { align-items:stretch; flex-direction:column; } .picker-field button { width:100%; } .schedule-form { grid-template-columns:1fr !important; padding:4px 20px 20px; } .schedule-row { grid-template-columns:1fr; } .schedule-form-head { padding:20px 20px 14px; } .schedule-day-chips { grid-template-columns:repeat(4,1fr); } .schedule-actions { margin:0 -20px -20px; padding:14px 20px; } .schedule-actions .schedule-button { flex:1; } }
 @media (max-width:700px) { .login-layout { grid-template-columns:1fr } .login-photo { display:none } }
 @media (max-width:700px) { body.has-app-sidebar > #tcsms-loading-screen { left:0 !important; width:100% !important; } }
 .main, .card, .student-directory {

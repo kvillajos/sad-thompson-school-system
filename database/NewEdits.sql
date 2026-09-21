@@ -126,6 +126,11 @@ create policy profile_pictures_update on storage.objects
 -- supabase secrets set APP_ORIGIN=https://your-production-domain.example
 
 -- ============================================================
+-- 5. Section rooms
+-- ============================================================
+alter table sections add column if not exists room text;
+
+-- ============================================================
 -- Profile change approval and user profile pictures
 -- ============================================================
 alter table users add column if not exists profile_picture_url text;

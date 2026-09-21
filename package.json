@@ -8,6 +8,7 @@
     "check:sort": "node scripts/check-table-sort.mjs",
     "check:sectioning": "node scripts/check-sectioning.mjs",
     "check:timeout": "node scripts/check-session-timeout.mjs",
+    "check:schedule-days": "node scripts/check-schedule-days.mjs",
     "check:faculty": "node scripts/check-faculty-grades.mjs",
     "check:attendance": "node scripts/check-attendance.mjs",
     "check:grades-upload": "node scripts/check-grade-upload.mjs",

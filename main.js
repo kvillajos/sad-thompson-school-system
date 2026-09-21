@@ -24,6 +24,23 @@ hideLoadingScreen()
 
 if (!isSupabaseConfigured) showConfigurationError()
 
+const LOGIN_FAILURE_MESSAGE = 'Your password is incorrect or this account does not exist.'
+function failLogin(message, username, password) {
+  messageDiv.style.color = 'red'
+  messageDiv.textContent = message
+  messageDiv.setAttribute('role', 'alert')
+  const submitButton = loginForm.querySelector('[type="submit"]')
+  submitButton.disabled = false
+  hideLoadingScreen()
+  const restore = () => {
+    document.getElementById('username').value = username
+    document.getElementById('password').value = password
+    document.getElementById('password').focus()
+  }
+  restore()
+  requestAnimationFrame(restore)
+}
+
 // Handle Login
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault()
@@ -44,10 +61,7 @@ loginForm.addEventListener('submit', async (e) => {
     .rpc('find_login_email', { login_username: username })
 
   if (lookupError || !email) {
-    messageDiv.style.color = 'red'
-    messageDiv.textContent = 'Invalid username or password!'
-    submitButton.disabled = false
-    hideLoadingScreen()
+    failLogin(LOGIN_FAILURE_MESSAGE, username, password)
     return
   }
 
@@ -64,10 +78,7 @@ loginForm.addEventListener('submit', async (e) => {
     .single()
 
   if (authError || profileError || !user || !dashboardPages[user.role_id]) {
-    messageDiv.style.color = 'red'
-    messageDiv.textContent = 'Invalid username or password!'
-    submitButton.disabled = false
-    hideLoadingScreen()
+    failLogin(LOGIN_FAILURE_MESSAGE, username, password)
     return
   }
 
