@@ -1,4 +1,4 @@
-const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+import { dayNames } from './html.js'
 
 const daySet = days => new Set((days || []).map(Number).filter(day => day >= 1 && day <= 7))
 
@@ -27,5 +27,5 @@ export function groupScheduleRows(rows) {
 }
 
 export function formatDays(days) {
-  return [...daySet(days)].sort((a, b) => a - b).map(day => DAY_NAMES[day]).join(', ')
+  return [...daySet(days)].sort((a, b) => a - b).map(day => dayNames[day].slice(0, 3)).join(', ')
 }

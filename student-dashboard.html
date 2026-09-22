@@ -72,6 +72,7 @@
     <script type="module">
       import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
+      import { dayNames, escapeHtml, formatDate } from './html.js'
       import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
       import { attendanceSummaryLine } from './attendance.js'
       import { generalAverage, letterGrade } from './grades.js'

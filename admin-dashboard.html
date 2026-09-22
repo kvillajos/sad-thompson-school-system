@@ -41,6 +41,7 @@
     <script type="module">
       import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
+      import { escapeHtml, formatDate } from './html.js'
       import { applyUiTheme, mountProfile, mountSidebar, withBusy } from './ui-theme.js'
       import { isEditLocked, editLockMessage } from './edit-lock.js'
       applyUiTheme()

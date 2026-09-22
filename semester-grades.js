@@ -1,11 +1,10 @@
+import { escapeHtml } from './html.js'
 import { generalAverage, letterGrade } from './grades.js'
 
 const SEMESTERS = [
   { key: 'first', label: '1st Semester', quarters: ['first_sem_q1', 'first_sem_q2'] },
   { key: 'second', label: '2nd Semester', quarters: ['second_sem_q1', 'second_sem_q2'] }
 ]
-
-const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
 
 export function semesterRows(rows = []) {
   return rows.flatMap(row => SEMESTERS.map(semester => ({

@@ -1,5 +1,6 @@
 import { supabase, requireRole, signOut } from './auth-client.js'
-import { applyUiTheme, mountProfile, mountSidebar, withBusy } from './ui-theme.js'
+import { applyUiTheme, mountProfile, mountSidebar, toast, withBusy } from './ui-theme.js'
+import { escapeHtml, formatDate, gradeLabel, gradeToNumber } from './html.js'
 import { hideLoadingScreen } from './loading-screen.js'
 import { planBalancedAssignments, studentsForSection } from './sectioning.js'
 import { attendanceSummaryLine } from './attendance.js'
@@ -12,8 +13,6 @@ applyUiTheme()
 
 const $ = (id) => document.getElementById(id)
 const state = { applications: [], drafts: [], sections: [], students: [], academic: [], studentSections: new Map(), selectedApplication: null, enrolledByStudent: new Map(), enrolledSections: new Map(), autoAssignPlan: null, academicStudentId: null }
-const gradeToNumber = (value) => value === 'Kindergarten' ? 0 : Number(String(value).replace('Grade ', ''))
-const gradeLabel = (value) => Number(value) === 0 ? 'Kindergarten' : `Grade ${value}`
 // Grade is stored as a number but the select options are labels, so map back on resume.
 const gradeSelectLabel = (value) => value == null || value === '' ? '' : (Number.isFinite(Number(value)) ? gradeLabel(Number(value)) : String(value))
 
@@ -55,11 +54,6 @@ tabs.forEach((tab) => tab.addEventListener('click', () => {
   if (tab.dataset.tab === 'sectioning') loadSections()
 }))
 
-function toast(message, type='success') {
-  const el = $('toast'); el.textContent = message; el.className = `toast ${type}`; el.classList.remove('hidden')
-  setTimeout(() => el.classList.add('hidden'), 3500)
-}
-function escapeHtml(v='') { return String(v).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])) }
 function statusBadge(s) { return `<span class="badge ${String(s).toLowerCase().replaceAll(' ','-')}">${escapeHtml(s)}</span>` }
 const photoPlaceholder = $('application-photo-preview')?.getAttribute('src') || ''
 if ($('application-photo')) {
@@ -230,7 +224,7 @@ async function loadApplications() {
   state.applications = data || []
   $('applications-table').innerHTML = state.applications.map(a => `<tr>
     <td>${escapeHtml(`${a.first_name} ${a.last_name}`)}</td><td>${escapeHtml(gradeLabel(a.grade_level))}</td><td>${statusBadge(a.status)}</td>
-    <td>${new Date(a.created_at).toLocaleDateString()}</td><td>${a.status === 'draft' ? `<button class="small btn-approve" data-resume="${a.id}">Resume</button>` : `<button class="small btn-review" data-review="${a.id}">Review</button>`}</td></tr>`).join('') || '<tr><td colspan="5">No applications found.</td></tr>'
+    <td>${formatDate(a.created_at)}</td><td>${a.status === 'draft' ? `<button class="small btn-approve" data-resume="${a.id}">Resume</button>` : `<button class="small btn-review" data-review="${a.id}">Review</button>`}</td></tr>`).join('') || '<tr><td colspan="5">No applications found.</td></tr>'
   document.querySelectorAll('[data-review]').forEach(b => b.addEventListener('click', () => openReview(b.dataset.review)))
   document.querySelectorAll('[data-resume]').forEach(b => b.addEventListener('click', () => resumeApplication(b.dataset.resume)))
 }
@@ -262,7 +256,7 @@ async function openDrafts() {
   state.drafts = data || []
   state.applications = [...state.drafts, ...state.applications.filter(application => !state.drafts.some(draft => draft.id === application.id))]
   $('drafts-list').innerHTML = state.drafts.length
-    ? `<table><thead><tr><th>Name</th><th>Grade</th><th>Last Saved</th><th>Actions</th></tr></thead><tbody>${state.drafts.map(draft => `<tr><td>${escapeHtml(`${draft.first_name || ''} ${draft.last_name || ''}`.trim())}</td><td>${escapeHtml(draft.grade_level == null ? '-' : gradeLabel(draft.grade_level))}</td><td>${draft.updated_at ? new Date(draft.updated_at).toLocaleString() : '-'}</td><td><button class="small btn-approve" data-draft-resume="${draft.id}">Resume</button> <button class="small btn-remove" data-draft-delete="${draft.id}">Delete</button></td></tr>`).join('')}</tbody></table>`
+    ? `<table><thead><tr><th>Name</th><th>Grade</th><th>Last Saved</th><th>Actions</th></tr></thead><tbody>${state.drafts.map(draft => `<tr><td>${escapeHtml(`${draft.first_name || ''} ${draft.last_name || ''}`.trim())}</td><td>${escapeHtml(draft.grade_level == null ? '-' : gradeLabel(draft.grade_level))}</td><td>${draft.updated_at ? formatDate(draft.updated_at, true) : '-'}</td><td><button class="small btn-approve" data-draft-resume="${draft.id}">Resume</button> <button class="small btn-remove" data-draft-delete="${draft.id}">Delete</button></td></tr>`).join('')}</tbody></table>`
     : '<p class="empty-state">No drafts saved.</p>'
   $('drafts-list').querySelectorAll('[data-draft-resume]').forEach(button => button.onclick = () => resumeApplication(button.dataset.draftResume))
   $('drafts-list').querySelectorAll('[data-draft-delete]').forEach(button => button.onclick = () => deleteDraft(button.dataset.draftDelete))
@@ -316,7 +310,7 @@ async function openStudentDetails(studentId) {
       <div><b>General Average (${escapeHtml(active?.school_year || 'current year')})</b><p>${currentYearAverage == null ? '-' : `${currentYearAverage} (${escapeHtml(letterGrade(currentYearAverage)?.letter || '-')})`}</p></div>
     </div></div>
     <h3>Enrollment History</h3>
-    <table><thead><tr><th>School Year</th><th>Section</th><th>Status</th><th>Enrolled On</th></tr></thead><tbody>${enrollmentRows.map(row => `<tr><td>${escapeHtml(row.school_year || '-')}</td><td>${escapeHtml(row.sections?.section_name || 'No Section')}</td><td>${statusBadge(row.status || 'active')}</td><td>${row.enrolled_at ? new Date(row.enrolled_at).toLocaleDateString() : '-'}</td></tr>`).join('') || '<tr><td colspan="4" class="empty-state">No enrollment records.</td></tr>'}</tbody></table>
+    <table><thead><tr><th>School Year</th><th>Section</th><th>Status</th><th>Enrolled On</th></tr></thead><tbody>${enrollmentRows.map(row => `<tr><td>${escapeHtml(row.school_year || '-')}</td><td>${escapeHtml(row.sections?.section_name || 'No Section')}</td><td>${statusBadge(row.status || 'active')}</td><td>${formatDate(row.enrolled_at)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty-state">No enrollment records.</td></tr>'}</tbody></table>
     <h3>Academic History</h3>
     <table><thead><tr><th>School Year</th><th>Subject</th><th>Grade</th><th>Letter</th><th>Remarks</th></tr></thead><tbody>${academicRows.map(row => `<tr><td>${escapeHtml(row.school_year || '')}</td><td>${escapeHtml(row.subject || '')}</td><td>${row.grade ?? ''}</td><td>${escapeHtml(row.letter_grade || letterGrade(row.grade)?.letter || '')}</td><td>${escapeHtml(row.remarks || '')}</td></tr>`).join('') || '<tr><td colspan="5" class="empty-state">No academic records.</td></tr>'}</tbody></table>`
 }
@@ -415,7 +409,7 @@ async function loadEnrollments() {
     const student = row.students || {}
     return (!section || String(row.section_id) === section) && (!search || `${student.lrn_number} ${student.first_name} ${student.last_name}`.toLowerCase().includes(search))
   })
-  $('enrollment-table').innerHTML = rows.map(row => { const student = row.students || {}; return `<tr><td>${escapeHtml(student.lrn_number || row.student_id)}</td><td>${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`)}</td><td>${escapeHtml(row.school_year || '')}</td><td>${row.enrolled_at ? new Date(row.enrolled_at).toLocaleDateString() : '-'}</td><td>${escapeHtml(row.sections?.section_name || 'No Section')}</td><td>${statusBadge(row.status || 'Not Enrolled')}</td><td><button class="small btn-view" data-view-student="${row.student_id}">View</button> ${row.id ? `<button class="small btn-remove" data-remove-enrollment="${row.id}">Remove</button>` : ''}</td></tr>` }).join('') || '<tr><td colspan="7" class="empty-state">No enrollment records found.</td></tr>'
+  $('enrollment-table').innerHTML = rows.map(row => { const student = row.students || {}; return `<tr><td>${escapeHtml(student.lrn_number || row.student_id)}</td><td>${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`)}</td><td>${escapeHtml(row.school_year || '')}</td><td>${formatDate(row.enrolled_at)}</td><td>${escapeHtml(row.sections?.section_name || 'No Section')}</td><td>${statusBadge(row.status || 'Not Enrolled')}</td><td><button class="small btn-view" data-view-student="${row.student_id}">View</button> ${row.id ? `<button class="small btn-remove" data-remove-enrollment="${row.id}">Remove</button>` : ''}</td></tr>` }).join('') || '<tr><td colspan="7" class="empty-state">No enrollment records found.</td></tr>'
   bindViewStudentButtons($('enrollment-table'))
   document.querySelectorAll('[data-remove-enrollment]').forEach(button => button.onclick = () => confirmRemoveEnrollment(button.dataset.removeEnrollment, rows.find(row => String(row.id) === button.dataset.removeEnrollment)))
 }

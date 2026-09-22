@@ -1,12 +1,9 @@
 // Report card builder: pure (no app imports besides grades.js, also pure) so
 // scripts/check-report-card.mjs can assert it in Node. Produces the HTML string the
 // registrar's Academic History panel prints, the same way printAcademicCard() already does.
-import { generalAverage, letterGrade } from './grades.js'
+import { escapeHtml } from './html.js'
+import { ACADEMIC_LABELS, SCORE_FIELDS, generalAverage, letterGrade } from './grades.js'
 
-const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]))
-
-const ACADEMIC_COLUMNS = ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2', 'midterm', 'final']
-const ACADEMIC_LABELS = { first_sem_q1: 'Q1', first_sem_q2: 'Q2', second_sem_q1: 'Q3', second_sem_q2: 'Q4', midterm: 'Midterm', final: 'Final' }
 
 // One student, one school year: grades + attendance + remarks + general average + signatures.
 export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, academicRows = [], attendance, remarks }) {
@@ -15,9 +12,9 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
   const totals = attendance || { present: 0, late: 0, absent: 0, excused: 0, total: 0 }
   const name = `${student?.first_name || ''} ${student?.last_name || ''}`.trim()
 
-  const academicHead = `<tr><th>Subject</th>${ACADEMIC_COLUMNS.map(key => `<th>${ACADEMIC_LABELS[key]}</th>`).join('')}<th>Grade</th><th>Letter</th></tr>`
-  const academicBody = academicRows.map(row => `<tr><td>${escapeHtml(row.subject)}</td>${ACADEMIC_COLUMNS.map(key => `<td>${row[key] ?? ''}</td>`).join('')}<td>${row.grade ?? ''}</td><td>${escapeHtml(row.letter_grade || letterGrade(row.grade)?.letter || '')}</td></tr>`).join('')
-    || `<tr><td colspan="${ACADEMIC_COLUMNS.length + 3}" class="empty-state">No academic records yet.</td></tr>`
+  const academicHead = `<tr><th>Subject</th>${SCORE_FIELDS.map(key => `<th>${ACADEMIC_LABELS[key]}</th>`).join('')}<th>Grade</th><th>Letter</th></tr>`
+  const academicBody = academicRows.map(row => `<tr><td>${escapeHtml(row.subject)}</td>${SCORE_FIELDS.map(key => `<td>${row[key] ?? ''}</td>`).join('')}<td>${row.grade ?? ''}</td><td>${escapeHtml(row.letter_grade || letterGrade(row.grade)?.letter || '')}</td></tr>`).join('')
+    || `<tr><td colspan="${SCORE_FIELDS.length + 3}" class="empty-state">No academic records yet.</td></tr>`
 
   return `<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--ui-navy);padding-bottom:8px">
       <div><b>THOMPSON CHRISTIAN SCHOOL</b><div style="font-size:10px;letter-spacing:.18em;color:var(--ui-muted)">REPORT CARD</div></div>

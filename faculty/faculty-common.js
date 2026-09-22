@@ -2,8 +2,9 @@ import { supabase, requireRole, signOut } from '../auth-client.js'
 import { applyUiTheme, mountProfile, mountSidebar } from '../ui-theme.js'
 import { hideLoadingScreen } from '../loading-screen.js'
 import { classOptions, currentSchoolYear } from '../grades.js'
+import { dayNames, escapeHtml } from '../html.js'
 
-export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+export { dayNames, escapeHtml }
 
 export async function loadFacultyContext(activePage = 'dashboard') {
   applyUiTheme()
@@ -31,8 +32,6 @@ export async function loadFacultyContext(activePage = 'dashboard') {
   hideLoadingScreen()
   return { user, schedules, enrollments: enrollmentResult.data || [], scheduleError: scheduleResult.error, enrollmentError: enrollmentResult.error, classes: classOptions(schedules), schoolYear: currentSchoolYear() }
 }
-
-export const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 export function classSelect(select, classes) {
   select.innerHTML = classes.map(item => `<option value="${item.key}">${escapeHtml(item.label)}</option>`).join('') || '<option value="">No classes assigned</option>'

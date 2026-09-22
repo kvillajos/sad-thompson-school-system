@@ -26,6 +26,7 @@
   import { supabase, requireRole, signOut } from './auth-client.js'
   import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
   import { hideLoadingScreen } from './loading-screen.js'
+  import { escapeHtml } from './html.js'
   import { formatDays, groupScheduleRows, planDayChanges } from './schedule-days.js'
   applyUiTheme()
   const user = await requireRole(1)

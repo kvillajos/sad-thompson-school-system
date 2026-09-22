@@ -27,6 +27,8 @@ body {
   line-height: 1.45 !important;
 }
 .hidden { display: none !important; }
+.toast { position:fixed; right:20px; bottom:20px; z-index:10000; max-width:min(420px, calc(100vw - 40px)); padding:13px 17px; border-radius:10px; background:#166534; color:#fff; box-shadow:0 8px 24px rgba(7,27,58,.18); font-weight:700; }
+.toast.error { background:#b91c1c; }
 button:not(:disabled) { transition:transform .16s ease; }
 button:not(:disabled):hover {  transform: scale(1.05);
   filter: brightness(0.95);}
@@ -686,18 +688,20 @@ function installGlobalErrorHandler() {
   window.__tcsmsErrorHandlerInstalled = true;
   window.addEventListener('unhandledrejection', event => {
     event.preventDefault();
-    const toast = document.getElementById('toast') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'toast' });
-    toast.className = 'toast error';
-    toast.textContent = describeError(event.reason, 'Operation');
-    setTimeout(() => toast.classList.add('hidden'), 6000);
+    toast(describeError(event.reason, 'Operation'), 'error', 6000);
   });
   window.addEventListener('error', event => {
     if (!event.error) return;
-    const toast = document.getElementById('toast') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'toast' });
-    toast.className = 'toast error';
-    toast.textContent = describeError(event.error, 'Page');
-    setTimeout(() => toast.classList.add('hidden'), 6000);
+    toast(describeError(event.error, 'Page'), 'error', 6000);
   });
+}
+
+export function toast(message, type = 'success', duration = 3500) {
+  const element = document.getElementById('toast') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'toast' });
+  element.textContent = message;
+  element.className = `toast ${type}`;
+  element.classList.remove('hidden');
+  setTimeout(() => element.classList.add('hidden'), duration);
 }
 
 // Disables a button and swaps its label while an async action runs, restoring it after.

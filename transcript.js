@@ -1,6 +1,5 @@
+import { escapeHtml } from './html.js'
 import { semesterGroups } from './semester-grades.js'
-
-const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
 
 export function buildTranscript({ student = {}, rows = [], mode = 'official', schoolYear = '', sectionName = '' } = {}) {
   const unofficial = mode === 'unofficial'

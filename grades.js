@@ -3,6 +3,7 @@
 // scripts/check-faculty-grades.mjs can assert it in Node.
 
 export const SCORE_FIELDS = ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2', 'midterm', 'final']
+export const ACADEMIC_LABELS = { first_sem_q1: 'Q1', first_sem_q2: 'Q2', second_sem_q1: 'Q3', second_sem_q2: 'Q4', midterm: 'Midterm', final: 'Final' }
 const TEXT_FIELDS = ['letter_grade', 'remarks']
 
 // The school year runs June to May, so January to May still belongs to the year that began
