@@ -89,6 +89,7 @@ export function mountProfile(user, roleLabel, onSignOut) {
     openPasswordModal();
   });
   const avatar = profile.querySelector('.profile-avatar');
+  const nameEl = profile.querySelector('.profile-toggle strong');
   const setAvatar = (url, firstName, lastName) => {
     avatar.textContent = '';
     if (url) {
@@ -103,6 +104,11 @@ export function mountProfile(user, roleLabel, onSignOut) {
     const initials = [firstName, lastName].filter(Boolean).map(value => value.trim().charAt(0)).join('').toUpperCase();
     avatar.textContent = initials || safeName.charAt(0).toUpperCase();
   };
+  const setDisplayName = (firstName, lastName) => {
+    if (!firstName) return;
+    const label = lastName ? `${firstName.trim()} ${lastName.trim().charAt(0).toUpperCase()}.` : firstName.trim();
+    nameEl.textContent = label;
+  };
   const loadAvatar = async () => {
     const profileQuery = user.student_id
       ? supabase.from('students').select('first_name,last_name,profile_picture_url').eq('student_id', user.student_id).maybeSingle()
@@ -115,6 +121,7 @@ export function mountProfile(user, roleLabel, onSignOut) {
     ]);
     const data = profileResult.data || {};
     setAvatar(data.profile_picture_url || accountResult.data?.profile_picture_url, data.first_name, data.last_name);
+    setDisplayName(data.first_name, data.last_name);
   };
   loadAvatar();
   showLoginNotice();
