@@ -28,6 +28,9 @@ body {
   line-height: 1.45 !important;
 }
 .hidden { display: none !important; }
+button:not(:disabled) { transition:transform .16s ease; }
+button:not(:disabled):hover {  transform: scale(1.05);
+  filter: brightness(0.95);}
 .admin-shell > header { display:none; }
 .login-layout {
   display: grid;
@@ -84,6 +87,7 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .admin-page-head h2 { margin:0; color:var(--ui-blue-dark); font-size:24px }
 .admin-page-head p { margin:6px 0 0; color:var(--ui-muted) }
 .admin-primary { background:var(--ui-blue); color:#fff; border:0; border-radius:5px; padding:10px 14px; cursor:pointer; font-weight:700 }
+button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12px rgba(23,86,209,.2); transform:translateY(-1px) scale(1.02); }
 .admin-secondary { background:#eaf1ff; color:var(--ui-blue-dark); border:1px solid #c9dbfb; border-radius:5px; padding:8px 12px; cursor:pointer; font-weight:700 }
 .admin-filterbar { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 14px }
 .admin-filterbar input,.admin-filterbar select { min-width:180px; padding:9px; border:1px solid #b9c8dc; border-radius:5px; color:var(--ui-text); background:#fff }
@@ -113,12 +117,21 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .assignment-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 14px; max-height:55vh; overflow:auto; border:1px solid var(--ui-border); border-radius:6px; padding:8px; }
 .assignment-list .admin-check { min-width:0; }
 .moderator-box { width:min(100%, 760px) !important; }
-.moderator-box table { min-width:0 !important; }
+.moderator-box table { width:100%; min-width:0 !important; }
 .moderator-box .table-scroll { max-height:55vh; }
 .moderator-picker { margin-left:8px; }
-#selected-moderator { display:inline-block; margin-left:8px; }
+#selected-moderator { display:inline-flex; vertical-align:middle; margin-left:8px; }
 .faculty-details-box { width:min(100%, 720px) !important; }
-.schedule-box { width:min(100%,1120px) !important; max-height:88vh; overflow:auto; }
+.schedule-box { width:min(100%,1120px) !important; max-height:88vh; overflow:auto; padding:18px; border-radius:24px; }
+.schedule-box > .admin-modal-head { position:static; padding:8px 0 0; margin:0 0 8px; background:transparent; align-items:flex-start; }
+.schedule-box > .admin-modal-head h3 { display:flex; align-items:center; gap:10px; font-size:22px; }
+.schedule-box > .admin-modal-head h3::before { content:''; width:5px; height:27px; border-radius:4px; background:var(--ui-blue); }
+.schedule-box > .admin-modal-head p { margin:3px 0 0 15px; color:var(--ui-muted); font-size:13px; }
+.schedule-overview-actions { display:flex; align-items:center; gap:14px; }
+.schedule-overview-actions #add-schedule { border-radius:24px; padding:11px 18px; box-shadow:0 6px 12px rgba(23,86,209,.18); }
+.schedule-overview-actions #close-section-schedule { width:36px; height:36px; padding:0; border-radius:12px; font-size:18px; }
+.schedule-box > .admin-table-wrap { padding:14px; border-radius:15px; }
+.schedule-box > .admin-table-wrap th { height:42px; padding:8px 12px; }
 .schedule-box .admin-table-wrap table { min-width:0 !important; }
 .schedule-form-box { width:min(580px, calc(100vw - 24px)) !important; max-height:calc(100vh - 24px); padding:0 !important; border-radius:18px; overflow:hidden; font-family:Arial, 'Helvetica Neue', sans-serif; }
 .schedule-form-head { box-sizing:border-box; padding:24px 32px 18px; margin:0; align-items:flex-start; }
@@ -129,12 +142,12 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .schedule-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start; gap:16px; min-width:0; }
 .schedule-field { display:grid; gap:7px; min-width:0; }
 .schedule-label { color:var(--ui-text); font-size:14px; font-weight:700; }
-.schedule-input,.schedule-picker { width:100%; min-height:46px; border:1.5px solid var(--ui-border); border-radius:11px; background:#fff; color:var(--ui-text); font:inherit; font-size:15px; transition:border-color .15s,box-shadow .15s; }
+.schedule-input,.schedule-picker { box-sizing:border-box; width:100%; height:52px; min-height:52px; border:1.5px solid var(--ui-border); border-radius:11px; background:#fff; color:var(--ui-text); font:inherit; font-size:15px; transition:border-color .15s,box-shadow .15s; }
 .schedule-input { box-sizing:border-box; margin-top:0 !important; padding:0 14px !important; }
 .schedule-input::placeholder,.schedule-picker-input::placeholder { color:#8a97b0; }
 .schedule-input:focus,.schedule-picker:focus-within { outline:0; border-color:var(--ui-blue); box-shadow:0 0 0 4px #e6eefc; }
 .schedule-hint { color:var(--ui-muted); font-size:12.5px; line-height:1.35; }
-.schedule-picker { display:flex; align-items:center; gap:10px; min-width:0; box-sizing:border-box; padding:5px 5px 5px 14px; }
+.schedule-picker { display:flex; align-items:center; gap:10px; min-width:0; padding:5px 5px 5px 14px; }
 .schedule-picker-value { min-width:0; flex:1; display:flex; align-items:center; gap:10px; }
 .schedule-picker-text { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:15px; }
 .schedule-picker-text.empty { color:#8a97b0; }
@@ -176,7 +189,20 @@ header:not(.profile-header) + main { max-width:960px; margin:2rem auto; padding:
 .moderator-card { display:flex; align-items:center; gap:10px; margin-top:8px; padding:10px; border:1px solid var(--ui-border); border-radius:6px; }
 .moderator-card strong,.moderator-card small { display:block; }
 .moderator-card small { color:var(--ui-muted); }
-.section-box { width:min(100%,760px) !important; }
+.section-box { width:min(100%,760px) !important; max-height:calc(100vh - 32px); padding:26px; border-radius:22px; }
+.section-box .admin-modal-head { margin-bottom:28px; }
+.section-box .admin-modal-head h3 { display:flex; align-items:center; gap:12px; font-size:20px; }
+.section-box .admin-modal-head h3::before { content:''; width:5px; height:27px; border-radius:4px; background:var(--ui-blue); }
+.section-box .admin-modal-head button { width:34px; height:34px; padding:0; border-radius:10px; font-size:18px; }
+.section-box form { gap:22px 16px; }
+.section-box form > label { display:flex; flex-direction:column; gap:6px; }
+.section-box form > label > input,.section-box form > label > select { margin-top:0; min-height:40px; padding:10px 14px; border:1px solid #d6e0ee; border-radius:12px; }
+.section-box .section-moderator-field { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:10px 12px; margin-top:2px; }
+.section-box .section-moderator-field > span { color:var(--ui-text); }
+.section-box .section-moderator-field .moderator-picker { grid-column:2; grid-row:1; justify-self:end; margin:0; border:0; border-radius:22px; padding:10px 18px; }
+.section-box .section-moderator-field .moderator-card { grid-column:1/-1; width:100%; box-sizing:border-box; margin-top:0; border-radius:18px; padding:10px 16px; }
+.section-box .admin-actions { margin:4px 0 -2px; padding-top:18px; border-top:1px solid #edf1f6; }
+.section-box .admin-actions button { border-radius:22px; padding:10px 20px; }
 .faculty-details-box h4 { color:var(--ui-blue-dark); margin:20px 0 8px; }
 .faculty-details-box ul { margin:0; padding-left:20px; color:var(--ui-text); }
 .admin-modal-box label { color:var(--ui-text); font-weight:700; font-size:13px }
@@ -569,7 +595,7 @@ button.btn-remove, .admin-remove { background:#fee2e2 !important; color:#c0392b 
 .modal button:disabled { opacity:.65; cursor:not-allowed; }
 .modalbox { max-height:90vh; overflow:auto; }
 .modalbox > .modalhead,
-.admin-modal-box > .admin-modal-head {
+.admin-modal-box > .admin-modal-head:not(.schedule-form-head) {
   position:sticky;
   top:-20px;
   z-index:2;
@@ -577,7 +603,7 @@ button.btn-remove, .admin-remove { background:#fee2e2 !important; color:#c0392b 
   margin-top:-20px;
   background:#fff;
 }
-.admin-modal-box > .admin-modal-head { top:-20px; }
+.admin-modal-box > .admin-modal-head:not(.schedule-form-head) { top:-20px; }
 .academic-history-box { width:min(100%, 1040px) !important; }
 .academic-profile-summary { display:flex; gap:22px; align-items:flex-start; margin:4px 0 22px; }
 .academic-profile-summary .review-grid { flex:1; margin:0; }
