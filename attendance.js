@@ -3,8 +3,6 @@
 // per-class grouping and school-year math instead of duplicating them.
 import { classOptions, currentSchoolYear } from './grades.js'
 
-export { classOptions, currentSchoolYear }
-
 export const STATUS_OPTIONS = ['Present', 'Late', 'Absent', 'Excused']
 
 // One sheet row to one save_attendance() record. Falls back to Present when a row is

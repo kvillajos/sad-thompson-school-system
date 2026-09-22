@@ -3,7 +3,7 @@
 // scripts/check-faculty-grades.mjs can assert it in Node.
 
 export const SCORE_FIELDS = ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2', 'midterm', 'final']
-export const TEXT_FIELDS = ['letter_grade', 'remarks']
+const TEXT_FIELDS = ['letter_grade', 'remarks']
 
 // The school year runs June to May, so January to May still belongs to the year that began
 // the previous June.
@@ -32,7 +32,7 @@ export function classOptions(schedules = []) {
 // DepEd-style letter bands, cross-checked against the 75 passing mark batch_promote_students()
 // already enforces (database/backupsqlmigration.sql). One table so the grade sheet, the GPA
 // engine and the report card can never disagree; change the bands here and every reader follows.
-export const LETTER_GRADE_SCALE = [
+const LETTER_GRADE_SCALE = [
   { min: 97, letter: 'A+', descriptor: 'Outstanding' },
   { min: 92, letter: 'A', descriptor: 'Very Satisfactory' },
   { min: 87, letter: 'B+', descriptor: 'Satisfactory' },

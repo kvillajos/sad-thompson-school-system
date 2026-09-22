@@ -17,7 +17,6 @@ const sharedTheme = `
   --ui-danger: #c0392b;
   --ui-warning: #b7791f;
 }
-
 body {
   margin: 0 !important;
   min-height: 100vh;
@@ -66,8 +65,6 @@ button:not(:disabled):hover {  transform: scale(1.05);
 .login-panel label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap }
 .login-panel input { display:block; width:100%; box-sizing:border-box; padding:.65rem .7rem; background:#e7ebf0; color:#172b4d; border:0; border-radius:10px; box-shadow:0 3px 10px rgba(0,0,0,.18); font-size:14px }
 .login-panel button { display:block; width:100%; box-sizing:border-box; padding:.72rem; background:#2864c7; color:#fff; border:0; border-radius:10px; box-shadow:0 3px 10px rgba(0,0,0,.22); font-size:15px; cursor:pointer }
-.dashboard-info { background:#fff; padding:1rem; border-radius:8px; border:1px solid var(--ui-border); margin-bottom:1rem }
-.dashboard-info p { color:var(--ui-text) }
 header:not(.profile-header) { display:flex; align-items:center; justify-content:space-between; gap:1rem; min-height:64px; margin-left:198px; padding:14px 24px; background:var(--ui-navy); color:#fff }
 header:not(.profile-header) h1 { margin:0; font-size:22px }
 header:not(.profile-header) button { padding:.65rem 1rem; border:0; border-radius:6px; background:#fff; color:var(--ui-blue-dark); font-weight:600; cursor:pointer }
@@ -819,12 +816,15 @@ export function mountProfile(user, roleLabel, onSignOut) {
     avatar.textContent = initials || safeName.charAt(0).toUpperCase();
   };
   const loadAvatar = async () => {
-    const profileResult = user.student_id
-      ? await supabase.from('students').select('first_name,last_name,profile_picture_url').eq('student_id', user.student_id).maybeSingle()
+    const profileQuery = user.student_id
+      ? supabase.from('students').select('first_name,last_name,profile_picture_url').eq('student_id', user.student_id).maybeSingle()
       : Number(user.role_id) === 1
-        ? await supabase.from('admins').select('first_name,middle_name,last_name').eq('user_id', user.user_id).maybeSingle()
-        : await supabase.from('staff_profiles').select('first_name,last_name').eq('user_id', user.user_id).maybeSingle();
-    const accountResult = await supabase.from('users').select('profile_picture_url').eq('user_id', user.user_id).maybeSingle();
+        ? supabase.from('admins').select('first_name,middle_name,last_name').eq('user_id', user.user_id).maybeSingle()
+        : supabase.from('staff_profiles').select('first_name,last_name').eq('user_id', user.user_id).maybeSingle();
+    const [profileResult, accountResult] = await Promise.all([
+      profileQuery,
+      supabase.from('users').select('profile_picture_url').eq('user_id', user.user_id).maybeSingle()
+    ]);
     const data = profileResult.data || {};
     setAvatar(data.profile_picture_url || accountResult.data?.profile_picture_url, data.first_name, data.last_name);
   };
@@ -861,12 +861,15 @@ function openProfileModal(user, roleLabel, profile) {
     else avatar.textContent = String(user?.username || roleLabel).charAt(0).toUpperCase();
   };
   const loadProfile = async () => {
-    const profileResult = user.student_id
-      ? await supabase.from('students').select('first_name,middle_name,last_name,profile_picture_url').eq('student_id', user.student_id).maybeSingle()
+    const profileQuery = user.student_id
+      ? supabase.from('students').select('first_name,middle_name,last_name,profile_picture_url').eq('student_id', user.student_id).maybeSingle()
       : Number(user.role_id) === 1
-        ? await supabase.from('admins').select('first_name,middle_name,last_name').eq('user_id', user.user_id).maybeSingle()
-        : await supabase.from('staff_profiles').select('first_name,middle_name,last_name').eq('user_id', user.user_id).maybeSingle();
-    const pictureResult = await supabase.from('users').select('profile_picture_url').eq('user_id', user.user_id).maybeSingle();
+        ? supabase.from('admins').select('first_name,middle_name,last_name').eq('user_id', user.user_id).maybeSingle()
+        : supabase.from('staff_profiles').select('first_name,middle_name,last_name').eq('user_id', user.user_id).maybeSingle();
+    const [profileResult, pictureResult] = await Promise.all([
+      profileQuery,
+      supabase.from('users').select('profile_picture_url').eq('user_id', user.user_id).maybeSingle()
+    ]);
     if (profileResult.error) return window.alert(`Could not load your profile details: ${profileResult.error.message}`);
     if (pictureResult.error) return window.alert(`Could not load your profile picture: ${pictureResult.error.message}`);
     const data = profileResult.data || {};
@@ -992,5 +995,3 @@ function showLoginNotice() {
     modal.querySelector('#tcsms-login-notice-ok').addEventListener('click', () => modal.remove());
   }, 300);
 }
-
-export const applyRegistrarTheme = applyUiTheme;

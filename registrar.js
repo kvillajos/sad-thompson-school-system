@@ -1,7 +1,7 @@
 import { supabase, requireRole, signOut } from './auth-client.js'
 import { applyUiTheme, mountProfile, mountSidebar, withBusy } from './ui-theme.js'
 import { hideLoadingScreen } from './loading-screen.js'
-import { planBalancedAssignments } from './sectioning.js'
+import { planBalancedAssignments, studentsForSection } from './sectioning.js'
 import { attendanceSummaryLine } from './attendance.js'
 import { generalAverage, letterGrade } from './grades.js'
 import { buildReportCard } from './report-card.js'
@@ -387,7 +387,6 @@ async function loadSections() {
 }
 document.querySelector('#section-search').oninput = loadSections
 document.querySelector('#section-grade-filter').onchange = loadSections
-document.querySelector('#filter-sections')?.remove()
 async function viewSectionStudents(sectionId) {
   const section = state.sections.find(item => Number(item.section_id) === sectionId)
   if (!section) return
@@ -466,6 +465,7 @@ async function openPlacement(sectionId='') {
   ])
   if (studentResult.error) return toast(`Could not load placement students: ${studentResult.error.message}`,'error')
   state.students = studentResult.data || []
+  state.enrolledByStudent = new Map((enrollmentResult.data || []).map(row => [row.student_id, row.section_id]))
   state.enrolledSections = new Map((enrollmentResult.data || []).map(row => [String(row.student_id), row.sections?.section_name || 'Another section']))
   if (!state.students.length) return toast('No students are available for placement. Check the students table and RLS policy.', 'error')
   const grades=[...new Set(state.sections.map(s=>s.grade_level))].sort((a,b)=>a-b)
@@ -487,9 +487,11 @@ function placementRows() {
   if (sections.some(section => String(section.section_id) === currentSection)) $('placement-section').value = currentSection
   const search = $('placement-search').value.trim().toLowerCase()
   const unassignedOnly = $('placement-filter').value === 'unassigned'
-  return state.students.filter(student => {
-    const level = Number(student.grade_level)
-    if (level !== Number(grade)) return false
+  return studentsForSection(state.students, {
+    gradeLevel: grade,
+    sectionId: $('placement-section').value,
+    enrolledByStudent: state.enrolledByStudent
+  }).filter(student => {
     if (unassignedOnly && state.enrolledSections.has(String(student.student_id))) return false
     return !search || `${student.lrn_number||''} ${student.student_id} ${student.first_name||''} ${student.last_name||''}`.toLowerCase().includes(search)
   })

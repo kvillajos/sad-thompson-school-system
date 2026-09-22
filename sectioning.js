@@ -6,7 +6,7 @@ export const AUTO_ASSIGN_GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 const defaultRandom = () => Math.random()
 
-export function shuffle(items, random = defaultRandom) {
+function shuffle(items, random = defaultRandom) {
   const copy = [...items]
   for (let index = copy.length - 1; index > 0; index -= 1) {
     const swapWith = Math.floor(random() * (index + 1))
@@ -19,7 +19,7 @@ export function shuffle(items, random = defaultRandom) {
 
 const genderOf = student => String(student.gender || student.sex || '').trim().toLowerCase().charAt(0)
 
-export function splitByGender(students) {
+function splitByGender(students) {
   return {
     boys: students.filter(student => genderOf(student) === 'm'),
     girls: students.filter(student => genderOf(student) === 'f'),

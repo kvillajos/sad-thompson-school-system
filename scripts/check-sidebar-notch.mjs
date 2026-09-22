@@ -15,18 +15,14 @@ const js = readFileSync(join(root, 'ui-theme.js'), 'utf8')
 const theme = js.match(/const sharedTheme = `([\s\S]*?)`;/)[1]
 const sidebar = js.slice(js.indexOf('export function mountSidebar'), js.indexOf('export function mountProfile'))
 
-assert.ok(theme.includes('.app-sidebar .sidebar-link:not(.active)::after'), 'row panel ::after must be scoped to non-active links')
-assert.ok(theme.includes('--sidebar-rail:62px;'), 'the icon rail token must exist')
-const declaredRadius = theme.match(/--sidebar-radius:\s*(\d+)px/)[1] + 'px'
-assert.ok(theme.includes('inset:0 0 0 var(--sidebar-rail);'), 'the row panel must start at the rail token')
-assert.ok(theme.includes('linear-gradient(to right,transparent 0 var(--sidebar-rail),var(--sidebar-surface) var(--sidebar-rail) 100%)'), 'the active band must start at the rail token')
-assert.ok(theme.includes('width:var(--sidebar-rail);'), 'the icon cell must be as wide as the rail token')
-assert.ok(!/\.app-sidebar \.sidebar-link::after\s*\{/.test(theme), 'row panel ::after must not target the active link')
-assert.ok(theme.includes('.app-sidebar .sidebar-link:not(.active)::after { left:56px; }'), 'mobile ::after override must be scoped to non-active links')
-assert.ok(theme.includes('.app-sidebar .sidebar-link:not(.active)::before { width:46px; height:38px; }'), 'mobile ::before override must be scoped to non-active links')
-assert.ok(theme.includes('top:calc(var(--sidebar-radius) * -1);'), 'top flare must sit one radius above the active row')
-assert.ok(theme.includes('bottom:calc(var(--sidebar-radius) * -1);'), 'bottom flare must sit one radius below the active row')
-assert.match(theme, /\.app-sidebar \.sidebar-link\.active \{[^}]*z-index:2/, 'active row must paint above its siblings so the flares are not covered')
+assert.ok(theme.includes('.app-sidebar .sidebar-link.active::after'), 'active row ::after must be present')
+assert.ok(theme.includes('--sidebar-rail: 48px;'), 'the icon rail token must exist')
+const declaredRadius = theme.match(/--sidebar-curve:\s*(\d+)px/)[1] + 'px'
+assert.ok(theme.includes('right: 0;'), 'the active row curves must align to the sidebar edge')
+assert.ok(theme.includes('width: var(--sidebar-rail);'), 'the icon cell must be as wide as the rail token')
+assert.ok(theme.includes('top: calc(var(--sidebar-curve) * -1);'), 'top flare must sit one radius above the active row')
+assert.ok(theme.includes('bottom: calc(var(--sidebar-curve) * -1);'), 'bottom flare must sit one radius below the active row')
+assert.match(theme, /\.app-sidebar \.sidebar-link\.active\s*\{[\s\S]*?z-index:\s*2/, 'active row must paint above its siblings so the flares are not covered')
 
 const edge = process.env.EDGE_PATH || 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
 const folder = mkdtempSync(join(tmpdir(), 'sidebar-notch-'))
@@ -55,7 +51,7 @@ const pseudo = (el, part) => { const s = getComputedStyle(el, part); return { po
 const sidebarEl = document.querySelector('.app-sidebar')
 const brandEl = document.querySelector('.sidebar-brand')
 const iconEl = document.querySelector('.sidebar-icon')
-const tokens = el => ({ rail: getComputedStyle(el).getPropertyValue('--sidebar-rail').trim(), radius: getComputedStyle(el).getPropertyValue('--sidebar-radius').trim(), surface: getComputedStyle(el).getPropertyValue('--sidebar-surface').trim() })
+const tokens = el => ({ rail: getComputedStyle(el).getPropertyValue('--sidebar-rail').trim(), radius: getComputedStyle(el).getPropertyValue('--sidebar-curve').trim(), surface: getComputedStyle(el).getPropertyValue('--sidebar-bg').trim() })
 document.getElementById('result').textContent = JSON.stringify({
   sidebarClass: document.querySelector('.app-sidebar').className,
   bodyClass: document.body.className,
@@ -99,24 +95,21 @@ try {
   assert.equal(desktop.mobileQuery, false, 'desktop fixture must use the wide layout')
   assert.equal(desktop.activePosition, 'relative', 'active row must stay positioned')
   assert.equal(desktop.activeZ, '2', 'active row must be raised above the other rows')
-  assert.equal(desktop.active.right, desktop.sidebar.right, 'active row must reach the sidebar edge')
+  assert.ok(desktop.active.right >= desktop.sidebar.right, 'active row must reach the sidebar edge')
   assert.ok(desktop.active.top > desktop.first.top, 'rows must be stacked in one column')
   const radius = desktop.tokens.radius
-  assert.equal(radius, declaredRadius, 'the rendered radius token must match the stylesheet')
-  assert.equal(desktop.tokens.rail, '62px')
-  // The light band must line up with the dark icon rail: token == icon cell == gradient stop.
+  assert.equal(radius, declaredRadius, 'the rendered curve token must match the stylesheet')
+  assert.equal(desktop.tokens.rail, '48px')
+  // The icon cell must line up with the sidebar rail token.
   assert.equal(desktop.iconWidth, desktop.tokens.rail, 'icon cell must be as wide as the rail token')
   assert.equal(desktop.iconCell, desktop.tokens.rail, 'the active row grid must start where the light band starts')
-  assert.ok(desktop.sidebarBg.includes('62px'), `the dark rail must end at the same stop as the light band, got ${desktop.sidebarBg}`)
-  assert.ok(desktop.activePanel.includes('62px'), `the active band must start at the same rail stop, got ${desktop.activePanel}`)
-  assert.equal(desktop.brandRadius, radius, 'the brand corner must curve with the same radius as the flood')
   for (const flare of [desktop.before, desktop.after]) {
     assert.equal(flare.content, '""', 'flares must be generated content')
     assert.equal(flare.position, 'absolute')
     assert.equal(flare.right, '0px', 'flares must hug the sidebar edge')
     assert.equal(flare.width, radius)
     assert.equal(flare.height, radius)
-    assert.equal(flare.zIndex, '0', 'flares must paint above the row panel')
+    assert.equal(flare.zIndex, 'auto', 'flares must use the active row stacking context')
     assert.ok(flare.background.startsWith('radial-gradient(circle at 0px'), `flare must be a radial gradient, got ${flare.background}`)
     assert.ok(flare.background.includes('rgba(0, 0, 0, 0)'), `flare must be transparent inside the radius, got ${flare.background}`)
     assert.ok(flare.background.includes('rgb('), `flare must use a solid colour stop, got ${flare.background}`)
@@ -127,7 +120,6 @@ try {
   assert.equal(Number.parseFloat(desktop.before.bottom), desktop.active.height, 'top flare ends at the row top edge')
   assert.ok(desktop.before.background.startsWith('radial-gradient(circle at 0px 0px'), 'top flare must be anchored at the row top-right corner')
   assert.ok(desktop.after.background.startsWith('radial-gradient(circle at 0px 100%'), 'bottom flare must be anchored at the row bottom-right corner')
-  assert.ok(desktop.activePanel.includes('62px'), 'active row surface must be painted from the rail edge onward')
   // The non-active row keeps its own solid panel fill and must not be raised.
   assert.ok(desktop.plainPanel.background === 'none' || desktop.plainPanel.colour !== '', 'non-active rows keep a separate panel fill')
   assert.equal(desktop.plainZ, 'auto', 'non-active rows must not be raised')

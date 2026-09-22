@@ -109,6 +109,7 @@ try {
   out.academicSearch = !!document.querySelector('#academic-search')
   out.academicForm = !!document.querySelector('#academic-form')
   document.querySelector('[data-view-academic]').click()
+  await waitFor(() => !document.querySelector('#academic-history-modal').classList.contains('hidden'), 'academic history modal')
   out.academicModalOpen = !document.querySelector('#academic-history-modal').classList.contains('hidden')
   out.academicModalTitle = document.querySelector('#academic-history-title').textContent
   out.academicModalTables = document.querySelectorAll('#academic-history-body table').length
@@ -156,7 +157,7 @@ assert.equal(data.autoExcludeChoices, 3, 'students in the chosen grades must be 
 assert.equal(data.autoCountGradeTenOnly, '0', 'unchecking a grade level must shrink the preview')
 assert.equal(data.autoCountAfterExclude, '1', 'excluding a student must remove them from the preview')
 assert.equal(data.cancelClosed, true, 'auto-assign Cancel must close the modal')
-  assert.deepEqual(data.grade10, ['11'])
+  assert.deepEqual(data.grade10, [], 'students already in the selected section must be excluded')
   assert.deepEqual(data.grade9, ['12', '21'])
   assert.deepEqual(data.rpc2, [{ student_id: 12, section_id: 2 }])
 assert.equal(data.academicRows, 3, 'every grade 1-12 student must list in Academic History')

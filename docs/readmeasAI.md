@@ -12,8 +12,8 @@
 - Shared runtime modules remain in the root: `auth-client.js`, `ui-theme.js`, `loading-screen.js`, `main.js`, and `registrar.js`.
 - Pure helper modules with no app imports, asserted by their `scripts/check-*.mjs`: `grades.js` (scores, CSV upload, letter grades, general average), `attendance.js` (attendance sheet + summary line), `report-card.js` (report card HTML builder).
 - `public/assets/` contains `logo.png` and `bg.jpg`.
-- `database/backupsqlmigration.sql` is the protected executable database backup containing the base schema and migrations v2-v9. Do not edit it directly. Future changes belong in a separate numbered edit file such as `NewEdits.sql`.
-- `database/NewEdits.sql` contains the current security-hardening delta. Run it after `backupsqlmigration.sql` when applying the ownership and storage-policy fixes.
+- `database/backupsqlmigration.sql` is the protected executable database backup containing the base schema and migrations v2-v9. Do not edit it directly. Future changes belong in a separate numbered migration file.
+- The security-hardening delta is already folded into `database/backupsqlmigration.sql`; run that protected backup as the single executable database artifact.
 - Browser data access uses Supabase's parameterized client and RPC APIs; ownership and role checks are enforced by RLS and server-side functions. Only the public anon/publishable key may use `VITE_` variables; service-role credentials belong only in Edge Functions or local server-side scripts.
 - `scripts/seed-students.mjs` creates 40 Filipino student accounts.
 - `scripts/seed-staff.mjs` creates 10 faculty accounts, 3 registrar accounts, profiles, and 10 subjects.
@@ -61,7 +61,7 @@
 
 1. Run `npm install`.
 2. Copy `.env.example` to `.env` and set the Vite Supabase values.
-3. Run `database/backupsqlmigration.sql` in the Supabase SQL Editor, followed by any separate numbered edit files such as `database/NewEdits.sql`. Treat `backupsqlmigration.sql` as protected backup SQL: create, test, and review a separate edit file for future changes instead of editing the backup.
+3. Run `database/backupsqlmigration.sql` in the Supabase SQL Editor. Treat it as the protected executable backup SQL; create, test, and review a separate numbered migration for future changes instead of editing the backup.
 4. Run `npm run dev`.
 5. Use the service-role key only in a local terminal for seed scripts. Never commit or share it.
 6. Set the Edge Function `APP_ORIGIN` environment variable to the deployed application origin, then deploy: `supabase functions deploy provision-account` (it handles deactivate/activate/reset actions from Manage Accounts).

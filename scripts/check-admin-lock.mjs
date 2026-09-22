@@ -22,6 +22,8 @@ const stub = `
       ? { select: () => ({ order: () => ({ limit: async () => ({ data: [] }) }) }), insert: async () => ({ error: null }) }
       : table === 'audit_logs'
         ? { select: () => ({ order: () => ({ limit: async () => ({ data: [] }) }) }) }
+      : table === 'profile_change_requests'
+        ? { select: () => ({ eq: () => ({ order: async () => ({ data: [] }) }) }) }
       : { select: () => ({ in: () => ({ order: async () => ({ data: rows }) }) }) },
     rpc: async () => ({ data: null, error: null }),
     functions: { invoke: async () => ({ data: {}, error: null }) },

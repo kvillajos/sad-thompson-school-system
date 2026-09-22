@@ -1,8 +1,7 @@
 {
   "name": "thompson-school-system",
   "version": "1.1.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Thompson Christian School Management System",
   "scripts": {
     "dev": "vite",
     "check:sort": "node scripts/check-table-sort.mjs",
