@@ -16,6 +16,7 @@
     "check:transcript": "node scripts/check-transcript.mjs",
     "check:print": "node scripts/check-print.mjs",
     "check:errors": "node scripts/check-errors.mjs",
+    "check:shared-helpers": "node scripts/check-shared-helpers.mjs",
     "check:rbac": "node scripts/check-rbac.mjs",
     "check:key-boundary": "node scripts/check-key-boundary.mjs",
     "check:audit": "node scripts/check-audit-trail.mjs",

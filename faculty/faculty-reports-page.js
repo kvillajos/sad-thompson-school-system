@@ -2,7 +2,7 @@ import { supabase } from '../auth-client.js'
 import { loadFacultyContext, escapeHtml } from './faculty-common.js'
 import { buildReportCard } from '../report-card.js'
 import { printElement } from '../print.js'
-import { withBusy } from '../ui-theme.js'
+import { withBusy } from '../shell.js'
 
 const context = await loadFacultyContext('reports')
 if (context) {

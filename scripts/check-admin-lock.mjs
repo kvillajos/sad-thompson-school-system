@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 const root = resolve(import.meta.dirname, '..')
 const html = readFileSync(join(root, 'admin-dashboard.html'), 'utf8')
 const theme = readFileSync(join(root, 'ui-theme.js'), 'utf8').match(/const sharedTheme = `([\s\S]*?)`;/)[1]
-const script = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1]
+const script = readFileSync(join(root, 'admin-dashboard-page.js'), 'utf8')
 // Replace the module imports with an in-page supabase/auth stub.
 const stub = `
   const rows = [
@@ -38,6 +38,11 @@ const stub = `
   const hideLoadingScreen = () => {}
   const isEditLocked = (a) => Boolean(a.editing_by && a.editing_since && new Date(a.editing_since).getTime() > Date.now() - 600000)
   const editLockMessage = (a) => a.editing_by + ' is correcting this application right now.'
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+  const formatDate = (value, includeTime) => value ? (includeTime ? new Date(value).toLocaleString() : new Date(value).toLocaleDateString()) : '-'
+  const toast = () => {}
+  const describeError = (error, context) => (context || 'Request') + ' failed: ' + (error?.message || error || 'an unexpected error occurred.')
+  const mountAdminShell = async () => requireRole(1)
   window.addEventListener('error', event => { const el = document.getElementById('result'); if (el && !el.textContent) el.textContent = 'PAGE_ERROR: ' + (event.message || 'unknown') })`
 const body = script
   .replace(/^\s*import[^\n]*\n/gm, '')

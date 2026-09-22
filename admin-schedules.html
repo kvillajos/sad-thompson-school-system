@@ -7,165 +7,16 @@
   <title>Manage Schedules | TCSMS</title>
 </head>
 <body class="admin-shell">
-<div id="tcsms-loading-screen" class="loading-screen" role="status" aria-label="Loading Thompson Christian School Management System" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:.5rem;background:#102a43;color:#f7fbff">
-  <div class="loading-mark" aria-hidden="true" style="display:grid;place-items:center;width:4.25rem;height:4.25rem;margin-bottom:.4rem;border:2px solid #f0b429;border-radius:50%;color:#f0b429;font-family:Georgia,serif;font-size:2rem;font-weight:700">T</div>
-  <p class="loading-title" style="margin:0;font-size:1.35rem;font-weight:700;letter-spacing:.12em">TCSMS</p>
-  <p class="loading-subtitle" style="margin:0;color:#bcccdc;font-size:.85rem">Preparing your workspace</p>
-  <div class="loading-spinner" aria-hidden="true" style="width:1.25rem;height:1.25rem;margin-top:.8rem;border:2px solid rgba(255,255,255,.25);border-top-color:#f0b429;border-radius:50%"></div>
-</div>
+<div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#102a43"></div>
 <main>
   <div class="admin-page-head"><div><h2>Manage Schedules</h2><p>Choose a section to view and manage its subject schedule.</p></div></div>
-  <div class="admin-filterbar"><input id="section-search" type="search" placeholder="Search section name"><select id="section-grade"><option value="">All grades</option><option value="0">Kindergarten</option><option value="1">Grade 1</option><option value="2">Grade 2</option><option value="3">Grade 3</option><option value="4">Grade 4</option><option value="5">Grade 5</option><option value="6">Grade 6</option><option value="7">Grade 7</option><option value="8">Grade 8</option><option value="9">Grade 9</option><option value="10">Grade 10</option><option value="11">Grade 11</option><option value="12">Grade 12</option></select></div>
+  <div class="admin-filterbar"><input id="section-search" type="search" placeholder="Search section name"><select id="section-grade"></select></div>
   <section class="admin-table-wrap"><table><thead><tr><th>Section</th><th>Grade</th><th>Academic Year</th><th>Scheduled Subjects</th><th>Action</th></tr></thead><tbody id="sections-table"><tr><td colspan="5">Loading sections...</td></tr></tbody></table></section>
 </main>
 <div id="section-schedule-modal" class="admin-modal hidden"><div class="admin-modal-box schedule-box"><div class="admin-modal-head"><div><h3 id="section-schedule-title">Section Schedule</h3><p>Subjects &amp; schedule overview</p></div><div class="schedule-overview-actions"><button id="add-schedule" class="admin-primary" type="button">+ Add Subject</button><button type="button" id="close-section-schedule">x</button></div></div><section class="admin-table-wrap"><table><thead><tr><th>Subject</th><th>Faculty</th><th>Room</th><th>Days</th><th>Time</th><th>Actions</th></tr></thead><tbody id="section-schedules-table"></tbody></table></section></div></div>
 <div id="schedule-modal" class="admin-modal hidden"><div class="admin-modal-box schedule-form-box"><div class="admin-modal-head schedule-form-head"><div><h3 id="schedule-modal-title">Add Subject</h3></div><button type="button" id="close-schedule" aria-label="Close">x</button></div><form id="schedule-form" class="schedule-form"><input type="hidden" name="schedule_id"><input type="hidden" name="subject_id" id="schedule-subject"><div class="schedule-field admin-full"><span class="schedule-label">Subject</span><div class="schedule-picker" id="subject-picker"><div class="schedule-picker-value"><span class="schedule-picker-text empty" id="schedule-subject-display">No subject chosen</span></div><button type="button" class="schedule-pick-button" id="choose-subject">Choose subject</button></div></div><div class="schedule-row admin-full"><div class="schedule-field"><span class="schedule-label">Faculty</span><div class="schedule-picker"><div class="schedule-picker-value"><input name="faculty_name" class="schedule-picker-input" placeholder="Optional" aria-label="Faculty"></div><button type="button" class="schedule-pick-button" id="choose-faculty">Choose faculty</button></div></div><div class="schedule-field"><label class="schedule-label" for="schedule-room">Room</label><input id="schedule-room" class="schedule-input" name="room" placeholder="e.g. Room 204"><span class="schedule-hint">No room is set for this section yet.</span></div></div><fieldset class="schedule-days admin-full"><div class="schedule-days-head"><legend class="schedule-label">Days</legend><div class="schedule-presets" aria-label="Quick pick"><button type="button" class="schedule-preset" data-days="1,2,3,4,5">All</button><button type="button" class="schedule-preset" data-days="">Clear</button></div></div><div class="schedule-day-chips" id="schedule-day-chips"><label class="schedule-chip"><input type="checkbox" name="day_of_week" value="1"><span>Mon</span></label><label class="schedule-chip"><input type="checkbox" name="day_of_week" value="2"><span>Tue</span></label><label class="schedule-chip"><input type="checkbox" name="day_of_week" value="3"><span>Wed</span></label><label class="schedule-chip"><input type="checkbox" name="day_of_week" value="4"><span>Thu</span></label><label class="schedule-chip"><input type="checkbox" name="day_of_week" value="5"><span>Fri</span></label></div></fieldset><div class="schedule-time-field admin-full"><div class="schedule-row"><div class="schedule-field"><label class="schedule-label" for="schedule-start">Start time</label><input id="schedule-start" class="schedule-input" name="start_time" type="time" required></div><div class="schedule-field"><label class="schedule-label" for="schedule-end">End time</label><input id="schedule-end" class="schedule-input" name="end_time" type="time" required></div></div><div id="schedule-time-error" class="schedule-error" role="alert"></div></div><div class="admin-actions schedule-actions"><button type="button" id="cancel-schedule" class="schedule-button schedule-button-ghost">Cancel</button><button class="schedule-button schedule-button-primary" type="submit">Save schedule</button></div></form></div></div>
 <div id="subject-picker-modal" class="admin-modal stack-above hidden"><div class="admin-modal-box picker-box"><div class="admin-modal-head"><h3>Choose Subject</h3><button type="button" id="close-subject-picker">x</button></div><input id="subject-picker-search" type="search" placeholder="Search code, subject, or grade"><div class="table-scroll"><table><thead><tr><th>Code</th><th>Subject</th><th>Grade</th><th>Choose</th></tr></thead><tbody id="subject-picker-table"></tbody></table></div></div></div>
 <div id="faculty-picker-modal" class="admin-modal stack-above hidden"><div class="admin-modal-box picker-box"><div class="admin-modal-head"><h3>Choose Faculty</h3><button type="button" id="close-faculty-picker">x</button></div><input id="faculty-picker-search" type="search" placeholder="Search faculty"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Department</th><th>Employee No.</th><th>Choose</th></tr></thead><tbody id="faculty-picker-table"></tbody></table></div></div></div>
-<script type="module">
-  import { supabase, requireRole, signOut } from './auth-client.js'
-  import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
-  import { hideLoadingScreen } from './loading-screen.js'
-  import { escapeHtml } from './html.js'
-  import { formatDays, groupScheduleRows, planDayChanges } from './schedule-days.js'
-  applyUiTheme()
-  const user = await requireRole(1)
-  if (!user) throw new Error('Unauthorized')
-  mountProfile(user, 'Administrator', signOut)
-  mountSidebar([
-    { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
-    { label: 'Manage Accounts', href: '/admin-accounts.html', icon: '▣' },
-    { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
-    { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
-    { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
-    { label: 'Manage Schedules', href: '/admin-schedules.html', active: true, icon: '▱' },
-    { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' },
-    { label: 'Audit Trail', href: '/admin-audit.html', icon: '▤' }
-  ], 'Administrative<br>Control')
-
-  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
-  const sectionModal = document.getElementById('section-schedule-modal')
-  const scheduleModal = document.getElementById('schedule-modal')
-  const scheduleForm = document.getElementById('schedule-form')
-  let sections = []
-  let subjects = []
-  let faculty = []
-  let schedules = []
-  let selectedSection = null
-
-  function closeModal(modal, form) { modal.classList.add('hidden'); form?.reset(); if (form?.elements.schedule_id) form.elements.schedule_id.value = '' }
-  function sectionLabel(section) { return Number(section.grade_level) === 0 ? 'Kindergarten' : `Grade ${section.grade_level}` }
-  function renderSections() {
-    const search = document.getElementById('section-search').value.trim().toLowerCase()
-    const grade = document.getElementById('section-grade').value
-    const visible = sections.filter(section => (!grade || String(section.grade_level) === grade) && (!search || section.section_name.toLowerCase().includes(search)))
-    document.getElementById('sections-table').innerHTML = visible.map(section => {
-      const count = schedules.filter(item => Number(item.section_id) === Number(section.section_id)).length
-      return `<tr><td>${escape(section.section_name)}</td><td>${sectionLabel(section)}</td><td>${escape(section.academic_year || '-')}</td><td>${count}</td><td><button class="admin-view" data-section="${section.section_id}">View Subjects</button></td></tr>`
-    }).join('') || '<tr><td colspan="5">No matching sections.</td></tr>'
-    document.querySelectorAll('[data-section]').forEach(button => button.onclick = () => openSection(sections.find(section => String(section.section_id) === button.dataset.section)))
-  }
-  function renderSchedules() {
-    const rows = groupScheduleRows(schedules.filter(item => Number(item.section_id) === Number(selectedSection?.section_id)))
-    document.getElementById('section-schedules-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subjects?.subject_code || '')} - ${escape(item.subjects?.subject_name || '')}</td><td>${escape(item.faculty_name || '-')}</td><td>${escape(item.room || '-')}</td><td>${formatDays(item.days)}</td><td>${escape(item.start_time?.slice(0, 5))} - ${escape(item.end_time?.slice(0, 5))}</td><td><button class="admin-view" data-edit-schedule="${item.schedule_ids.join(',')}">Edit</button><button class="admin-remove" data-remove-schedule="${item.schedule_ids.join(',')}">Remove</button></td></tr>`).join('') || '<tr><td colspan="6">No subjects scheduled for this section.</td></tr>'
-    document.querySelectorAll('[data-edit-schedule]').forEach(button => button.onclick = () => openSchedule(rows.find(item => button.dataset.editSchedule.split(',').includes(String(item.schedule_ids[0])))))
-    document.querySelectorAll('[data-remove-schedule]').forEach(button => button.onclick = () => removeSchedule(button.dataset.removeSchedule.split(',')))
-  }
-  function openSection(section) {
-    selectedSection = section
-    document.getElementById('section-schedule-title').textContent = `${section.section_name} - ${sectionLabel(section)}`
-    renderSchedules()
-    sectionModal.classList.remove('hidden')
-  }
-  function openSchedule(item) {
-    scheduleForm.reset()
-    scheduleForm.elements.schedule_id.value = item?.schedule_ids?.join(',') || ''
-    scheduleForm.elements.subject_id.value = item?.subject_id || ''
-    const subjectDisplay = document.getElementById('schedule-subject-display')
-    subjectDisplay.textContent = item ? `${item.subjects?.subject_code || ''} - ${item.subjects?.subject_name || ''}` : 'No subject chosen'
-    subjectDisplay.classList.toggle('empty', !item)
-    scheduleForm.elements.faculty_name.value = item?.faculty_name || ''
-    scheduleForm.elements.room.value = item?.room || selectedSection?.room || ''
-    document.querySelectorAll('#schedule-form input[name="day_of_week"]').forEach(input => { input.checked = item?.days?.includes(Number(input.value)) || false })
-    scheduleForm.elements.start_time.value = item?.start_time?.slice(0, 5) || ''
-    scheduleForm.elements.end_time.value = item?.end_time?.slice(0, 5) || ''
-    document.getElementById('schedule-modal-title').textContent = item ? 'Edit Subject' : 'Add Subject'
-    scheduleModal.classList.remove('hidden')
-  }
-  async function loadData() {
-    const [sectionResult, subjectResult, scheduleResult] = await Promise.all([
-      supabase.from('sections').select('section_id,section_name,grade_level,academic_year,room').order('grade_level').order('section_name'),
-      supabase.from('subjects').select('subject_id,subject_code,subject_name,grade_level').eq('is_active', true).order('subject_code'),
-      supabase.from('subject_schedules').select('schedule_id,subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_code,subject_name)').order('day_of_week').order('start_time')
-    ])
-    if (sectionResult.error) return document.getElementById('sections-table').innerHTML = `<tr><td colspan="5">${escape(sectionResult.error.message)}</td></tr>`
-    if (subjectResult.error) return document.getElementById('sections-table').innerHTML = `<tr><td colspan="5">${escape(subjectResult.error.message)}</td></tr>`
-    if (scheduleResult.error) return document.getElementById('sections-table').innerHTML = `<tr><td colspan="5">${escape(scheduleResult.error.message)}</td></tr>`
-    sections = sectionResult.data || []
-    subjects = subjectResult.data || []
-    schedules = scheduleResult.data || []
-    renderSections()
-    if (selectedSection) renderSchedules()
-  }
-  async function removeSchedule(ids) {
-    if (!window.confirm('Remove this subject schedule?')) return
-    const result = await supabase.from('subject_schedules').delete().in('schedule_id', ids)
-    if (result.error) return window.alert(result.error.message)
-    await loadData()
-  }
-  scheduleForm.onsubmit = async event => {
-    event.preventDefault()
-    const values = Object.fromEntries(new FormData(scheduleForm).entries())
-    const selectedDays = [...document.querySelectorAll('#schedule-form input[name="day_of_week"]:checked')].map(input => Number(input.value))
-    if (!selectedDays.length) return window.alert('Choose at least one day.')
-    if (!values.start_time || !values.end_time || values.end_time <= values.start_time) return window.alert('End time must be later than start time.')
-    const payload = { subject_id: Number(values.subject_id), section_id: Number(selectedSection.section_id), faculty_name: values.faculty_name.trim() || null, room: values.room.trim() || null, start_time: values.start_time, end_time: values.end_time }
-    const ids = values.schedule_id ? values.schedule_id.split(',').map(Number) : []
-    const existing = schedules.filter(item => ids.includes(item.schedule_id))
-    const changes = planDayChanges(existing.map(item => item.day_of_week), selectedDays)
-    const retained = existing.filter(item => selectedDays.includes(Number(item.day_of_week)))
-    const updates = await Promise.all(retained.map(item => supabase.from('subject_schedules').update({ ...payload, day_of_week: item.day_of_week }).eq('schedule_id', item.schedule_id)))
-    const updateError = updates.find(result => result.error)?.error
-    if (updateError) return window.alert(updateError.message)
-    if (changes.remove.length) {
-      const removeIds = existing.filter(item => changes.remove.includes(Number(item.day_of_week))).map(item => item.schedule_id)
-      const result = await supabase.from('subject_schedules').delete().in('schedule_id', removeIds)
-      if (result.error) return window.alert(result.error.message)
-    }
-    if (changes.add.length || !values.schedule_id) {
-      const result = await supabase.from('subject_schedules').insert((values.schedule_id ? changes.add : selectedDays).map(day_of_week => ({ ...payload, day_of_week })))
-      if (result.error) return window.alert(result.error.message)
-    }
-    closeModal(scheduleModal, scheduleForm)
-    await loadData()
-  }
-  function renderSubjectPicker() {
-    const search = document.getElementById('subject-picker-search').value.trim().toLowerCase()
-    const rows = subjects.filter(item => `${item.subject_code} ${item.subject_name} ${item.grade_level === null ? 'All Grades' : item.grade_level === 0 ? 'Kindergarten' : `Grade ${item.grade_level}`}`.toLowerCase().includes(search))
-    document.getElementById('subject-picker-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subject_code)}</td><td>${escape(item.subject_name)}</td><td>${item.grade_level === null ? 'All Grades' : item.grade_level === 0 ? 'Kindergarten' : `Grade ${item.grade_level}`}</td><td><button type="button" class="admin-view" data-pick-subject="${item.subject_id}">Choose</button></td></tr>`).join('') || '<tr><td colspan="4">No subjects found.</td></tr>'
-    document.querySelectorAll('[data-pick-subject]').forEach(button => button.onclick = () => { const item = subjects.find(row => String(row.subject_id) === button.dataset.pickSubject); scheduleForm.elements.subject_id.value = item.subject_id; const display = document.getElementById('schedule-subject-display'); display.textContent = `${item.subject_code} - ${item.subject_name}`; display.classList.remove('empty'); document.getElementById('subject-picker-modal').classList.add('hidden') })
-  }
-  function renderFacultyPicker() {
-    const search = document.getElementById('faculty-picker-search').value.trim().toLowerCase()
-    const rows = faculty.filter(item => `${item.first_name} ${item.last_name} ${item.department} ${item.employee_no}`.toLowerCase().includes(search))
-    document.getElementById('faculty-picker-table').innerHTML = rows.map(item => `<tr><td>${escape(`${item.first_name} ${item.last_name}`)}</td><td>${escape(item.department)}</td><td>${escape(item.employee_no)}</td><td><button type="button" class="admin-view" data-pick-faculty="${item.profile_id}">Choose</button></td></tr>`).join('') || '<tr><td colspan="4">No faculty found.</td></tr>'
-    document.querySelectorAll('[data-pick-faculty]').forEach(button => button.onclick = () => { const item = faculty.find(row => String(row.profile_id) === button.dataset.pickFaculty); scheduleForm.elements.faculty_name.value = `${item.first_name} ${item.last_name}`; document.getElementById('faculty-picker-modal').classList.add('hidden') })
-  }
-  document.getElementById('section-search').oninput = renderSections
-  document.getElementById('section-grade').onchange = renderSections
-  document.getElementById('add-schedule').onclick = () => openSchedule()
-  document.getElementById('close-section-schedule').onclick = () => closeModal(sectionModal)
-  document.getElementById('close-schedule').onclick = () => closeModal(scheduleModal, scheduleForm)
-  document.getElementById('cancel-schedule').onclick = () => closeModal(scheduleModal, scheduleForm)
-  document.getElementById('choose-subject').onclick = () => { document.getElementById('subject-picker-modal').classList.remove('hidden'); renderSubjectPicker() }
-  document.getElementById('close-subject-picker').onclick = () => document.getElementById('subject-picker-modal').classList.add('hidden')
-  document.getElementById('subject-picker-search').oninput = renderSubjectPicker
-  document.getElementById('choose-faculty').onclick = async () => { if (!faculty.length) { const result = await supabase.from('staff_profiles').select('profile_id,employee_no,first_name,last_name,department').order('last_name'); faculty = result.data || [] }; document.getElementById('faculty-picker-modal').classList.remove('hidden'); renderFacultyPicker() }
-  document.getElementById('close-faculty-picker').onclick = () => document.getElementById('faculty-picker-modal').classList.add('hidden')
-  document.getElementById('faculty-picker-search').oninput = renderFacultyPicker
-  document.querySelectorAll('.schedule-preset').forEach(button => button.onclick = () => { const days = button.dataset.days.split(',').filter(Boolean); document.querySelectorAll('#schedule-form input[name="day_of_week"]').forEach(input => { input.checked = days.includes(input.value) }) })
-  await loadData()
-  hideLoadingScreen()
-</script>
+<script type="module" src="/admin-schedules-page.js"></script>
 </body>
 </html>

@@ -8,16 +8,20 @@ import { spawnSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 const root = resolve(import.meta.dirname, '..')
 const html = readFileSync(join(root, 'student-records.html'), 'utf8')
-const js = readFileSync(join(root, 'registrar.js'), 'utf8')
+const registrarModules = ['registrar.js', 'registrar-admissions.js', 'registrar-sectioning.js', 'registrar-academic.js', 'registrar-shifting.js']
+const js = registrarModules.map(name => readFileSync(join(root, name), 'utf8')).join('\n')
+const entryJs = readFileSync(join(root, 'registrar.js'), 'utf8')
+const sectioningJs = readFileSync(join(root, 'registrar-sectioning.js'), 'utf8')
+const admissionsJs = readFileSync(join(root, 'registrar-admissions.js'), 'utf8')
 const theme = readFileSync(join(root, 'ui-theme.js'), 'utf8').match(/const sharedTheme = `([\s\S]*?)`;/)[1]
-const handler = js.slice(js.indexOf('let removeEnrollmentCountdown'), js.indexOf('async function removeEnrollment('))
-const landing = js.slice(js.indexOf('mountSidebar(['), js.indexOf('function toast('))
+const handler = sectioningJs.slice(sectioningJs.indexOf('let removeEnrollmentCountdown'), sectioningJs.indexOf('async function removeEnrollment('))
+const landing = entryJs.slice(entryJs.indexOf('mountSidebar(['), entryJs.indexOf('async function init('))
 assert.ok(!js.includes('loadDashboard'))
 assert.ok(!html.includes('id="dashboard"'))
-// Every id registrar.js reads must exist in the page or in a JS-rendered template.
+// Every id the registrar modules read must exist in the page or in a JS-rendered template.
 const domSources = html + [...js.matchAll(/\.innerHTML\s*=\s*(['"`])([\s\S]*?)\1/g)].map(m => m[2]).join('')
 const missing = [...new Set([...js.matchAll(/\$\('([\w-]+)'\)/g)].map(m => m[1]))].filter(id => !domSources.includes(`id="${id}"`))
-assert.deepEqual(missing, [], `registrar.js references missing element ids: ${missing.join(', ')}`)
+assert.deepEqual(missing, [], `registrar modules reference missing element ids: ${missing.join(', ')}`)
 const folder = mkdtempSync(join(tmpdir(), 'registrar-ui-'))
 try {
   const fixture = html.replace(/<script[\s\S]*?<\/script>/g, '').replace('</head>', `<style>${theme}</style></head>`).replace('</body>', `<button id="test-remove">Remove</button><pre id="result"></pre><script>
@@ -25,6 +29,7 @@ try {
   const escapeHtml = value => String(value);
   const toast = () => {};
   const withBusy = async (button, label, action) => action();
+  const gradeLevelOptions = () => '';
   function mountSidebar(items) {
     const nav = document.createElement('nav');
     nav.innerHTML = items.map(i => '<button data-tab="'+i.tab+'" class="'+(i.active?'active':'')+'">'+i.label+'</button>').join('');
@@ -70,9 +75,9 @@ try {
   assert.equal(data.writes, 1)
   console.log('registrar browser checks passed (remove modal + landing)')
   // Item 6: full Review -> edit -> save -> close flow against a mocked Supabase.
-  const reviewStart = js.indexOf('// Opens the application with a database-held edit lock')
-  const reviewEnd = js.indexOf('})', js.indexOf("'Saving…', saveReviewEdits)")) + 3
-  const reviewSlice = js.slice(reviewStart, reviewEnd)
+  const reviewStart = admissionsJs.indexOf('// Opens the application with a database-held edit lock')
+  const reviewEnd = admissionsJs.indexOf('})', admissionsJs.indexOf("'Saving…', saveReviewEdits)")) + 3
+  const reviewSlice = admissionsJs.slice(reviewStart, reviewEnd)
   const folder2 = mkdtempSync(join(tmpdir(), 'review-flow-'))
   const fixture2 = html.replace(/<script[\s\S]*?<\/script>/g, '').replace('</head>', `<style>${theme}</style></head>`).replace('</body>', `<pre id="result"></pre><script>
   const $ = id => document.getElementById(id);

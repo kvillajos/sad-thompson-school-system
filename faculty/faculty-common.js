@@ -1,5 +1,6 @@
 import { supabase, requireRole, signOut } from '../auth-client.js'
-import { applyUiTheme, mountProfile, mountSidebar } from '../ui-theme.js'
+import { applyUiTheme } from '../ui-theme.js'
+import { mountProfile, mountSidebar } from '../shell.js'
 import { hideLoadingScreen } from '../loading-screen.js'
 import { classOptions, currentSchoolYear } from '../grades.js'
 import { dayNames, escapeHtml } from '../html.js'

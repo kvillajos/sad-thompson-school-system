@@ -1,5 +1,5 @@
 import { escapeHtml } from './html.js'
-import { generalAverage, letterGrade } from './grades.js'
+import { ACADEMIC_LABELS, SCORE_FIELDS, generalAverage, letterGrade } from './grades.js'
 
 const SEMESTERS = [
   { key: 'first', label: '1st Semester', quarters: ['first_sem_q1', 'first_sem_q2'] },
@@ -29,7 +29,17 @@ export function semesterGroups(rows = []) {
   return [...groups.values()].sort((a, b) => b.schoolYear.localeCompare(a.schoolYear))
 }
 
-export function buildSemesterTable(rows = []) {
-  const body = semesterRows(rows).map(row => `<tr><td>${escapeHtml(row.school_year)}</td><td>${row.semesterLabel}</td><td>${escapeHtml(row.subject)}</td><td>${row.first_sem_q1 ?? ''}</td><td>${row.first_sem_q2 ?? ''}</td><td>${row.second_sem_q1 ?? ''}</td><td>${row.second_sem_q2 ?? ''}</td><td>${row.semesterGrade ?? row.grade ?? ''}</td><td>${escapeHtml(row.letter_grade || letterGrade(row.semesterGrade ?? row.grade)?.letter || '')}</td><td>${escapeHtml(row.remarks || '')}</td></tr>`).join('')
+// mode 'flat' shows the raw quarter/midterm/final fields in one row per subject-year (the
+// official record card); the default 'semester' mode splits each subject-year into two rows,
+// one per semester, showing that semester's own general average.
+export function buildSemesterTable(rows = [], { flat = false, semester = '' } = {}) {
+  if (flat) {
+    const head = `<tr><th>School Year</th><th>Subject</th>${SCORE_FIELDS.map(key => `<th>${ACADEMIC_LABELS[key]}</th>`).join('')}<th>Grade</th><th>Letter</th><th>Remarks</th></tr>`
+    const body = rows.map(record => `<tr><td>${escapeHtml(record.school_year)}</td><td>${escapeHtml(record.subject)}</td>${SCORE_FIELDS.map(key => `<td>${record[key] ?? ''}</td>`).join('')}<td>${record.grade ?? ''}</td><td>${escapeHtml(record.letter_grade || '')}</td><td>${escapeHtml(record.remarks || '')}</td></tr>`).join('')
+    return `<table><thead>${head}</thead><tbody>${body || `<tr><td colspan="${SCORE_FIELDS.length + 5}" class="empty-state">No academic records yet.</td></tr>`}</tbody></table>`
+  }
+  const body = semesterRows(rows)
+    .filter(row => !semester || row.semester === semester)
+    .map(row => `<tr><td>${escapeHtml(row.school_year)}</td><td>${row.semesterLabel}</td><td>${escapeHtml(row.subject)}</td><td>${row.first_sem_q1 ?? ''}</td><td>${row.first_sem_q2 ?? ''}</td><td>${row.second_sem_q1 ?? ''}</td><td>${row.second_sem_q2 ?? ''}</td><td>${row.semesterGrade ?? row.grade ?? ''}</td><td>${escapeHtml(row.letter_grade || letterGrade(row.semesterGrade ?? row.grade)?.letter || '')}</td><td>${escapeHtml(row.remarks || '')}</td></tr>`).join('')
   return `<table><thead><tr><th>School Year</th><th>Semester</th><th>Subject</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Grade</th><th>Letter</th><th>Remarks</th></tr></thead><tbody>${body || '<tr><td colspan="10" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`
 }

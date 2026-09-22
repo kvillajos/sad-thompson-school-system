@@ -7,71 +7,13 @@
   <title>Manage Subjects | TCSMS</title>
 </head>
 <body class="admin-shell">
-<div id="tcsms-loading-screen" class="loading-screen" role="status" aria-label="Loading Thompson Christian School Management System" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:.5rem;background:#102a43;color:#f7fbff">
-  <div class="loading-mark" aria-hidden="true" style="display:grid;place-items:center;width:4.25rem;height:4.25rem;margin-bottom:.4rem;border:2px solid #f0b429;border-radius:50%;color:#f0b429;font-family:Georgia,serif;font-size:2rem;font-weight:700">T</div>
-  <p class="loading-title" style="margin:0;font-size:1.35rem;font-weight:700;letter-spacing:.12em">TCSMS</p>
-  <p class="loading-subtitle" style="margin:0;color:#bcccdc;font-size:.85rem">Preparing your workspace</p>
-  <div class="loading-spinner" aria-hidden="true" style="width:1.25rem;height:1.25rem;margin-top:.8rem;border:2px solid rgba(255,255,255,.25);border-top-color:#f0b429;border-radius:50%"></div>
-</div>
+<div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#102a43"></div>
   <main>
     <div class="admin-page-head"><div><h2>Manage Subjects</h2><p>Create and maintain the subjects available to sections.</p></div></div>
     <div class="admin-filterbar"><input id="subject-search" type="search" placeholder="Search subject code or name"><select id="subject-status"><option value="">All statuses</option><option value="true">Active</option><option value="false">Inactive</option></select><button id="add-subject" class="admin-primary admin-action" type="button">+ Add Subject</button></div>
     <section class="admin-table-wrap"><table><thead><tr><th>Code</th><th>Subject</th><th>Grade</th><th>Status</th><th>Actions</th></tr></thead><tbody id="subjects-table"><tr><td colspan="5">Loading subjects...</td></tr></tbody></table></section>
   </main>
-  <div id="subject-modal" class="admin-modal hidden"><div class="admin-modal-box"><div class="admin-modal-head"><h3 id="subject-modal-title">Add Subject</h3><button type="button" id="close-subject">x</button></div><form id="subject-form"><input type="hidden" name="subject_id"><label>Code<input name="subject_code" placeholder="e.g. MATH-7" required></label><label>Subject Name<input name="subject_name" placeholder="e.g. Mathematics" required></label><label>Grade<select name="grade_level"><option value="">All Grades</option><option value="0">Kindergarten</option><option value="1">Grade 1</option><option value="2">Grade 2</option><option value="3">Grade 3</option><option value="4">Grade 4</option><option value="5">Grade 5</option><option value="6">Grade 6</option><option value="7">Grade 7</option><option value="8">Grade 8</option><option value="9">Grade 9</option><option value="10">Grade 10</option><option value="11">Grade 11</option><option value="12">Grade 12</option></select></label><label>Status<select name="is_active"><option value="true">Active</option><option value="false">Inactive</option></select></label><label class="admin-full">Description<textarea name="description" rows="3"></textarea></label><div class="admin-actions"><button type="button" id="cancel-subject" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Save Subject</button></div></form></div></div>
-  <script type="module">
-    import { supabase, requireRole, signOut } from './auth-client.js'
-    import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
-    import { hideLoadingScreen } from './loading-screen.js'
-    import { escapeHtml } from './html.js'
-    applyUiTheme()
-    const user = await requireRole(1)
-    if (!user) throw new Error('Unauthorized')
-    mountProfile(user, 'Administrator', signOut)
-    mountSidebar([
-      { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
-      { label: 'Manage Accounts', href: '/admin-accounts.html', icon: '▣' },
-      { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
-      { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
-      { label: 'Manage Subjects', href: '/admin-subjects.html', active: true, icon: '♧' },
-      { label: 'Manage Schedules', href: '/admin-schedules.html', icon: '▱' },
-      { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' },
-      { label: 'Audit Trail', href: '/admin-audit.html', icon: '▤' }
-    ], 'Administrative<br>Control')
-
-    const subjectModal = document.getElementById('subject-modal')
-    const subjectForm = document.getElementById('subject-form')
-    const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
-    let subjects = []
-
-    function closeModal(modal, form) { modal.classList.add('hidden'); form.reset(); form.elements.subject_id.value = '' }
-    async function loadData() {
-      const subjectResult = await supabase.from('subjects').select('*').order('subject_code')
-      if (subjectResult.error) document.getElementById('subjects-table').innerHTML = `<tr><td colspan="5">${escape(subjectResult.error.message)}</td></tr>`
-      else subjects = subjectResult.data || []
-      renderSubjects()
-    }
-    function renderSubjects() {
-      const search = document.getElementById('subject-search').value.trim().toLowerCase()
-      const status = document.getElementById('subject-status').value
-      const visibleSubjects = subjects.filter(item => (!status || String(item.is_active) === status) && (!search || `${item.subject_code} ${item.subject_name}`.toLowerCase().includes(search)))
-      document.getElementById('subjects-table').innerHTML = visibleSubjects.map(item => `<tr><td>${escape(item.subject_code)}</td><td>${escape(item.subject_name)}</td><td>${item.grade_level === null ? 'All Grades' : item.grade_level === 0 ? 'Kindergarten' : `Grade ${item.grade_level}`}</td><td>${item.is_active ? 'Active' : 'Inactive'}</td><td><button class="admin-view" data-edit-subject="${item.subject_id}">Edit</button><button class="admin-remove" data-remove-subject="${item.subject_id}">Remove</button></td></tr>`).join('') || '<tr><td colspan="5">No matching subjects.</td></tr>'
-      document.querySelectorAll('[data-edit-subject]').forEach(button => button.onclick = () => openSubject(subjects.find(item => String(item.subject_id) === button.dataset.editSubject)))
-      document.querySelectorAll('[data-remove-subject]').forEach(button => button.onclick = () => removeSubject(button.dataset.removeSubject))
-    }
-    function openSubject(item) {
-      subjectForm.reset(); subjectForm.elements.subject_id.value = item?.subject_id || ''; subjectForm.elements.subject_code.value = item?.subject_code || ''; subjectForm.elements.subject_name.value = item?.subject_name || ''; subjectForm.elements.grade_level.value = item?.grade_level ?? ''; subjectForm.elements.is_active.value = String(item?.is_active ?? true); subjectForm.elements.description.value = item?.description || ''
-      document.getElementById('subject-modal-title').textContent = item ? 'Edit Subject' : 'Add Subject'; subjectModal.classList.remove('hidden')
-    }
-    async function removeSubject(id) { if (!window.confirm('Remove this subject and its schedules?')) return; const result = await supabase.from('subjects').delete().eq('subject_id', id); if (result.error) return window.alert(result.error.message); await loadData() }
-    subjectForm.onsubmit = async event => { event.preventDefault(); const values = Object.fromEntries(new FormData(subjectForm).entries()); const payload = { subject_code: values.subject_code.trim().toUpperCase(), subject_name: values.subject_name.trim(), grade_level: values.grade_level === '' ? null : Number(values.grade_level), description: values.description.trim() || null, is_active: values.is_active === 'true', updated_at: new Date().toISOString() }; const result = values.subject_id ? await supabase.from('subjects').update(payload).eq('subject_id', values.subject_id) : await supabase.from('subjects').insert(payload); if (result.error) return window.alert(result.error.message); closeModal(subjectModal, subjectForm); await loadData() }
-    document.getElementById('add-subject').onclick = () => openSubject()
-    document.getElementById('close-subject').onclick = () => closeModal(subjectModal, subjectForm)
-    document.getElementById('cancel-subject').onclick = () => closeModal(subjectModal, subjectForm)
-    document.getElementById('subject-search').oninput = renderSubjects
-    document.getElementById('subject-status').onchange = renderSubjects
-    await loadData()
-    hideLoadingScreen()
-  </script>
+  <div id="subject-modal" class="admin-modal hidden"><div class="admin-modal-box"><div class="admin-modal-head"><h3 id="subject-modal-title">Add Subject</h3><button type="button" id="close-subject">x</button></div><form id="subject-form"><input type="hidden" name="subject_id"><label>Code<input name="subject_code" placeholder="e.g. MATH-7" required></label><label>Subject Name<input name="subject_name" placeholder="e.g. Mathematics" required></label><label>Grade<select name="grade_level"></select></label><label>Status<select name="is_active"><option value="true">Active</option><option value="false">Inactive</option></select></label><label class="admin-full">Description<textarea name="description" rows="3"></textarea></label><div class="admin-actions"><button type="button" id="cancel-subject" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Save Subject</button></div></form></div></div>
+  <script type="module" src="/admin-subjects-page.js"></script>
 </body>
 </html>

@@ -8,9 +8,10 @@
 
 ## Organization
 
-- Root HTML files are the stable browser entry points.
-- Shared runtime modules remain in the root: `auth-client.js`, `ui-theme.js`, `loading-screen.js`, `main.js`, and `registrar.js`.
-- Pure helper modules with no app imports, asserted by their `scripts/check-*.mjs`: `grades.js` (scores, CSV upload, letter grades, general average), `attendance.js` (attendance sheet + summary line), `report-card.js` (report card HTML builder).
+- Root HTML files are the stable browser entry points; each one's script is an external `<page>-page.js` (or, for the registrar, `registrar.js` itself), matching the `faculty/*-page.js` pattern.
+- Shared runtime modules remain in the root: `auth-client.js`, `html.js` (pure: `escapeHtml`, `formatDate`, `dayNames`, grade-level helpers, asserted by `scripts/check-shared-helpers.mjs`), `ui-theme.js` (shared CSS + `applyUiTheme` + `toast`), `shell.js` (`mountSidebar`, `mountProfile`, `withBusy`, the profile/password modals), `loading-screen.js`, `admin-page.js` (`mountAdminShell` — the shared admin nav+shell for all 8 admin pages), and `main.js`.
+- The registrar page (`student-records.html`) is split into `registrar.js` (entry: nav, tab wiring, `init()`), `registrar-state.js` (`$`, shared `state`), `registrar-admissions.js` (application form, camera, drafts, review, student details), `registrar-sectioning.js` (sections, enrollment, placement, auto-assign), `registrar-academic.js` (academic history, report card, print card, transcript), and `registrar-shifting.js` (promotion, transfer/shifting, feedback). Import direction is one-way (`registrar.js` → the four feature modules → `registrar-admissions.js`/`registrar-sectioning.js`/`registrar-academic.js` → `registrar-state.js`) to avoid ES module circular-import ordering issues.
+- Pure helper modules with no app imports, asserted by their `scripts/check-*.mjs`: `grades.js` (scores, CSV upload, letter grades, general average), `attendance.js` (attendance sheet + summary line), `report-card.js` (report card HTML builder), `semester-grades.js` (`buildSemesterTable` — semester-split or `{ flat: true }` record-card shape).
 - `public/assets/` contains `logo.png` and `bg.jpg`.
 - `database/backupsqlmigration.sql` is the protected executable database backup containing the base schema and migrations v2-v9. Do not edit it directly. Future changes belong in a separate numbered migration file.
 - The security-hardening delta is already folded into `database/backupsqlmigration.sql`; run that protected backup as the single executable database artifact.
@@ -66,7 +67,7 @@
 5. Use the service-role key only in a local terminal for seed scripts. Never commit or share it.
 6. Set the Edge Function `APP_ORIGIN` environment variable to the deployed application origin, then deploy: `supabase functions deploy provision-account` (it handles deactivate/activate/reset actions from Manage Accounts).
 
-Optional validation: `npm run check:sort` (table sorter), `npm run check:sectioning` (allocator), `npm run check:timeout` (logout clocks), `npm run check:registrar-flow` and `npm run check:registrar` (registrar UI in headless Edge), `npm run check:attendance`, `npm run check:grades-upload`, `npm run check:report-card`. No frameworks, no network.
+Optional validation: `npm run check:sort` (table sorter), `npm run check:sectioning` (allocator), `npm run check:timeout` (logout clocks), `npm run check:registrar-flow` and `npm run check:registrar` (registrar UI in headless Edge), `npm run check:attendance`, `npm run check:grades-upload`, `npm run check:report-card`, `npm run check:shared-helpers` (guards against re-declaring `escapeHtml` instead of importing it from `html.js`). No frameworks, no network. The four headless-Edge checks (`check:registrar`, `check:registrar-flow`, `check:admin-lock`, `check:sidebar`) need a real Edge window free to run headless — they silently no-op ("Browser produced no result") if another Edge instance is already open under the same Windows user.
 
 Student seed command:
 

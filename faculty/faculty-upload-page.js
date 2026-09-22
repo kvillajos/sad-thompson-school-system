@@ -1,7 +1,7 @@
 import { supabase } from '../auth-client.js'
 import { loadFacultyContext, escapeHtml, classSelect } from './faculty-common.js'
 import { currentSchoolYear, derivedGrade, parseGradeCsv } from '../grades.js'
-import { withBusy } from '../ui-theme.js'
+import { withBusy } from '../shell.js'
 
 const context = await loadFacultyContext('upload')
 if (context) {

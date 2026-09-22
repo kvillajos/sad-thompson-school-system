@@ -1,7 +1,7 @@
 import { supabase } from '../auth-client.js'
 import { loadFacultyContext, escapeHtml, classSelect, rosterFor } from './faculty-common.js'
 import { STATUS_OPTIONS, attendanceRecord, todayDateValue } from '../attendance.js'
-import { withBusy } from '../ui-theme.js'
+import { withBusy } from '../shell.js'
 
 const context = await loadFacultyContext('attendance')
 if (context) {

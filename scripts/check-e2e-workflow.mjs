@@ -4,9 +4,9 @@ import { join, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
 const read = file => readFileSync(join(root, file), 'utf8')
-const registrar = read('registrar.js')
+const registrar = ['registrar.js', 'registrar-admissions.js', 'registrar-sectioning.js', 'registrar-academic.js', 'registrar-shifting.js'].map(read).join('\n')
 const faculty = read('faculty/faculty-grades-page.js') + read('faculty/faculty-attendance-page.js')
-const student = read('student-dashboard.html')
+const student = read('student-dashboard-page.js')
 assert.match(registrar, /review_admission_application|shift_student/)
 assert.match(faculty, /save_faculty_grades|save_attendance/)
 assert.match(student, /academic_history|attendance_totals/)

@@ -1,33 +1,19 @@
-import { supabase, requireRole, signOut } from './auth-client.js'
+import { supabase } from './auth-client.js'
 import { hideLoadingScreen } from './loading-screen.js'
-import { applyUiTheme, mountProfile, mountSidebar } from './ui-theme.js'
+import { escapeHtml as escape, formatDate } from './html.js'
+import { mountAdminShell } from './admin-page.js'
 
-applyUiTheme()
-const user = await requireRole(1)
-if (user) mountProfile(user, 'Administrator', signOut)
-
-mountSidebar([
-  { label: 'Dashboard', href: '/admin-dashboard.html', icon: '⌂' },
-  { label: 'Manage Accounts', href: '/admin-accounts.html', icon: '▣' },
-  { label: 'Manage Faculty', href: '/admin-faculty.html', icon: '♙' },
-  { label: 'Manage Sections', href: '/admin-sections.html', icon: '▤' },
-  { label: 'Manage Subjects', href: '/admin-subjects.html', icon: '♧' },
-  { label: 'Manage Schedules', href: '/admin-schedules.html', icon: '▱' },
-  { label: 'Curriculum Review', href: '/admin-curriculum.html', icon: '☷' },
-  { label: 'Audit Trail', href: '/admin-audit.html', active: true, icon: '▤' }
-], 'Administrative<br>Control')
-
-const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+await mountAdminShell('audit')
 
 async function loadAudit() {
   const table = document.getElementById('audit-table')
   const { data, error } = await supabase.from('audit_logs').select('created_at,action,entity_type,entity_id,details').order('created_at', { ascending: false }).limit(50)
   if (error) return table.innerHTML = `<tr><td colspan="4">${escape(error.message)}</td></tr>`
-  table.innerHTML = (data || []).map(row => `<tr><td>${escape(new Date(row.created_at).toLocaleString())}</td><td>${escape(row.action)}</td><td>${escape(`${row.entity_type || ''} ${row.entity_id || ''}`)}</td><td>${escape(JSON.stringify(row.details || {}))}</td></tr>`).join('') || '<tr><td colspan="4">No audit events recorded.</td></tr>'
+  table.innerHTML = (data || []).map(row => `<tr><td>${formatDate(row.created_at, true)}</td><td>${escape(row.action)}</td><td>${escape(`${row.entity_type || ''} ${row.entity_id || ''}`)}</td><td>${escape(JSON.stringify(row.details || {}))}</td></tr>`).join('') || '<tr><td colspan="4">No audit events recorded.</td></tr>'
 }
 
 function auditRowsHtml(rows) {
-  return (rows || []).map(row => `<tr><td>${escape(new Date(row.created_at).toLocaleString())}</td><td>${escape(row.action)}</td><td>${escape(`${row.entity_type || ''} ${row.entity_id || ''}`)}</td><td>${escape(JSON.stringify(row.details || {}))}</td></tr>`).join('') || '<tr><td colspan="4">No audit events recorded for this date.</td></tr>'
+  return (rows || []).map(row => `<tr><td>${formatDate(row.created_at, true)}</td><td>${escape(row.action)}</td><td>${escape(`${row.entity_type || ''} ${row.entity_id || ''}`)}</td><td>${escape(JSON.stringify(row.details || {}))}</td></tr>`).join('') || '<tr><td colspan="4">No audit events recorded for this date.</td></tr>'
 }
 
 async function loadAuditArchive() {

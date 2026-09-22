@@ -1,0 +1,193 @@
+      import { supabase } from './auth-client.js'
+      import { hideLoadingScreen } from './loading-screen.js'
+      import { escapeHtml as escape, formatDate } from './html.js'
+      import { toast } from './ui-theme.js'
+      import { withBusy } from './shell.js'
+      import { isEditLocked, editLockMessage } from './edit-lock.js'
+      import { describeError } from './errors.js'
+      import { mountAdminShell } from './admin-page.js'
+      const user = await mountAdminShell('dashboard')
+
+      let applications = []
+      let selectedApplication = null
+      let countdownTimer = null
+
+      async function loadApplications() {
+        const pendingTable = document.getElementById('pending-table')
+        const { data, error } = await supabase.from('admission_applications').select('id,first_name,last_name,grade_level,status,created_at,editing_by,editing_since').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false })
+        if (error) return pendingTable.innerHTML = `<tr><td colspan="5">${escape(error.message)}</td></tr>`
+        applications = data || []
+        pendingTable.innerHTML = applications.map(application => {
+          const editing = isEditLocked(application)
+          return `<tr><td>Admission Review</td><td>${escape(application.first_name)} ${escape(application.last_name)} - Grade ${escape(application.grade_level)}</td><td>Registrar</td><td>${escape(application.status)}${editing ? ' <b title="The registrar has this file open for correction.">✏️ editing</b>' : ''}</td><td><button class="admin-view" data-review="${application.id}">Review</button></td></tr>`
+        }).join('') || '<tr><td colspan="5">No pending requests.</td></tr>'
+        document.querySelectorAll('[data-review]').forEach(button => button.onclick = () => openReview(button.dataset.review))
+      }
+
+      async function loadProfileRequests() {
+        const table = document.getElementById('profile-requests-table')
+        const requestResult = await supabase.from('profile_change_requests').select('request_id,user_id,before_data,after_data,created_at').eq('status', 'pending').order('created_at', { ascending: false })
+        if (requestResult.error) return table.innerHTML = `<tr><td colspan="5">${escape(requestResult.error.message)}</td></tr>`
+        const requests = requestResult.data || []
+        const userIds = [...new Set(requests.map(request => request.user_id))]
+        const userResult = userIds.length ? await supabase.from('users').select('user_id,username,email').in('user_id', userIds) : { data: [], error: null }
+        if (userResult.error) return table.innerHTML = `<tr><td colspan="5">${escape(userResult.error.message)}</td></tr>`
+        const users = new Map((userResult.data || []).map(account => [account.user_id, account]))
+        table.innerHTML = requests.map(request => {
+          const account = users.get(request.user_id)
+          return `<tr><td>${escape(account?.username || account?.email || request.user_id)}</td><td>${escape(`${request.before_data.first_name} ${request.before_data.last_name} / ${request.before_data.email}`)}</td><td>${escape(`${request.after_data.first_name} ${request.after_data.last_name} / ${request.after_data.email}`)}</td><td>${formatDate(request.created_at, true)}</td><td><button class="admin-approve" data-profile-action="approve" data-request="${request.request_id}" data-user="${request.user_id}">Approve</button> <button class="admin-remove" data-profile-action="reject" data-request="${request.request_id}" data-user="${request.user_id}">Reject</button></td></tr>`
+        }).join('') || '<tr><td colspan="5">No pending profile changes.</td></tr>'
+        table.querySelectorAll('[data-profile-action]').forEach(button => button.onclick = () => reviewProfileChange(button.dataset.request, button.dataset.user, button.dataset.profileAction, button))
+      }
+
+      async function reviewProfileChange(requestId, userId, action, button) {
+        const originalLabel = button.textContent
+        button.disabled = true
+        button.textContent = action === 'approve' ? 'Approving...' : 'Rejecting...'
+        try {
+          const { error } = await supabase.functions.invoke('provision-account', { body: { user_id: Number(userId), action: `${action}-profile-change`, request_id: Number(requestId) } })
+          if (error) {
+            let message = error.message
+            try {
+              const details = await error.context?.json()
+              message = details?.error || details?.message || message
+            } catch {}
+            return toast(describeError(message, 'Profile change'), 'error')
+          }
+          await loadProfileRequests()
+        } catch (error) {
+          toast(describeError(error instanceof Error ? error : 'The profile change could not be processed.', 'Profile change'), 'error')
+        } finally {
+          button.disabled = false
+          button.textContent = originalLabel
+        }
+      }
+
+      let editingLocked = false
+      function openReview(id) {
+        selectedApplication = applications.find(a => String(a.id) === String(id))
+        if (!selectedApplication) return
+        const a = selectedApplication
+        editingLocked = isEditLocked(a)
+        document.getElementById('review-lock').classList.toggle('hidden', !editingLocked)
+        if (editingLocked) document.getElementById('review-lock-text').textContent = editLockMessage(a)
+        document.getElementById('review-details').innerHTML = `
+          <div class="review-grid">
+            <div><small>Student</small><p>${escape(a.first_name)} ${escape(a.last_name)}</p></div>
+            <div><small>Grade Level</small><p>${escape(a.grade_level)}</p></div>
+            <div><small>Current Status</small><p>${escape(a.status)}</p></div>
+            <div><small>Submitted</small><p>${formatDate(a.created_at)}</p></div>
+          </div>`
+        document.getElementById('review-remarks').value = ''
+        document.getElementById('review-modal').classList.remove('hidden')
+        startReviewCountdown()
+      }
+
+      async function showEnrolleeDetails() {
+        if (!selectedApplication) return
+        const button = document.getElementById('view-enrollee-details')
+        await withBusy(button, 'Loading…', async () => {
+          const [applicationResult, documentsResult] = await Promise.all([
+            supabase.from('admission_applications').select('*').eq('id', selectedApplication.id).single(),
+            supabase.from('application_documents').select('document_type,original_name,file_path,uploaded_at').eq('application_id', selectedApplication.id).order('uploaded_at')
+          ])
+          if (applicationResult.error) return toast(describeError(applicationResult.error, 'Load enrollee details'), 'error')
+          const a = applicationResult.data
+          const documents = documentsResult.data || []
+          const documentLinks = await Promise.all(documents.map(async document => {
+            const result = await supabase.storage.from('admission-documents').createSignedUrl(document.file_path, 600)
+            return `<li>${escape(document.document_type)}: ${result.error ? escape(result.error.message) : `<a href="${escape(result.data.signedUrl)}" target="_blank" rel="noopener">${escape(document.original_name)}</a>`}</li>`
+          }))
+          document.getElementById('review-details').innerHTML = `<div class="review-grid enrollee-details-grid">
+            <div><small>Student</small><p>${escape(`${a.first_name || ''} ${a.middle_name || ''} ${a.last_name || ''}`)}</p></div><div><small>Grade Level</small><p>${escape(a.grade_level || '-')}</p></div>
+            <div><small>Birth Date</small><p>${escape(a.birth_date || '-')}</p></div><div><small>Sex</small><p>${escape(a.sex || '-')}</p></div>
+            <div><small>Address</small><p>${escape(a.address || '-')}</p></div><div><small>Prior School</small><p>${escape(a.prior_school || '-')}</p></div>
+            <div><small>Guardian</small><p>${escape(a.guardian_name || '-')} (${escape(a.guardian_relationship || '-')})</p></div><div><small>Guardian Contact</small><p>${escape(a.guardian_phone || '-')} / ${escape(a.guardian_email || '-')}</p></div>
+          </div><h4>Uploaded Documents</h4><ul class="document-list">${documentLinks.join('') || '<li>No documents uploaded.</li>'}</ul>`
+        })
+      }
+      document.getElementById('view-enrollee-details').onclick = showEnrolleeDetails
+
+      function startReviewCountdown() {
+        const approveBtn = document.getElementById('approve-application')
+        const declineBtn = document.getElementById('decline-application')
+        const countdownEl = document.getElementById('review-countdown')
+        const secondsEl = document.getElementById('review-countdown-seconds')
+        approveBtn.disabled = true
+        declineBtn.disabled = true
+        countdownEl.classList.remove('hidden')
+        let secondsLeft = 3
+        secondsEl.textContent = secondsLeft
+        clearInterval(countdownTimer)
+        countdownTimer = setInterval(() => {
+          secondsLeft -= 1
+          if (secondsLeft <= 0) {
+            clearInterval(countdownTimer)
+            countdownEl.classList.add('hidden')
+            if (!editingLocked) {
+              approveBtn.disabled = false
+              declineBtn.disabled = false
+            }
+            return
+          }
+          secondsEl.textContent = secondsLeft
+        }, 1000)
+      }
+
+      function closeReview() {
+        clearInterval(countdownTimer)
+        editingLocked = false
+        document.getElementById('review-lock').classList.add('hidden')
+        document.getElementById('review-modal').classList.add('hidden')
+        loadApplications()
+      }
+      document.getElementById('close-review').onclick = closeReview
+
+      async function reviewApplication(status, button) {
+        await withBusy(button, status === 'approved' ? 'Approving…' : 'Declining…', async () => {
+          const remarks = document.getElementById('review-remarks').value.trim()
+          const { data, error } = await supabase.rpc('review_admission_application', { p_application_id: selectedApplication.id, p_status: status, p_remarks: remarks || null })
+          if (error) return toast(describeError(error, 'Review application'), 'error')
+          closeReview()
+          if (status === 'approved' && data?.new_user_id) {
+            const { data: provision, error: provisionError } = await supabase.functions.invoke('provision-account', { body: { user_id: data.new_user_id } })
+            if (provisionError) window.alert(`Application approved, but the login could not be auto-provisioned: ${provisionError.message}. Run "npm run provision:accounts" to fix this.`)
+            else window.alert(`Application approved. Student login "${provision.username}" is ready to use.`)
+          } else if (status === 'approved') {
+            window.alert('Application approved.')
+          }
+          await loadApplications()
+        })
+      }
+      document.getElementById('approve-application').onclick = event => reviewApplication('approved', event.currentTarget)
+      document.getElementById('decline-application').onclick = event => reviewApplication('rejected', event.currentTarget)
+
+      await loadApplications()
+      await loadProfileRequests()
+      setInterval(loadApplications, 30000)
+      setInterval(loadProfileRequests, 30000)
+
+      async function loadAnnouncements() {
+        const table = document.getElementById('announcements-table')
+        const { data, error } = await supabase.from('announcements').select('id,title,message,posted_at').order('posted_at', { ascending: false }).limit(20)
+        if (error) return table.innerHTML = `<tr><td colspan="3">${escape(error.message)}</td></tr>`
+        table.innerHTML = (data || []).map(a => `<tr><td>${escape(a.title)}</td><td>${escape(a.message || '-')}</td><td>${formatDate(a.posted_at)}</td></tr>`).join('') || '<tr><td colspan="3">No announcements posted.</td></tr>'
+      }
+      document.getElementById('add-announcement').onclick = () => {
+        document.getElementById('announcement-form').reset()
+        document.getElementById('announcement-modal').classList.remove('hidden')
+      }
+      document.getElementById('close-announcement').onclick = document.getElementById('cancel-announcement').onclick = () => document.getElementById('announcement-modal').classList.add('hidden')
+      document.getElementById('announcement-form').addEventListener('submit', async (event) => {
+        event.preventDefault()
+        const title = document.getElementById('announcement-title').value.trim()
+        if (!title) return
+        const message = document.getElementById('announcement-message').value.trim()
+        const { error } = await supabase.from('announcements').insert({ title, message: message || null, created_by: user.user_id })
+        if (error) return toast(describeError(error, 'Post announcement'), 'error')
+        document.getElementById('announcement-modal').classList.add('hidden')
+        await loadAnnouncements()
+      })
+      await loadAnnouncements()
+      hideLoadingScreen()
+    

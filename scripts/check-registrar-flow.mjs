@@ -44,14 +44,16 @@ export async function requireRole() { return { username: 'registrar', role_id: 2
 export async function signOut() {}
 `
 const stubTheme = `export const applyUiTheme = () => {}
-export const mountProfile = () => {}
+export const installTableSort = () => {}
+export const toast = () => {}
+`
+const stubShell = `export const mountProfile = () => {}
 export function mountSidebar(items) {
   const nav = document.createElement('nav')
   nav.innerHTML = items.map(i => '<button data-tab="' + i.tab + '">' + i.label + '</button>').join('')
   document.body.prepend(nav)
 }
 export const withBusy = async (button, label, action) => action()
-export const installTableSort = () => {}
 `
 const stubLoading = 'export const hideLoadingScreen = () => {}\n'
 
@@ -127,6 +129,12 @@ try {
     .replace('</body>', '<pre id="result"></pre><script type="module" src="./registrar.js"></script><script type="module" src="./driver.js"></script></body>')
   writeFileSync(join(folder, 'fixture.html'), fixtureHtml)
   writeFileSync(join(folder, 'registrar.js'), read('registrar.js'))
+  writeFileSync(join(folder, 'registrar-state.js'), read('registrar-state.js'))
+  writeFileSync(join(folder, 'registrar-admissions.js'), read('registrar-admissions.js'))
+  writeFileSync(join(folder, 'registrar-sectioning.js'), read('registrar-sectioning.js'))
+  writeFileSync(join(folder, 'registrar-academic.js'), read('registrar-academic.js'))
+  writeFileSync(join(folder, 'registrar-shifting.js'), read('registrar-shifting.js'))
+  writeFileSync(join(folder, 'html.js'), read('html.js'))
   writeFileSync(join(folder, 'sectioning.js'), read('sectioning.js'))
   writeFileSync(join(folder, 'grades.js'), read('grades.js'))
   writeFileSync(join(folder, 'attendance.js'), read('attendance.js'))
@@ -136,6 +144,7 @@ try {
   writeFileSync(join(folder, 'print.js'), read('print.js'))
   writeFileSync(join(folder, 'auth-client.js'), stubAuth)
   writeFileSync(join(folder, 'ui-theme.js'), stubTheme)
+  writeFileSync(join(folder, 'shell.js'), stubShell)
   writeFileSync(join(folder, 'loading-screen.js'), stubLoading)
   writeFileSync(join(folder, 'driver.js'), driverSource)
 

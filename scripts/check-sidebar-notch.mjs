@@ -13,7 +13,8 @@ import assert from 'node:assert/strict'
 const root = resolve(import.meta.dirname, '..')
 const js = readFileSync(join(root, 'ui-theme.js'), 'utf8')
 const theme = js.match(/const sharedTheme = `([\s\S]*?)`;/)[1]
-const sidebar = js.slice(js.indexOf('export function mountSidebar'), js.indexOf('export function mountProfile'))
+const shellJs = readFileSync(join(root, 'shell.js'), 'utf8')
+const sidebar = shellJs.slice(shellJs.indexOf('export function mountSidebar'), shellJs.indexOf('export function mountProfile'))
 
 assert.ok(theme.includes('.app-sidebar .sidebar-link.active::after'), 'active row ::after must be present')
 assert.ok(theme.includes('--sidebar-rail: 48px;'), 'the icon rail token must exist')

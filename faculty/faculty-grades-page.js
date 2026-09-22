@@ -1,7 +1,7 @@
 import { supabase } from '../auth-client.js'
 import { loadFacultyContext, escapeHtml, classSelect, rosterFor } from './faculty-common.js'
 import { SCORE_FIELDS, derivedGrade, gradeRecord, letterGrade } from '../grades.js'
-import { withBusy } from '../ui-theme.js'
+import { withBusy } from '../shell.js'
 
 const context = await loadFacultyContext('grades')
 if (context) {

@@ -32,8 +32,8 @@ assert.ok(empty.includes('>-<'), 'no average is shown when there are no grades')
 
 // --- the registrar wiring --------------------------------------------------
 const root = resolve(import.meta.dirname, '..')
-const js = readFileSync(join(root, 'registrar.js'), 'utf8')
-assert.ok(js.includes("from './report-card.js'"), 'registrar.js must reuse the report card builder')
+const js = readFileSync(join(root, 'registrar-academic.js'), 'utf8')
+assert.ok(js.includes("from './report-card.js'"), 'registrar-academic.js must reuse the report card builder')
 assert.ok(js.includes('printing-report-card'), 'printing must use the report-card print CSS class')
 const registrarHtml = readFileSync(join(root, 'student-records.html'), 'utf8')
 assert.ok(registrarHtml.includes('id="print-report-card"'), 'a Print Report Card button must be present')

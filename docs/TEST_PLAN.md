@@ -9,4 +9,5 @@
 | 65 | `npm run check:rbac` | RLS and role policy shape | Static, no live probe |
 | 66 | `npm run check:audit` | Audit actions and append-only policy | Static, no live database |
 | 67 | `npm run check:errors` | Error classification | Browser event flow requires manual check |
+| 71 | `npm run check:shared-helpers` | No page re-declares `escapeHtml` instead of importing it from `html.js` | Grep guard, not a linter |
 | 70 | `npx vite build` | All pages compile | Does not replace acceptance review |
