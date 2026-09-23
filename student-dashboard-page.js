@@ -1,6 +1,6 @@
       import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
-      import { dayNames, escapeHtml as escape, formatDate } from './html.js'
+      import { dayNames, escapeHtml as escape, formatDate, gradeLabel } from './html.js'
       import { applyUiTheme } from './ui-theme.js'
       import { mountProfile, mountSidebar } from './shell.js'
       import { attendanceSummaryLine } from './attendance.js'
@@ -45,9 +45,26 @@
         schoolYear = enrollment?.school_year || ''
 
         const fullName = `${student?.first_name || ''} ${student?.middle_name || ''} ${student?.last_name || ''}`.replace(/\s+/g, ' ').trim()
-        document.getElementById('dash-code').textContent = student?.lrn_number || '-'
         document.getElementById('dash-name').textContent = fullName
         document.getElementById('dash-lrn').textContent = student?.lrn_number || '-'
+        const status = student?.enrollment_status || 'Not enrolled'
+        const statusEl = document.getElementById('dash-status')
+        statusEl.textContent = status
+        statusEl.className = `badge ${status.toLowerCase().replaceAll(' ', '-')}`
+        const initials = [student?.first_name, student?.last_name].filter(Boolean).map(name => name.trim().charAt(0)).join('').toUpperCase()
+        document.getElementById('dash-photo').innerHTML = student?.profile_picture_url ? `<img src="${escape(student.profile_picture_url)}" alt="">` : escape(initials || '?')
+        const details = [
+          ['Grade level', student?.grade_level != null ? gradeLabel(student.grade_level) : '-'],
+          ['Section', sectionName],
+          ['School year', enrollment?.sections?.academic_year || schoolYear || '-'],
+          ['Semester', enrollment?.sections?.semester || '-'],
+          ['Date of birth', student?.date_of_birth ? formatDate(student.date_of_birth) : '-'],
+          ['Sex', student?.gender || student?.sex || '-'],
+          ['Contact number', student?.contact_number || '-'],
+          ['Email', user.email || '-'],
+          ['Address', student?.address || '-', true]
+        ]
+        document.getElementById('dash-details').innerHTML = details.map(([label, value, wide]) => `<div${wide ? ' class="wide"' : ''}><dt>${label}</dt><dd>${escape(value)}</dd></div>`).join('')
         document.getElementById('dash-term').textContent = `${enrollment?.sections?.semester || ''} - ${enrollment?.sections?.academic_year || schoolYear}`
         document.getElementById('profile-name').textContent = fullName
         document.getElementById('profile-id').textContent = student?.lrn_number || '-'

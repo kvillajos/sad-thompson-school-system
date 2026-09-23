@@ -230,6 +230,24 @@ function openProfileModal(user, roleLabel, profile) {
   modal.querySelector('#tcsms-profile-remove').onclick = async () => { const result = await confirmProfileChange(user.email, () => supabase.rpc('remove_own_profile_picture')); if (result) { setProfilePicture(null); window.alert('Profile picture removed.'); } };
 }
 
+// Resolves true only after the signed-in user re-enters their own password correctly.
+export function confirmPassword(email, message = 'Enter your password to continue.') {
+  return new Promise(resolve => {
+    const prompt = document.createElement('div'); prompt.className = 'admin-modal stack-above';
+    prompt.innerHTML = `<div class="admin-modal-box" style="width:min(100%,420px)"><div class="admin-modal-head"><h3>Confirm Password</h3><button type="button" data-password-close>x</button></div><form data-password-form><p>${message}</p><input type="password" data-profile-password autocomplete="current-password" required><p class="login-hint" data-password-error style="color:#c0392b;margin:0" role="alert"></p><div class="admin-actions"><button type="button" class="admin-cancel" data-password-cancel>Cancel</button><button type="submit" class="admin-primary">Confirm</button></div></form></div>`;
+    document.body.appendChild(prompt);
+    const finish = value => { prompt.remove(); resolve(value); };
+    prompt.querySelector('[data-password-close]').onclick = prompt.querySelector('[data-password-cancel]').onclick = () => finish(false);
+    prompt.querySelector('[data-password-form]').onsubmit = async event => {
+      event.preventDefault();
+      const { error } = await supabase.auth.signInWithPassword({ email, password: prompt.querySelector('[data-profile-password]').value });
+      if (error) { prompt.querySelector('[data-password-error]').textContent = 'Password is incorrect.'; return; }
+      finish(true);
+    };
+    prompt.querySelector('[data-profile-password]').focus();
+  });
+}
+
 function confirmProfileChange(email, action) {
   return new Promise(resolve => {
     const prompt = document.createElement('div'); prompt.className = 'admin-modal';

@@ -80,8 +80,20 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .admin-check { display:flex; align-items:center; gap:10px; padding:12px 8px; border-bottom:1px solid var(--ui-border); color:var(--ui-text); font-weight:600 }
 .admin-check input { width:auto; margin:0 }
 .admin-check:last-child { border-bottom:0 }
-.admin-summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px }
-@media (max-width:700px) { .admin-summary-grid { grid-template-columns:1fr } }
+.admin-summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:start }
+.admin-summary-grid > .admin-table-wrap { margin-top:0 }
+.student-card { grid-column:span 2; display:flex; gap:22px; align-items:flex-start }
+.student-card-photo { display:grid; place-items:center; flex:0 0 112px; width:112px; height:112px; border-radius:50%; overflow:hidden; background:var(--ui-blue); color:#fff; font-size:34px; font-weight:700 }
+.student-card-photo img { width:100%; height:100%; object-fit:cover }
+.student-card-body { flex:1; min-width:0 }
+.student-card-head { display:flex; align-items:center; flex-wrap:wrap; gap:10px }
+.student-card-head h3 { margin:0; color:var(--ui-blue-dark); font-size:20px }
+.student-card-id { margin:4px 0 16px; color:var(--ui-muted) }
+.student-card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px 22px; margin:0 }
+.student-card-grid dt { color:var(--ui-muted); font-size:12px; font-weight:700 }
+.student-card-grid dd { margin:2px 0 0; color:var(--ui-text); font-weight:600; overflow-wrap:anywhere }
+.student-card-grid .wide { grid-column:1/-1 }
+@media (max-width:700px) { .admin-summary-grid { grid-template-columns:1fr } .student-card { grid-column:auto; flex-direction:column; align-items:center; text-align:center } .student-card-head { justify-content:center } .student-card-grid { text-align:left; width:100% } }
 .admin-table-wrap { overflow:auto; background:var(--ui-surface-strong); border:1px solid #e5ebf4; border-radius:16px; padding:18px; box-shadow:0 8px 24px rgba(7,27,58,.06) }
 .admin-table-wrap + .admin-table-wrap { margin-top:18px; }
 .admin-section-title { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 14px; }
@@ -192,6 +204,11 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .section-box .section-moderator-field .moderator-card { grid-column:1/-1; width:100%; box-sizing:border-box; margin-top:0; border-radius:18px; padding:10px 16px; }
 .section-box .admin-actions { margin:4px 0 -2px; padding-top:18px; border-top:1px solid #edf1f6; }
 .section-box .admin-actions button { border-radius:22px; padding:10px 20px; }
+.account-details-box { width:min(100%,760px) !important; max-height:90vh; overflow:auto }
+.account-details-box h4 { margin:20px 0 8px; color:var(--ui-blue-dark) }
+.account-details-box .review-grid p { overflow-wrap:anywhere }
+.account-picture { display:flex; align-items:center; gap:14px; margin-top:14px }
+.account-picture img { width:64px; height:64px; border-radius:50%; object-fit:cover }
 .faculty-details-box h4 { color:var(--ui-blue-dark); margin:20px 0 8px; }
 .faculty-details-box ul { margin:0; padding-left:20px; color:var(--ui-text); }
 .admin-modal-box label { color:var(--ui-text); font-weight:700; font-size:13px }
@@ -562,7 +579,7 @@ body.has-app-sidebar > .app-sidebar { position:fixed; inset:0 auto 0 0; z-index:
    students.enrollment_status allows Enrolled | Pending | Graduated | Transferred
    (students_enrollment_status_check), so 'inactive'/'dropped' only ever appear on
    enrollments.status, never on a student. */
-.badge { background:#eef2f7; color:var(--ui-muted); }
+.badge { display:inline-block; padding:3px 10px; border-radius:999px; font-weight:700; text-transform:capitalize; background:#eef2f7; color:var(--ui-muted); }
 .badge.active, .badge.enrolled, .badge.approved, .badge.completed, .badge.present { background:#dcfce7; color:#166534; }
 .badge.pending, .badge.submitted, .badge.under_review, .badge.under-review, .badge.draft, .badge.late, .badge.incomplete { background:#fef3c7; color:#92400e; }
 .badge.inactive, .badge.rejected, .badge.dropped, .badge.absent, .badge.retained, .badge.held { background:#fee2e2; color:#991b1b; }

@@ -62,7 +62,7 @@
 
 1. Run `npm install`.
 2. Copy `.env.example` to `.env` and set the Vite Supabase values.
-3. Run `database/backupsqlmigration.sql` in the Supabase SQL Editor. Treat it as the protected executable backup SQL; create, test, and review a separate numbered migration for future changes instead of editing the backup.
+3. Run `database/backupsqlmigration.sql` in the Supabase SQL Editor. Treat it as the protected executable backup SQL; create, test, and review a separate numbered migration for future changes instead of editing the backup. Then run `database/migration-v10-data-api-grants.sql` (Supabase stops auto-granting Data API access to new tables on 2026-10-30; existing projects are unaffected, new projects/branches/resets are).
 4. Run `npm run dev`.
 5. Use the service-role key only in a local terminal for seed scripts. Never commit or share it.
 6. Set the Edge Function `APP_ORIGIN` environment variable to the deployed application origin, then deploy: `supabase functions deploy provision-account` (it handles deactivate/activate/reset actions from Manage Accounts).

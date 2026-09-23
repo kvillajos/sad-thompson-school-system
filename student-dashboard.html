@@ -12,7 +12,14 @@
       <section data-panel="dashboard">
         <div class="admin-page-head"><div><h2>Dashboard</h2></div></div>
         <div class="admin-summary-grid">
-          <div class="admin-table-wrap"><div class="admin-section-title"><h3>Student Information</h3></div><p><b>Code:</b> <span id="dash-code"></span></p><p><b>Student Name:</b> <span id="dash-name"></span></p><p><b>LRN No.:</b> <span id="dash-lrn"></span></p></div>
+          <div class="admin-table-wrap student-card">
+            <div id="dash-photo" class="student-card-photo" aria-hidden="true"></div>
+            <div class="student-card-body">
+              <div class="student-card-head"><h3 id="dash-name"></h3><span id="dash-status" class="badge"></span></div>
+              <p class="student-card-id">LRN <span id="dash-lrn"></span></p>
+              <dl id="dash-details" class="student-card-grid"></dl>
+            </div>
+          </div>
           <div class="admin-table-wrap"><div class="admin-section-title"><h3>Units Enrolled</h3></div><p id="dash-units" style="font-size:20px;font-weight:700"></p><p id="dash-term"></p></div>
         </div>
         <section class="admin-table-wrap" style="margin-top:20px"><div class="admin-section-title"><h3>Announcements</h3></div><table><thead><tr><th>Title</th><th>Date</th></tr></thead><tbody id="announcements-table"><tr><td colspan="2">Loading announcements...</td></tr></tbody></table></section>

@@ -1,10 +1,12 @@
   import { supabase } from './auth-client.js'
   import { toast } from './ui-theme.js'
   import { hideLoadingScreen } from './loading-screen.js'
-  import { escapeHtml as escape } from './html.js'
+  import { escapeHtml as escape, formatDate } from './html.js'
+  import { confirmPassword } from './shell.js'
   import { describeError } from './errors.js'
   import { mountAdminShell } from './admin-page.js'
-  await mountAdminShell('accounts')
+  const admin = await mountAdminShell('accounts')
+  const verify = message => confirmPassword(admin.email, message)
   const roleNames = { 1: 'Administrator', 2: 'Registrar', 3: 'Faculty', 4: 'Student' }
   let accounts = []
   async function loadAccounts() {
@@ -24,14 +26,25 @@
     document.querySelectorAll('[data-toggle]').forEach(button => button.onclick = () => runAccountAction(button.dataset.toggle, button.dataset.active === 'true' ? 'deactivate' : 'activate', button))
     document.querySelectorAll('[data-reset]').forEach(button => button.onclick = () => runAccountAction(button.dataset.reset, 'reset', button))
   }
+  const label = key => key.replaceAll('_', ' ').replace(/^./, c => c.toUpperCase())
+  const format = (key, value) => {
+    if (value === null || value === undefined || value === '') return '-'
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+    if (/_at$/.test(key)) return formatDate(value, true)
+    if (/date|birth/.test(key)) return formatDate(value)
+    return String(value)
+  }
   async function showAccountDetails(userId) {
     const item = accounts.find(account => String(account.user_id) === String(userId))
     if (!item) return
-    const relation = item.student_id ? 'students' : 'staff_profiles'
+    if (!await verify('Enter your password to view this account.')) return
+    const relation = item.student_id ? 'students' : item.role_id === 1 ? 'admins' : 'staff_profiles'
     const key = item.student_id ? 'student_id' : 'user_id'
-    const result = await supabase.from(relation).select('first_name,middle_name,last_name').eq(key, item.student_id || item.user_id).maybeSingle()
-    const name = result.data ? `${result.data.first_name || ''} ${result.data.middle_name || ''} ${result.data.last_name || ''}`.replace(/\s+/g, ' ').trim() : '-'
-    document.getElementById('account-details-body').innerHTML = `<form id="account-edit-form"><label class="admin-full">Username<input id="account-edit-username" value="${escape(item.username)}" maxlength="80" required></label><label class="admin-full">Email<input value="${escape(item.email)}" readonly></label><label class="admin-full">Role<select id="account-edit-role"><option value="1" ${item.role_id === 1 ? 'selected' : ''}>Administrator</option><option value="2" ${item.role_id === 2 ? 'selected' : ''}>Registrar</option><option value="3" ${item.role_id === 3 ? 'selected' : ''}>Faculty</option><option value="4" ${item.role_id === 4 ? 'selected' : ''}>Student</option></select></label><div class="admin-actions"><button class="admin-primary">Save Account</button></div></form><div class="review-grid"><div><small>Name</small><p>${escape(name || '-')}</p></div><div><small>Status</small><p>${item.is_active ? 'Active' : 'Inactive'}</p></div></div>${item.profile_picture_url ? `<img src="${escape(item.profile_picture_url)}" alt="Profile picture" style="width:50px;height:50px;object-fit:cover"> <button class="admin-view" data-revert-picture="${item.user_id}">Revert Picture</button>` : '<p>No profile picture.</p>'}`
+    const { data: profile } = await supabase.from(relation).select('*').eq(key, item.student_id || item.user_id).maybeSingle()
+    const account = { user_id: item.user_id, role: roleNames[item.role_id] || 'Unknown', status: item.is_active ? 'Active' : 'Inactive', linked_record: item.student_id ? 'Student #' + item.student_id : null }
+    const skip = new Set(['profile_picture_url', 'initial_password', 'user_id'])
+    const grid = rows => rows.map(([k, v]) => `<div><small>${escape(label(k))}</small><p>${escape(format(k, v))}</p></div>`).join('')
+    document.getElementById('account-details-body').innerHTML = `<form id="account-edit-form"><label class="admin-full">Username<input id="account-edit-username" value="${escape(item.username)}" maxlength="80" required></label><label class="admin-full">Email<input value="${escape(item.email)}" readonly></label><label class="admin-full">Role<select id="account-edit-role"><option value="1" ${item.role_id === 1 ? 'selected' : ''}>Administrator</option><option value="2" ${item.role_id === 2 ? 'selected' : ''}>Registrar</option><option value="3" ${item.role_id === 3 ? 'selected' : ''}>Faculty</option><option value="4" ${item.role_id === 4 ? 'selected' : ''}>Student</option></select></label><div class="admin-actions"><button class="admin-primary">Save Account</button></div></form><div class="account-picture">${item.profile_picture_url ? `<img src="${escape(item.profile_picture_url)}" alt="Profile picture"> <button class="admin-view" data-revert-picture="${item.user_id}">Revert Picture</button>` : '<p>No profile picture.</p>'}</div><h4>Account</h4><div class="review-grid">${grid(Object.entries(account))}</div><h4>Profile</h4><div class="review-grid">${profile ? grid(Object.entries(profile).filter(([k]) => !skip.has(k))) : '<p>No linked profile record.</p>'}</div>`
     document.getElementById('account-edit-form').onsubmit = event => saveAccount(event, item.user_id)
     document.querySelector('[data-revert-picture]')?.addEventListener('click', () => revertPicture(userId))
     document.getElementById('account-details-modal').classList.remove('hidden')
@@ -53,6 +66,7 @@
     await loadAccounts()
   }
   async function runAccountAction(userId, action, button) {
+    if (!await verify('Enter your password to confirm this action.')) return
     button.disabled = true
     try {
       const { data, error } = await supabase.functions.invoke('provision-account', { body: { user_id: Number(userId), action } })
