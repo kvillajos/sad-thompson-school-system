@@ -13,8 +13,8 @@
 - The registrar page (`student-records.html`) is split into `registrar.js` (entry: nav, tab wiring, `init()`), `registrar-state.js` (`$`, shared `state`), `registrar-admissions.js` (application form, camera, drafts, review, student details), `registrar-sectioning.js` (sections, enrollment, placement, auto-assign), `registrar-academic.js` (academic history, report card, print card, transcript), and `registrar-shifting.js` (promotion, transfer/shifting, feedback). Import direction is one-way (`registrar.js` → the four feature modules → `registrar-admissions.js`/`registrar-sectioning.js`/`registrar-academic.js` → `registrar-state.js`) to avoid ES module circular-import ordering issues.
 - Pure helper modules with no app imports, asserted by their `scripts/check-*.mjs`: `grades.js` (scores, CSV upload, letter grades, general average), `attendance.js` (attendance sheet + summary line), `report-card.js` (report card HTML builder), `semester-grades.js` (`buildSemesterTable` — semester-split or `{ flat: true }` record-card shape).
 - `public/assets/` contains `logo.png` and `bg.jpg`.
-- `database/backupsqlmigration.sql` is the protected executable database backup containing the base schema and migrations v2-v9. Do not edit it directly. Future changes belong in a separate numbered migration file.
-- The security-hardening delta is already folded into `database/backupsqlmigration.sql`; run that protected backup as the single executable database artifact.
+- `database/backupsqlmigration.sql` is the single executable database file: base schema plus migrations v2-v11 (including Data API grants and the faculty grade lock). Add future changes to it directly.
+- The security-hardening delta is already folded into `database/backupsqlmigration.sql`; run it as the single executable database artifact.
 - Browser data access uses Supabase's parameterized client and RPC APIs; ownership and role checks are enforced by RLS and server-side functions. Only the public anon/publishable key may use `VITE_` variables; service-role credentials belong only in Edge Functions or local server-side scripts.
 - `scripts/seed-students.mjs` creates 40 Filipino student accounts.
 - `scripts/seed-staff.mjs` creates 10 faculty accounts, 3 registrar accounts, profiles, and 10 subjects.
@@ -55,14 +55,14 @@
 - The consolidated migration drops the legacy `student_enrollments` table if Supabase still has it (guarded, no-op if it is already gone) - review/back up before running the database setup if that table might still hold data.
 - A true one-click PDF report card would need a new PDF library; for now "Print Report Card" uses the browser's Print → Save as PDF, same as the transcript.
 - Print output intentionally remains browser Print → Save as PDF; a generated `.pdf` would require a server-side/Edge Function PDF renderer.
-- The protected backup includes v7 promotion audit events, v8 CRUD audit coverage and daily archives, and v9 password-confirmed profile editing. Future migrations should be created separately and reviewed; do not edit the backup directly.
+- The backup includes v7 promotion audit events, v8 CRUD audit coverage and daily archives, v9 password-confirmed profile editing, v10 Data API grants (Supabase stops auto-granting access to new tables on 2026-10-30), and v11 faculty grade locking.
 - Test every role after applying `database/backupsqlmigration.sql` and any separate edit migrations, then rotate Supabase JWT/API keys.
 
 ## Required Setup
 
 1. Run `npm install`.
 2. Copy `.env.example` to `.env` and set the Vite Supabase values.
-3. Run `database/backupsqlmigration.sql` in the Supabase SQL Editor. Treat it as the protected executable backup SQL; create, test, and review a separate numbered migration for future changes instead of editing the backup. Then run `database/migration-v10-data-api-grants.sql` (Supabase stops auto-granting Data API access to new tables on 2026-10-30; existing projects are unaffected, new projects/branches/resets are).
+3. Run `database/backupsqlmigration.sql` in the Supabase SQL Editor. It is the only SQL file and is safe to re-run.
 4. Run `npm run dev`.
 5. Use the service-role key only in a local terminal for seed scripts. Never commit or share it.
 6. Set the Edge Function `APP_ORIGIN` environment variable to the deployed application origin, then deploy: `supabase functions deploy provision-account` (it handles deactivate/activate/reset actions from Manage Accounts).

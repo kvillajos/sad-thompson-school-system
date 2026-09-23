@@ -82,10 +82,10 @@
       async function loadSchedule() {
         const table = document.getElementById('schedule-table')
         document.getElementById('schedule-caption').textContent = `Class Schedule — ${schoolYear || 'Current Term'}`
-        if (!sectionId) { table.innerHTML = '<tr><td colspan="5">No active section enrollment found.</td></tr>'; return }
-        const { data, error } = await supabase.from('subject_schedules').select('subject_id,section_id,faculty_name,day_of_week,start_time,end_time,subjects(subject_name),sections(section_name)').eq('section_id', sectionId).order('day_of_week').order('start_time')
-        if (error) return table.innerHTML = `<tr><td colspan="5">${escape(error.message)}</td></tr>`
-        table.innerHTML = (data || []).map(item => `<tr><td>${escape(item.subjects?.subject_name || '')}</td><td>${escape(item.sections?.section_name || '')}</td><td>${escape(item.faculty_name || '-')}</td><td>${dayNames[item.day_of_week]}</td><td>${escape(item.start_time?.slice(0,5))} - ${escape(item.end_time?.slice(0,5))}</td></tr>`).join('') || '<tr><td colspan="5">No schedule configured yet.</td></tr>'
+        if (!sectionId) { table.innerHTML = '<tr><td colspan="6">No active section enrollment found.</td></tr>'; return }
+        const { data, error } = await supabase.from('subject_schedules').select('subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_name),sections(section_name)').eq('section_id', sectionId).order('day_of_week').order('start_time')
+        if (error) return table.innerHTML = `<tr><td colspan="6">${escape(error.message)}</td></tr>`
+        table.innerHTML = (data || []).map(item => `<tr><td>${escape(item.subjects?.subject_name || '')}</td><td>${escape(item.sections?.section_name || '')}</td><td>${escape(item.faculty_name || '-')}</td><td>${escape(item.room || '-')}</td><td>${dayNames[item.day_of_week]}</td><td>${escape(item.start_time?.slice(0,5))} - ${escape(item.end_time?.slice(0,5))}</td></tr>`).join('') || '<tr><td colspan="6">No schedule configured yet.</td></tr>'
         document.getElementById('dash-units').textContent = `${(data || []).length} Subject${(data || []).length === 1 ? '' : 's'}`
       }
 

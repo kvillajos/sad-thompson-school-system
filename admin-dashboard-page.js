@@ -12,6 +12,17 @@
       let selectedApplication = null
       let countdownTimer = null
 
+      async function loadAttendanceStats() {
+        const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+        const count = async status => (await supabase.from('attendance').select('id', { count: 'exact', head: true }).gte('attendance_date', since).eq('status', status)).count
+        const [present, late, absent] = await Promise.all([count('Present'), count('Late'), count('Absent')])
+        const total = (present ?? 0) + (late ?? 0) + (absent ?? 0)
+        document.getElementById('att-present').textContent = present ?? '-'
+        document.getElementById('att-late').textContent = late ?? '-'
+        document.getElementById('att-absent').textContent = absent ?? '-'
+        document.getElementById('att-rate').textContent = total ? `${Math.round(((present + late) / total) * 1000) / 10}%` : 'No data'
+      }
+
       async function loadApplications() {
         const pendingTable = document.getElementById('pending-table')
         const { data, error } = await supabase.from('admission_applications').select('id,first_name,last_name,grade_level,status,created_at,editing_by,editing_since').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false })
@@ -189,5 +200,6 @@
         await loadAnnouncements()
       })
       await loadAnnouncements()
+      await loadAttendanceStats()
       hideLoadingScreen()
     

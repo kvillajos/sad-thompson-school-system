@@ -74,11 +74,20 @@ async function openAcademicHistory(studentId) {
   state.academicStudentId = studentId
   $('academic-history-title').textContent = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'View History'
   const years = [...new Set(rows.map(row => row.school_year).filter(Boolean))].sort().reverse()
+  const lockedYears = years.filter(year => rows.some(row => row.school_year === year && row.locked))
   const { data: enrollment } = await supabase.from('enrollments').select('school_year,sections(section_name)').eq('student_id', studentId).eq('status', 'active').maybeSingle()
   const photo = student.profile_picture_url
     ? `<img class="academic-profile-photo" src="${escapeHtml(student.profile_picture_url)}" alt="Profile picture of ${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`.trim())}">`
     : '<div class="academic-profile-photo photo-preview-empty" aria-hidden="true">No photo</div>'
-  $('academic-history-body').innerHTML = `<div class="academic-profile-summary">${photo}<div class="review-grid"><div><small>Student No.</small><p>${escapeHtml(student.lrn_number || student.student_id || '')}</p></div><div><small>Grade Level</small><p>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</p></div><div><small>Section</small><p>${escapeHtml(enrollment?.sections?.section_name || 'No Section')}</p></div><div><small>School Year</small><p>${escapeHtml(enrollment?.school_year || '-')}</p></div><div><small>Academic Records</small><p>${rows.length}</p></div></div></div><label>School Year<select id="academic-term-filter"><option value="">All school years</option>${years.map(year => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join('')}</select></label><div id="academic-history-table" class="academic-scroll">${buildSemesterTable(rows)}</div>`
+  $('academic-history-body').innerHTML = `<div class="academic-profile-summary">${photo}<div class="review-grid"><div><small>Student No.</small><p>${escapeHtml(student.lrn_number || student.student_id || '')}</p></div><div><small>Grade Level</small><p>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</p></div><div><small>Section</small><p>${escapeHtml(enrollment?.sections?.section_name || 'No Section')}</p></div><div><small>School Year</small><p>${escapeHtml(enrollment?.school_year || '-')}</p></div><div><small>Academic Records</small><p>${rows.length}</p></div></div></div><label>School Year<select id="academic-term-filter"><option value="">All school years</option>${years.map(year => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join('')}</select></label><div id="academic-history-table" class="academic-scroll">${buildSemesterTable(rows)}</div>${lockedYears.map(year => `<p class="note">&#128274; ${escapeHtml(year)} grades are locked by faculty. <button type="button" class="small btn-review" data-unlock-year="${escapeHtml(year)}">Unlock</button></p>`).join('')}`
+  document.querySelectorAll('[data-unlock-year]').forEach(button => button.onclick = async () => {
+    if (!window.confirm(`Unlock ${button.dataset.unlockYear} grades so faculty can edit them again?`)) return
+    const { error } = await supabase.rpc('set_academic_lock', { p_student_id: Number(studentId), p_school_year: button.dataset.unlockYear, p_locked: false })
+    if (error) return toast(error.message, 'error')
+    toast('Grades unlocked.')
+    await loadAcademic()
+    openAcademicHistory(studentId)
+  })
   $('academic-term-filter').onchange = event => {
     const selected = event.target.value
     $('academic-history-table').innerHTML = buildSemesterTable(selected ? rows.filter(row => row.school_year === selected) : rows)

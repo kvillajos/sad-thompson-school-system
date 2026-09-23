@@ -82,6 +82,8 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .admin-check:last-child { border-bottom:0 }
 .admin-summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:start }
 .admin-summary-grid > .admin-table-wrap { margin-top:0 }
+.admin-summary-grid .card { background:var(--ui-bg); border-radius:12px; padding:14px 16px }
+.stat { margin-top:4px; color:var(--ui-blue); font-size:28px; font-weight:800 }
 .student-card { grid-column:span 2; display:flex; gap:22px; align-items:flex-start }
 .student-card-photo { display:grid; place-items:center; flex:0 0 112px; width:112px; height:112px; border-radius:50%; overflow:hidden; background:var(--ui-blue); color:#fff; font-size:34px; font-weight:700 }
 .student-card-photo img { width:100%; height:100%; object-fit:cover }
