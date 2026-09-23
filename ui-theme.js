@@ -42,7 +42,7 @@ button:not(:disabled):hover { filter:brightness(0.96); }
   flex-direction: column;
   justify-content: center;
   padding: 2rem clamp(1.5rem, 5vw, 3rem);
-  background: linear-gradient(160deg, #0c2650 0%, #071b3a 55%, #051530 100%);
+  background: var(--ui-navy);
   color: #fff !important;
 }
 .login-panel h2 { color:#fff !important; }
