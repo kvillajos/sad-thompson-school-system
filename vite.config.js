@@ -7,8 +7,8 @@ const git = (command) => {
   try { return execSync(command, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() }
   catch { return '' }
 }
-const branch = git('git rev-parse --abbrev-ref HEAD')
-const commit = git('git rev-parse --short HEAD')
+const branch = process.env.VERCEL_GIT_COMMIT_REF || git('git rev-parse --abbrev-ref HEAD')
+const commit = (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) || git('git rev-parse --short HEAD')
 const buildLabel = branch && commit ? `${branch}@${commit}` : 'local build'
 
 export default defineConfig({
