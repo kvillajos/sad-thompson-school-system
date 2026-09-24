@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "vite",
     "check:pages": "node scripts/check-table-pages.mjs",
+    "check:copy": "node scripts/check-table-copy.mjs",
+    "check:daytabs": "node scripts/check-day-tabs.mjs",
     "check:sort": "node scripts/check-table-sort.mjs",
     "check:sectioning": "node scripts/check-sectioning.mjs",
     "check:timeout": "node scripts/check-session-timeout.mjs",

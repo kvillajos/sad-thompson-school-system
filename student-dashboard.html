@@ -11,16 +11,13 @@
     <main>
       <section data-panel="dashboard">
         <div class="admin-page-head"><div><h2>Dashboard</h2></div></div>
-        <div class="admin-summary-grid">
-          <div class="admin-table-wrap student-card">
-            <div id="dash-photo" class="student-card-photo" aria-hidden="true"></div>
-            <div class="student-card-body">
-              <div class="student-card-head"><h3 id="dash-name"></h3><span id="dash-status" class="badge"></span></div>
-              <p class="student-card-id">LRN <span id="dash-lrn"></span></p>
-              <dl id="dash-details" class="student-card-grid"></dl>
-            </div>
+        <div class="admin-table-wrap student-card">
+          <div id="dash-photo" class="student-card-photo" aria-hidden="true"></div>
+          <div class="student-card-body">
+            <div class="student-card-head"><h3 id="dash-name"></h3><span id="dash-status" class="badge"></span></div>
+            <p class="student-card-id">LRN <span id="dash-lrn"></span></p>
+            <dl id="dash-details" class="student-card-grid"></dl>
           </div>
-          <div class="admin-table-wrap"><div class="admin-section-title"><h3>Units Enrolled</h3></div><p id="dash-units" style="font-size:20px;font-weight:700"></p><p id="dash-term"></p></div>
         </div>
         <div id="announcements-host" style="margin-top:20px"></div>
       </section>
@@ -41,33 +38,47 @@
 
       <section data-panel="schedule" class="hidden">
         <div class="admin-page-head"><div><h2>Schedule</h2></div></div>
-        <p id="schedule-caption" class="admin-section-title"></p>
-        <section class="admin-table-wrap"><table><thead><tr><th>Subject</th><th>Section</th><th>Faculty</th><th>Room</th><th>Day</th><th>Time</th></tr></thead><tbody id="schedule-table"><tr><td colspan="6">Loading schedule...</td></tr></tbody></table></section>
+        <div class="schedule-head"><h3 id="schedule-section"></h3><span id="schedule-caption" class="admin-note"></span></div>
+        <section class="admin-table-wrap" id="schedule-days"><p>Loading schedule...</p></section>
       </section>
 
       <section data-panel="profile" class="hidden">
-        <div class="admin-page-head"><div><h2>Edit My Profile</h2></div></div>
-        <section class="admin-table-wrap"><div class="admin-section-title"><h3>Student Information</h3></div>
-          <p><b>Name</b><br><span id="profile-name"></span></p>
-          <p><b>Student ID</b><br><span id="profile-id"></span></p>
-          <p><b>Grade Level</b><br><span id="profile-grade"></span></p>
-          <p><b>Section</b><br><span id="profile-section"></span></p>
-          <p><b>Status</b><br><span id="profile-status"></span></p>
-          <p><b>Date of Birth</b><br><span id="profile-dob"></span></p>
-          <p><b>Address</b><br><span id="profile-address"></span></p>
-          <p><b>Contact Number</b><br><span id="profile-contact"></span></p>
-          <p><b>Program</b><br><span id="profile-program"></span></p>
-        </section>
-        <section class="admin-table-wrap" style="margin-top:20px"><div class="admin-section-title"><h3>Account Information</h3></div>
-          <p><b>Email Address</b><br><span id="profile-email"></span></p>
-          <p class="admin-note">To change your password, use the profile menu in the top-right corner.</p>
-        </section>
-        <section class="admin-table-wrap" style="margin-top:20px"><div class="admin-section-title"><h3>Profile Picture</h3></div>
-          <img id="profile-picture-preview" alt="Profile picture" style="width:96px;height:96px;object-fit:cover;border-radius:50%;display:block;margin-bottom:10px;background:#eaf1ff">
-          <input type="file" id="profile-picture-input" accept="image/png,image/jpeg,image/webp">
-          <button class="admin-primary" type="button" id="save-picture" style="margin-top:10px">Save</button>
-        </section>
-        <section class="admin-table-wrap" style="margin-top:20px"><div class="admin-section-title"><h3>Attendance Record</h3></div><p id="attendance-summary" class="admin-note"></p><table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody id="attendance-table"><tr><td colspan="2">Loading attendance...</td></tr></tbody></table></section>
+        <div class="admin-page-head"><div><h2>My Profile</h2></div></div>
+        <div class="profile-grid">
+          <section class="admin-table-wrap"><div class="admin-section-title"><h3>Student Information</h3></div>
+            <dl class="student-card-grid">
+              <div class="wide"><dt>Name</dt><dd id="profile-name"></dd></div>
+              <div><dt>Student ID</dt><dd id="profile-id"></dd></div>
+              <div><dt>Status</dt><dd id="profile-status"></dd></div>
+              <div><dt>Grade Level</dt><dd id="profile-grade"></dd></div>
+              <div><dt>Section</dt><dd id="profile-section"></dd></div>
+              <div><dt>Program</dt><dd id="profile-program"></dd></div>
+              <div><dt>Date of Birth</dt><dd id="profile-dob"></dd></div>
+              <div><dt>Contact Number</dt><dd id="profile-contact"></dd></div>
+              <div><dt>Email Address</dt><dd id="profile-email"></dd></div>
+              <div class="wide"><dt>Address</dt><dd id="profile-address"></dd></div>
+              <div><dt>Guardian</dt><dd id="profile-guardian-name"></dd></div>
+              <div><dt>Relationship</dt><dd id="profile-guardian-relationship"></dd></div>
+              <div><dt>Guardian Phone</dt><dd id="profile-guardian-phone"></dd></div>
+              <div><dt>Guardian Email</dt><dd id="profile-guardian-email"></dd></div>
+              <div class="wide"><dt>Medical Notes</dt><dd id="profile-medical-notes"></dd></div>
+            </dl>
+            <p class="admin-note" style="margin-bottom:0">To change your password, use the profile menu in the top-right corner.</p>
+          </section>
+          <section class="admin-table-wrap"><div class="admin-section-title"><h3>Profile Picture</h3></div>
+            <div class="pfp-card">
+              <div id="profile-picture-preview" class="student-card-photo pfp-big" aria-label="Profile picture"></div>
+              <input type="file" id="profile-picture-input" accept="image/png,image/jpeg,image/webp" hidden>
+              <button class="admin-secondary" type="button" id="choose-picture">Change photo</button>
+              <div id="picture-actions" class="pfp-actions hidden">
+                <button class="admin-primary" type="button" id="save-picture">Save photo</button>
+                <button class="admin-secondary" type="button" id="cancel-picture">Cancel</button>
+              </div>
+              <small class="admin-note" id="picture-hint">PNG, JPG or WEBP, up to 3 MB.</small>
+            </div>
+          </section>
+        </div>
+        <section class="admin-table-wrap" style="margin-top:16px"><div class="admin-section-title"><h3>Attendance Record</h3></div><p id="attendance-summary" class="admin-note"></p><table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody id="attendance-table"><tr><td colspan="2">Loading attendance...</td></tr></tbody></table></section>
       </section>
     </main>
     <section id="student-transcript-print" class="transcript-print-card" aria-hidden="true"></section>

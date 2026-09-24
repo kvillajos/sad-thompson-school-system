@@ -1,5 +1,6 @@
       import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
+      import { mountDayTabs } from './day-tabs.js'
       import { dayNames, escapeHtml as escape, formatDate, gradeLabel } from './html.js'
       import { applyUiTheme } from './ui-theme.js'
       import { mountProfile, mountSidebar } from './shell.js'
@@ -17,11 +18,11 @@
       mountNotificationBell(user)
       mountSidebar([
         { label: 'Dashboard', tab: 'dashboard', active: true, icon: '⌂' },
+        { label: 'Schedule', tab: 'schedule', icon: '▤' },
         { label: 'Grades', tab: 'grades', icon: '♧' },
         { label: 'Transcript', tab: 'transcript', icon: '▱' },
-        { label: 'Schedule', tab: 'schedule', icon: '▤' },
         { label: 'Profile', tab: 'profile', icon: '☷' }
-      ], 'Student Portal')
+      ], 'Student Portal', 'student')
 
       const tabs = [...document.querySelectorAll('[data-tab]')]
       const panels = [...document.querySelectorAll('[data-panel]')]
@@ -37,6 +38,12 @@
       let sectionName = ''
       let schoolYear = ''
       let gradeRows = []
+
+      // Same placeholder as the profile bar and dashboard card: initials on a blue circle until a photo is set.
+      function showProfilePicture(url) {
+        const initials = [student?.first_name, student?.last_name].filter(Boolean).map(name => name.trim().charAt(0)).join('').toUpperCase()
+        document.getElementById('profile-picture-preview').innerHTML = url ? `<img src="${escape(url)}" alt="Profile picture">` : escape(initials || '?')
+      }
 
       async function loadStudent() {
         if (!user.student_id) return
@@ -68,7 +75,6 @@
           ['Address', student?.address || '-', true]
         ]
         document.getElementById('dash-details').innerHTML = details.map(([label, value, wide]) => `<div${wide ? ' class="wide"' : ''}><dt>${label}</dt><dd>${escape(value)}</dd></div>`).join('')
-        document.getElementById('dash-term').textContent = `${enrollment?.sections?.semester || ''} - ${enrollment?.sections?.academic_year || schoolYear}`
         document.getElementById('profile-name').textContent = fullName
         document.getElementById('profile-id').textContent = student?.lrn_number || '-'
         document.getElementById('profile-grade').textContent = student?.grade_level != null ? `Grade ${student.grade_level}` : '-'
@@ -79,17 +85,27 @@
         document.getElementById('profile-contact').textContent = student?.contact_number || '-'
         document.getElementById('profile-program').textContent = Number(student?.grade_level) >= 11 ? 'Senior High School' : Number(student?.grade_level) >= 7 ? 'Junior High School' : 'Elementary'
         document.getElementById('profile-email').textContent = user.email
-        if (student?.profile_picture_url) document.getElementById('profile-picture-preview').src = student.profile_picture_url
+        const setText = (id, value) => { document.getElementById(id).textContent = value || '-' }
+        setText('profile-guardian-name', student?.guardian_name)
+        setText('profile-guardian-relationship', student?.guardian_relationship)
+        setText('profile-guardian-phone', student?.guardian_phone)
+        setText('profile-guardian-email', student?.guardian_email)
+        setText('profile-medical-notes', student?.medical_notes)
+        showProfilePicture(student?.profile_picture_url)
       }
 
       async function loadSchedule() {
-        const table = document.getElementById('schedule-table')
+        const host = document.getElementById('schedule-days')
+        document.getElementById('schedule-section').textContent = sectionId ? `Section: ${sectionName}` : 'No section yet'
         document.getElementById('schedule-caption').textContent = `Class Schedule — ${schoolYear || 'Current Term'}`
-        if (!sectionId) { table.innerHTML = '<tr><td colspan="6">No active section enrollment found.</td></tr>'; return }
+        if (!sectionId) { host.innerHTML = '<p>No active section enrollment found.</p>'; return }
         const { data, error } = await supabase.from('subject_schedules').select('subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_name),sections(section_name)').eq('section_id', sectionId).order('day_of_week').order('start_time')
-        if (error) return table.innerHTML = `<tr><td colspan="6">${escape(error.message)}</td></tr>`
-        table.innerHTML = (data || []).map(item => `<tr><td>${escape(item.subjects?.subject_name || '')}</td><td>${escape(item.sections?.section_name || '')}</td><td>${escape(item.faculty_name || '-')}</td><td>${escape(item.room || '-')}</td><td>${dayNames[item.day_of_week]}</td><td>${escape(item.start_time?.slice(0,5))} - ${escape(item.end_time?.slice(0,5))}</td></tr>`).join('') || '<tr><td colspan="6">No schedule configured yet.</td></tr>'
-        document.getElementById('dash-units').textContent = `${(data || []).length} Subject${(data || []).length === 1 ? '' : 's'}`
+        if (error) return host.innerHTML = `<p>${escape(error.message)}</p>`
+        mountDayTabs(host, data || [], {
+          headers: ['Subject', 'Faculty', 'Room', 'Time'],
+          cells: item => [escape(item.subjects?.subject_name || ''), escape(item.faculty_name || '-'), escape(item.room || '-'), `${escape(item.start_time?.slice(0,5))} - ${escape(item.end_time?.slice(0,5))}`],
+          emptyText: 'No classes'
+        })
       }
 
       async function loadGrades() {
@@ -133,18 +149,62 @@
         table.innerHTML = (history.data || []).map(a => `<tr><td>${formatDate(a.attendance_date)}</td><td>${escape(a.status)}</td></tr>`).join('') || '<tr><td colspan="2">No attendance recorded yet.</td></tr>'
       }
 
+      // Profile picture: pick a file -> instant preview with Save/Cancel -> upload.
+      const pictureInput = document.getElementById('profile-picture-input')
+      const pictureActions = document.getElementById('picture-actions')
+      const pictureHint = document.getElementById('picture-hint')
+      const hintText = pictureHint.textContent
+      let previewUrl = null
+      const resetPicture = () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl)
+        previewUrl = null
+        pictureInput.value = ''
+        pictureActions.classList.add('hidden')
+        pictureHint.textContent = hintText
+        pictureHint.style.color = ''
+        showProfilePicture(student?.profile_picture_url)
+      }
+      document.getElementById('choose-picture').onclick = () => pictureInput.click()
+      document.getElementById('cancel-picture').onclick = resetPicture
+      pictureInput.onchange = () => {
+        const file = pictureInput.files?.[0]
+        if (!file) return
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024) {
+          resetPicture()
+          pictureHint.textContent = "That file can't be used. Choose a PNG, JPG or WEBP up to 3 MB."
+          pictureHint.style.color = '#c0392b'
+          return
+        }
+        if (previewUrl) URL.revokeObjectURL(previewUrl)
+        previewUrl = URL.createObjectURL(file)
+        document.getElementById('profile-picture-preview').innerHTML = `<img src="${previewUrl}" alt="New profile picture preview">`
+        pictureHint.textContent = file.name
+        pictureHint.style.color = ''
+        pictureActions.classList.remove('hidden')
+      }
       document.getElementById('save-picture').onclick = async () => {
-        const file = document.getElementById('profile-picture-input').files?.[0]
-        if (!file) return window.alert('Choose an image file first.')
-        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024) return window.alert('PNG/JPG/WEBP up to 3MB only.')
-        const path = `${user.student_id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-        const { error: uploadError } = await supabase.storage.from('profile-pictures').upload(path, file, { upsert: false })
-        if (uploadError) return window.alert(uploadError.message)
-        const { data: publicUrlData } = supabase.storage.from('profile-pictures').getPublicUrl(path)
-        const { error: rpcError } = await supabase.rpc('update_own_profile_picture', { p_url: publicUrlData.publicUrl })
-        if (rpcError) return window.alert(rpcError.message)
-        document.getElementById('profile-picture-preview').src = publicUrlData.publicUrl
-        window.alert('Profile picture updated.')
+        const file = pictureInput.files?.[0]
+        if (!file) return
+        const button = document.getElementById('save-picture')
+        button.disabled = true
+        button.textContent = 'Saving...'
+        try {
+          const path = `${user.student_id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+          const { error: uploadError } = await supabase.storage.from('profile-pictures').upload(path, file, { upsert: false })
+          if (uploadError) throw uploadError
+          const { data: publicUrlData } = supabase.storage.from('profile-pictures').getPublicUrl(path)
+          const { error: rpcError } = await supabase.rpc('update_own_profile_picture', { p_url: publicUrlData.publicUrl })
+          if (rpcError) throw rpcError
+          student = { ...student, profile_picture_url: publicUrlData.publicUrl }
+          resetPicture()
+          pictureHint.textContent = 'Profile picture updated.'
+        } catch (error) {
+          pictureHint.textContent = error.message || 'Could not save the picture.'
+          pictureHint.style.color = '#c0392b'
+        } finally {
+          button.disabled = false
+          button.textContent = 'Save photo'
+        }
       }
 
       document.getElementById('grade-year-filter').onchange = renderGrades

@@ -16,6 +16,7 @@ export async function mountNotificationBell(user) {
   box.className = 'notif'
   box.innerHTML = `<button type="button" class="notif-toggle" aria-label="Notifications" aria-expanded="false">${BELL}<span class="notif-count hidden"></span></button><div class="notif-panel hidden"></div>`
   profile.prepend(box)
+  window.dispatchEvent(new Event('resize')) // the bar just got wider: re-clamp a saved drag position so it stays on screen
   const toggle = box.querySelector('.notif-toggle')
   const panel = box.querySelector('.notif-panel')
   const count = box.querySelector('.notif-count')

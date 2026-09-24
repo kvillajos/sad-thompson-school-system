@@ -1889,3 +1889,24 @@ where ad.user_id = a.created_by and a.author_name is null;
 update announcements set created_by = (select user_id from users where username = 'gkhan'), author_name = 'Genghis Khan' where id in (2, 3);
 notify pgrst, 'reload schema';
 -- END migration-v16-announcement-author.sql
+
+
+-- ============================================================
+-- BEGIN migration-v17-revoke-unused-definer-functions.sql
+-- Security audit round 2: these SECURITY DEFINER functions have no role check inside them and no code in
+-- the app calls them, yet any signed-in user (including students) could run them over /rest/v1/rpc.
+-- Internal calls between them still work because they run as the function owner.
+-- ============================================================
+do $$
+declare f record;
+begin
+  for f in select p.oid::regprocedure as sig from pg_proc p
+           where p.pronamespace = 'public'::regnamespace
+             and p.proname in ('save_class_schedule','assign_student_to_section','bulk_assign_students',
+                               'validate_section_assignment','check_schedule_conflict','rls_auto_enable')
+  loop
+    execute format('revoke execute on function %s from public, anon, authenticated', f.sig);
+  end loop;
+end $$;
+notify pgrst, 'reload schema';
+-- END migration-v17-revoke-unused-definer-functions.sql

@@ -1,5 +1,6 @@
 import { installTableSort } from './table-sort.js';
 import { installTablePages } from './table-pages.js';
+import { installTableCopy } from './table-copy.js';
 import { describeError } from './errors.js';
 
 const sharedTheme = /* css */ `
@@ -69,9 +70,9 @@ button:not(:disabled):hover { filter:brightness(0.96); }
 .admin-page-head { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:18px; padding-right:236px }
 .admin-page-head h2 { margin:0; color:var(--ui-blue-dark); font-size:24px }
 .admin-page-head p { margin:6px 0 0; color:var(--ui-muted) }
-.admin-primary { background:var(--ui-blue); color:#fff; border:0; border-radius:11px; padding:10px 14px; cursor:pointer; font-weight:700 }
+.admin-primary { background:var(--ui-blue); color:#fff; border:1px solid var(--ui-blue); border-radius:11px; padding:9px 14px; font-size:14px; line-height:1.3; cursor:pointer; font-weight:700 }
 button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12px rgba(23,86,209,.2); transform:translateY(-1px) scale(1.02); }
-.admin-secondary { background:#eaf1ff; color:var(--ui-blue-dark); border:1px solid #c9dbfb; border-radius:11px; padding:8px 12px; cursor:pointer; font-weight:700 }
+.admin-secondary { display:inline-block; background:#eaf1ff; color:var(--ui-blue-dark); border:1px solid #c9dbfb; border-radius:11px; padding:9px 14px; font-size:14px; line-height:1.3; text-decoration:none; cursor:pointer; font-weight:700 }
 .admin-filterbar { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 14px }
 .admin-filterbar input,.admin-filterbar select { min-width:180px; padding:10px 12px; border:1px solid #b9c8dc; border-radius:11px; color:var(--ui-text); background:#fff }
 .admin-filterbar .admin-action { margin-left:auto }
@@ -107,7 +108,7 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .admin-table-wrap th:last-child { border-radius:0 10px 10px 0; }
 .admin-table-wrap td { color:var(--ui-text); border-bottom:1px solid var(--ui-border); padding:10px; font-size:13px }
 .admin-table-wrap td { border-bottom:1px solid #d3dce8; }
-.admin-view,.admin-remove,.admin-approve { border:0; border-radius:9px; padding:7px 10px; margin-right:5px; cursor:pointer; font-size:12px }
+.admin-view,.admin-remove,.admin-approve { display:inline-block; border:0; border-radius:9px; padding:7px 10px; margin-right:5px; cursor:pointer; font-size:12px; font-weight:600; line-height:1.3; text-decoration:none; white-space:nowrap }
 .admin-view { background:#eaf1ff; color:var(--ui-blue-dark) }
 .admin-remove { background:#fee2e2; color:var(--ui-danger) }
 .admin-modal { position:fixed; inset:0; z-index:110; display:grid; place-items:center; background:rgba(7,27,58,.5); padding:20px }
@@ -300,7 +301,7 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .profile-form { display:grid !important; grid-template-columns:1fr !important; gap:14px !important; }
 .profile-identity { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:center; }
 .profile-picture-preview { display:block; width:50px; height:50px; margin:0 auto 12px; border-radius:50%; object-fit:cover; border:2px solid #c9dbfb; background:#eaf1ff; }
-.profile-picture-placeholder { display:grid; place-items:center; color:#1756d1; font-weight:700; font-size:18px; }
+.profile-picture-placeholder { display:grid; place-items:center; color:#fff; font-weight:700; font-size:18px; }
 .profile-form > div:first-child { text-align:center; }
 .profile-form > label { display:block; }
 .profile-form > label input { box-sizing:border-box; margin-top:7px; }
@@ -709,6 +710,14 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .ann-table td { overflow:hidden; text-overflow:ellipsis; }
 .ann-table td.ann-msg { white-space:nowrap; }
 .ann-table td.ann-actions { white-space:nowrap; overflow:visible; }
+.pw-meter { grid-column:1/-1; margin:-4px 0 4px; }
+.pw-bar { height:6px; border-radius:6px; background:#e5e7eb; overflow:hidden; }
+.pw-bar span { display:block; height:100%; width:0; transition:width .15s, background .15s; }
+.pw-meter small { display:block; margin:4px 0; color:#475569; font-weight:600; }
+.pw-meter ul { margin:0; padding:0; list-style:none; display:grid; grid-template-columns:1fr 1fr; gap:2px 12px; font-size:12px; color:#94a3b8; }
+.pw-meter li::before { content:'○ '; }
+.pw-meter li.ok { color:#16a34a; }
+.pw-meter li.ok::before { content:'✓ '; }
 .mail-author { flex:none; margin-left:4px; color:#64748b; font-size:12px; font-weight:400; white-space:nowrap; }
 .mail-preview { color:#64748b; font-size:13px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; text-overflow:ellipsis; max-height:2.8em; overflow-wrap:anywhere; }
 .pin-icon { flex:none; vertical-align:-2px; margin-right:4px; color:#64748b; }
@@ -756,6 +765,17 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 @media (max-width:700px) { .account-edit-grid { grid-template-columns:1fr; } }
 .floating-profile { display:flex; align-items:flex-start; gap:10px; }
 .has-notif-bell .admin-page-head, .has-notif-bell .toolbar { padding-right:300px; }
+.profile-grid { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:16px; align-items:start; }
+.profile-grid > .admin-table-wrap { margin:0 !important; overflow:visible; }
+.schedule-head { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 14px; margin:0 0 14px; }
+.schedule-head h3 { margin:0; color:var(--ui-blue-dark); font-size:20px; }
+.schedule-head .admin-note { margin:0; }
+.pfp-card { display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; }
+.pfp-big { flex:0 0 132px; width:132px; height:132px; font-size:40px; box-shadow:0 0 0 4px #eaf1ff; }
+.pfp-card .admin-secondary, .pfp-card .admin-primary { min-width:130px; }
+.pfp-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
+.pfp-card .admin-note { margin:0; overflow-wrap:anywhere; }
+@media (max-width:900px) { .profile-grid { grid-template-columns:1fr; } }
 .notif { position:relative; }
 .notif-toggle { position:relative; width:53px; height:53px; display:grid; place-items:center; padding:0; border:1px solid var(--ui-border); border-radius:16px; background:#fff; color:var(--ui-blue-dark); cursor:pointer; box-shadow:0 3px 12px rgba(7,27,58,.1); }
 .notif-toggle:hover { background:#f3f7fd; }
@@ -776,6 +796,9 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .floating-profile.dragging, .floating-profile.dragging .profile-toggle { cursor:grabbing; user-select:none; }
 .subtabs { display:flex; gap:4px; margin:0 0 -1px 14px; position:relative; z-index:1; overflow-x:auto; }
 .subtab { flex:none; padding:10px 18px; border:1px solid #e5ebf4; border-bottom:0; border-radius:12px 12px 0 0; background:#e9eef7; color:var(--ui-muted); font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+#schedule-days .subtabs { margin:0 0 12px; gap:6px; flex-wrap:wrap; }
+#schedule-days .subtab { border:1px solid #e5ebf4; border-radius:10px; padding:8px 14px; }
+#schedule-days .subtab small { opacity:.75; font-weight:400; }
 .subtab:hover { background:#f1f5fb; color:var(--ui-blue-dark); }
 .subtab.active { background:#fff; color:var(--ui-blue-dark); box-shadow:0 -3px 0 var(--ui-blue) inset; }
 .override-form { display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; align-items:start; }
@@ -799,6 +822,7 @@ body[data-role]::before { content:''; position:fixed; top:0; left:0; right:0; he
 body[data-role="admin"] { --role-bar: linear-gradient(90deg, #091c3c 0%, #091c3c 18%, #3b184f 39%, #4c1c6c 60%); }
 body[data-role="registrar"] { --role-bar: linear-gradient(90deg, #091c3c 0%, #091c3c 18%, #2a1a2e 32%, #5a1a22 46%, #6a1818 60%); }
 body[data-role="faculty"] { --role-bar: linear-gradient(90deg, #091c3c 0%, #091c3c 18%, #143d33 39%, #1e5a3a 60%); }
+body[data-role="student"] { --role-bar: #091c3c; } /* solid, no gradient: same navy as the sidebar */
 
 /* Joins the bar to the sidebar: square the sidebar's top-right corner and draw a navy
    concave corner so the page area curves into the bar (desktop only; students unaffected). */
@@ -865,5 +889,6 @@ export function applyUiTheme() {
   installSpamGuard();
   installTableSort();
   installTablePages();
+  installTableCopy();
   installGlobalErrorHandler();
 }

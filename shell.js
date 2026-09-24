@@ -185,7 +185,7 @@ function openProfileModal(user, roleLabel, profile) {
     const avatar = profile.querySelector('.profile-avatar');
     const preview = modal.querySelector('#tcsms-profile-preview');
     if (url) { preview.src = url; preview.classList.remove('profile-picture-placeholder'); }
-    else { preview.removeAttribute('src'); preview.classList.add('profile-picture-placeholder'); preview.alt = 'No profile picture'; preview.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='25' fill='%23eaf1ff'/%3E%3Ctext x='25' y='32' text-anchor='middle' fill='%231756d1' font-size='22' font-family='Arial'%3E${String(user?.username || roleLabel).charAt(0).toUpperCase()}%3C/text%3E%3C/svg%3E`; }
+    else { preview.removeAttribute('src'); preview.classList.add('profile-picture-placeholder'); preview.alt = 'No profile picture'; preview.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='25' fill='%232161d1'/%3E%3Ctext x='25' y='32' text-anchor='middle' fill='%23ffffff' font-size='22' font-weight='700' font-family='Arial'%3E${String(user?.username || roleLabel).charAt(0).toUpperCase()}%3C/text%3E%3C/svg%3E`; }
     avatar.textContent = '';
     if (url) { const image = document.createElement('img'); image.src = url; image.alt = ''; image.width = 40; image.height = 40; avatar.appendChild(image); }
     else avatar.textContent = String(user?.username || roleLabel).charAt(0).toUpperCase();
@@ -319,6 +319,15 @@ function confirmProfileChange(email, action) {
   });
 }
 
+// Rules for a new password: 8+ characters with an uppercase letter, a lowercase letter and a digit.
+export const passwordRules = [
+  ['At least 8 characters', pw => pw.length >= 8],
+  ['One uppercase letter', pw => /[A-Z]/.test(pw)],
+  ['One lowercase letter', pw => /[a-z]/.test(pw)],
+  ['One number', pw => /\d/.test(pw)]
+];
+export const passwordIsValid = pw => passwordRules.every(([, test]) => test(pw));
+
 function openPasswordModal() {
   document.getElementById('tcsms-password-modal')?.remove();
   const modal = document.createElement('div');
@@ -327,21 +336,36 @@ function openPasswordModal() {
   modal.innerHTML = `<div class="admin-modal-box" style="width:min(100%,420px)">
     <div class="admin-modal-head"><h3>Change Password</h3><button type="button" id="tcsms-password-close">x</button></div>
     <form id="tcsms-password-form">
-      <label class="admin-full">New Password<input type="password" id="tcsms-new-password" minlength="8" required></label>
-      <label class="admin-full">Confirm Password<input type="password" id="tcsms-confirm-password" minlength="8" required></label>
+      <label class="admin-full">New Password<input type="password" id="tcsms-new-password" minlength="8" autocomplete="new-password" required></label>
+      <div class="pw-meter" aria-live="polite"><div class="pw-bar"><span id="tcsms-pw-fill"></span></div><small id="tcsms-pw-label">Enter a password</small><ul id="tcsms-pw-rules">${passwordRules.map(([label]) => `<li>${label}</li>`).join('')}</ul></div>
+      <label class="admin-full">Confirm Password<input type="password" id="tcsms-confirm-password" minlength="8" autocomplete="new-password" required></label>
       <div class="admin-actions"><button type="button" id="tcsms-password-cancel" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Update Password</button></div>
     </form>
   </div>`;
   document.body.appendChild(modal);
   modal.querySelectorAll('input[type="password"]').forEach(withPasswordToggle);
   const close = () => modal.remove();
+  const strengthNames = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong'];
+  const strengthColors = ['#dc2626', '#dc2626', '#f59e0b', '#65a30d', '#16a34a'];
+  const showStrength = () => {
+    const pw = modal.querySelector('#tcsms-new-password').value;
+    const passed = passwordRules.map(([, test]) => test(pw));
+    const met = passed.filter(Boolean).length;
+    const level = !pw ? 0 : met === passed.length ? (pw.length >= 12 ? 4 : 3) : Math.min(2, met); // 3+ only when every rule passes
+    modal.querySelectorAll('#tcsms-pw-rules li').forEach((li, index) => li.classList.toggle('ok', passed[index]));
+    const fill = modal.querySelector('#tcsms-pw-fill');
+    fill.style.width = `${pw ? (level + 1) * 20 : 0}%`;
+    fill.style.background = strengthColors[level];
+    modal.querySelector('#tcsms-pw-label').textContent = pw ? strengthNames[level] : 'Enter a password';
+  };
+  modal.querySelector('#tcsms-new-password').addEventListener('input', showStrength);
   modal.querySelector('#tcsms-password-close').addEventListener('click', close);
   modal.querySelector('#tcsms-password-cancel').addEventListener('click', close);
   modal.querySelector('#tcsms-password-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const newPassword = document.getElementById('tcsms-new-password').value;
     const confirmPassword = document.getElementById('tcsms-confirm-password').value;
-    if (newPassword.length < 8) return window.alert('Password must be at least 8 characters.');
+    if (!passwordIsValid(newPassword)) return window.alert('Password must be at least 8 characters with an uppercase letter, a lowercase letter and a number.');
     if (newPassword !== confirmPassword) return window.alert('Passwords do not match.');
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) return window.alert(error.message);
