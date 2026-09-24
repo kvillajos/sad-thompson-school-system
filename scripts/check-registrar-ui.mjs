@@ -1,6 +1,7 @@
 // Local browser smoke test using actual registrar markup/styles/confirmation handler.
 // No credentials and no live database writes. Windows Edge is already installed.
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { browserPath } from './browser-path.mjs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -13,7 +14,7 @@ const js = registrarModules.map(name => readFileSync(join(root, name), 'utf8')).
 const entryJs = readFileSync(join(root, 'registrar.js'), 'utf8')
 const sectioningJs = readFileSync(join(root, 'registrar-sectioning.js'), 'utf8')
 const admissionsJs = readFileSync(join(root, 'registrar-admissions.js'), 'utf8')
-const theme = readFileSync(join(root, 'ui-theme.js'), 'utf8').match(/const sharedTheme = `([\s\S]*?)`;/)[1]
+const theme = readFileSync(join(root, 'ui-theme.js'), 'utf8').match(/const sharedTheme = (?:\/\* css \*\/ )?`([\s\S]*?)`;/)[1]
 const handler = sectioningJs.slice(sectioningJs.indexOf('let removeEnrollmentCountdown'), sectioningJs.indexOf('async function removeEnrollment('))
 const landing = entryJs.slice(entryJs.indexOf('mountSidebar(['), entryJs.indexOf('async function init('))
 assert.ok(!js.includes('loadDashboard'))
@@ -58,7 +59,7 @@ try {
   </script></body>`)
   const file = join(folder, 'fixture.html')
   writeFileSync(file, fixture)
-  const edge = process.env.EDGE_PATH || 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+  const edge = browserPath()
   const result = spawnSync(edge, ['--headless', '--disable-gpu', '--no-first-run', '--disable-extensions', `--user-data-dir=${join(folder, 'profile')}`, '--virtual-time-budget=4500', '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 30000, maxBuffer: 4e6 })
   if (result.error) throw result.error
   const match = result.stdout.match(/<pre id="result">(.*?)<\/pre>/)

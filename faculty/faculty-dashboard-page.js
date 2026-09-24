@@ -1,6 +1,7 @@
 import { supabase } from '../auth-client.js'
 import { mountAnnouncements } from '../announcements.js'
-import { mountDayTabs } from '../day-tabs.js'
+import { mountDayTabs, gapsFrom } from '../day-tabs.js'
+import { loadSchoolYearSettings } from '../school-settings.js'
 import { loadFacultyContext, escapeHtml, dayNames } from './faculty-common.js'
 
 const context = await loadFacultyContext('dashboard')
@@ -12,6 +13,7 @@ if (context) {
   $('student-count').textContent = context.enrollments.length
   if (context.scheduleError) $('schedule-days').innerHTML = `<p>${escapeHtml(context.scheduleError.message)}</p>`
   else mountDayTabs($('schedule-days'), context.schedules, {
+    gaps: gapsFrom(await loadSchoolYearSettings(context.schoolYear)),
     headers: ['Subject', 'Section', 'Room', 'Time'],
     cells: item => [escapeHtml(item.subjects?.subject_name), escapeHtml(item.sections?.section_name), escapeHtml(item.room || '-'), escapeHtml(`${item.start_time?.slice(0, 5)} - ${item.end_time?.slice(0, 5)}`)],
     emptyText: 'No classes'

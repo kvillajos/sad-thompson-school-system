@@ -1,6 +1,7 @@
       import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
-      import { mountDayTabs } from './day-tabs.js'
+      import { mountDayTabs, gapsFrom } from './day-tabs.js'
+      import { loadSchoolYearSettings } from './school-settings.js'
       import { dayNames, escapeHtml as escape, formatDate, gradeLabel } from './html.js'
       import { applyUiTheme } from './ui-theme.js'
       import { mountProfile, mountSidebar } from './shell.js'
@@ -101,7 +102,9 @@
         if (!sectionId) { host.innerHTML = '<p>No active section enrollment found.</p>'; return }
         const { data, error } = await supabase.from('subject_schedules').select('subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_name),sections(section_name)').eq('section_id', sectionId).order('day_of_week').order('start_time')
         if (error) return host.innerHTML = `<p>${escape(error.message)}</p>`
+        const settings = await loadSchoolYearSettings(schoolYear)
         mountDayTabs(host, data || [], {
+          gaps: gapsFrom(settings),
           headers: ['Subject', 'Faculty', 'Room', 'Time'],
           cells: item => [escape(item.subjects?.subject_name || ''), escape(item.faculty_name || '-'), escape(item.room || '-'), `${escape(item.start_time?.slice(0,5))} - ${escape(item.end_time?.slice(0,5))}`],
           emptyText: 'No classes'

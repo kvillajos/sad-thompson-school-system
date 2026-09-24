@@ -10,6 +10,17 @@
 <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#102a43"></div>
 <main>
   <div class="admin-page-head"><div><h2>Manage Schedules</h2><p>Choose a section to view and manage its subject schedule.</p></div></div>
+  <section class="admin-table-wrap lunch-card"><div class="admin-section-title"><h3>Lunch and break times</h3></div>
+    <form id="lunch-form" class="lunch-form">
+      <label>School year<select id="lunch-year"></select></label>
+      <label>Lunch starts<input type="time" id="lunch-start" required></label>
+      <label>Lunch ends<input type="time" id="lunch-end" required></label>
+      <label>Break starts<input type="time" id="break-start"></label>
+      <label>Break ends<input type="time" id="break-end"></label>
+      <button class="admin-primary" type="submit">Save</button>
+    </form>
+    <p class="admin-note" id="lunch-note"></p>
+  </section>
   <div class="admin-filterbar"><input id="section-search" type="search" placeholder="Search section name"><select id="section-grade"></select></div>
   <section class="admin-table-wrap"><table><thead><tr><th>Section</th><th>Grade</th><th>Academic Year</th><th>Scheduled Subjects</th><th>Action</th></tr></thead><tbody id="sections-table"><tr><td colspan="5">Loading sections...</td></tr></tbody></table></section>
 </main>

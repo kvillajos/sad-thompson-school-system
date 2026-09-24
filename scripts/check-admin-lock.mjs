@@ -1,7 +1,8 @@
-// Runs the real admin-dashboard script in headless Edge with a stubbed Supabase to
+// Runs the real admin-dashboard script in headless Chrome/Edge with a stubbed Supabase to
 // verify the registrar edit-lock surface: marker in the table, buttons stay disabled
 // for a fresh lock, and unlock for a non-locked application. No credentials needed.
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { browserPath } from './browser-path.mjs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -9,7 +10,7 @@ import { spawnSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 const root = resolve(import.meta.dirname, '..')
 const html = readFileSync(join(root, 'admin-dashboard.html'), 'utf8')
-const theme = readFileSync(join(root, 'ui-theme.js'), 'utf8').match(/const sharedTheme = `([\s\S]*?)`;/)[1]
+const theme = readFileSync(join(root, 'ui-theme.js'), 'utf8').match(/const sharedTheme = (?:\/\* css \*\/ )?`([\s\S]*?)`;/)[1]
 const script = readFileSync(join(root, 'admin-dashboard-page.js'), 'utf8')
 // Replace the module imports with an in-page supabase/auth stub.
 const stub = `
@@ -77,7 +78,7 @@ const folder = mkdtempSync(join(tmpdir(), 'admin-lock-'))
 try {
   const file = join(folder, 'fixture.html')
   writeFileSync(file, fixture)
-  const edge = process.env.EDGE_PATH || 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+  const edge = browserPath()
   const result = spawnSync(edge, ['--headless', '--disable-gpu', '--no-first-run', '--disable-extensions', `--user-data-dir=${join(folder, 'profile')}`, '--virtual-time-budget=12000', '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 40000, maxBuffer: 4e6 })
   if (result.error) throw result.error
   const match = result.stdout.match(/<pre id="result">(.*?)<\/pre>/)

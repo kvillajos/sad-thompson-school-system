@@ -5,7 +5,9 @@
   import { formatDays, groupScheduleRows, planDayChanges } from './schedule-days.js'
   import { describeError } from './errors.js'
   import { mountAdminShell } from './admin-page.js'
-  await mountAdminShell('schedules')
+  import { confirmPassword } from './shell.js'
+  import { overlapsLunch } from './day-tabs.js'
+  const admin = await mountAdminShell('schedules')
 
   document.getElementById('section-grade').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades' })
   const sectionModal = document.getElementById('section-schedule-modal')
@@ -56,6 +58,46 @@
     document.getElementById('schedule-modal-title').textContent = item ? 'Edit Subject' : 'Add Subject'
     scheduleModal.classList.remove('hidden')
   }
+  // ---- Lunch and break times, per school year
+  let yearSettings = []
+  const lunchNote = document.getElementById('lunch-note')
+  const lunchInputs = { year: document.getElementById('lunch-year'), ls: document.getElementById('lunch-start'), le: document.getElementById('lunch-end'), bs: document.getElementById('break-start'), be: document.getElementById('break-end') }
+  const hm = value => String(value ?? '').slice(0, 5)
+  // The year's own row, else the most recent one (same fallback the schedule pages use).
+  const lunchFor = year => yearSettings.find(row => row.school_year === year) || yearSettings[0] || null
+  function fillLunchForm() {
+    const own = yearSettings.find(row => row.school_year === lunchInputs.year.value)
+    const shown = own || yearSettings[0]
+    lunchInputs.ls.value = hm(shown?.lunch_start); lunchInputs.le.value = hm(shown?.lunch_end)
+    lunchInputs.bs.value = hm(shown?.break_start); lunchInputs.be.value = hm(shown?.break_end)
+    lunchNote.textContent = own ? `Last saved ${new Date(own.updated_at).toLocaleDateString()}${own.updated_by ? ` by ${own.updated_by}` : ''}.` : 'Not set for this school year yet. The most recent times are shown; save to set this year.'
+  }
+  async function loadLunch() {
+    const { data, error } = await supabase.from('school_year_settings').select('*').order('school_year', { ascending: false })
+    if (error) { lunchNote.textContent = error.message; return }
+    yearSettings = data || []
+    const years = [...new Set([...yearSettings.map(row => row.school_year), ...sections.map(section => section.academic_year)].filter(Boolean))].sort().reverse()
+    const keep = lunchInputs.year.value
+    lunchInputs.year.innerHTML = years.map(year => `<option>${escape(year)}</option>`).join('')
+    if (keep && years.includes(keep)) lunchInputs.year.value = keep
+    fillLunchForm()
+  }
+  lunchInputs.year.onchange = fillLunchForm
+  document.getElementById('lunch-form').onsubmit = async event => {
+    event.preventDefault()
+    const row = { school_year: lunchInputs.year.value, lunch_start: lunchInputs.ls.value, lunch_end: lunchInputs.le.value, break_start: lunchInputs.bs.value || null, break_end: lunchInputs.be.value || null }
+    if (!row.school_year) return window.alert('Choose a school year.')
+    if (row.lunch_end <= row.lunch_start) return window.alert('Lunch must end after it starts.')
+    if (Boolean(row.break_start) !== Boolean(row.break_end) || (row.break_end && row.break_end <= row.break_start)) return window.alert('Give both break times (end after start), or leave both empty.')
+    if (!await confirmPassword(admin.email, 'Enter your password to change lunch and break times.')) return
+    const { error } = await supabase.from('school_year_settings').upsert({ ...row, updated_at: new Date().toISOString(), updated_by: admin.username }, { onConflict: 'school_year' })
+    if (error) return toast(describeError(error, 'Save lunch times'), 'error')
+    toast('Lunch and break times saved.', 'success')
+    await loadLunch()
+    const clashing = schedules.filter(item => sections.some(section => section.section_id === item.section_id && section.academic_year === row.school_year) && overlapsLunch(row, item.start_time, item.end_time))
+    if (clashing.length) lunchNote.textContent += ` ${new Set(clashing.map(item => `${item.section_id}-${item.subject_id}`)).size} class(es) now overlap lunch: adjust them in each section's schedule.`
+  }
+
   async function loadData() {
     const [sectionResult, subjectResult, scheduleResult] = await Promise.all([
       supabase.from('sections').select('section_id,section_name,grade_level,academic_year,room').order('grade_level').order('section_name'),
@@ -83,6 +125,8 @@
     const selectedDays = [...document.querySelectorAll('#schedule-form input[name="day_of_week"]:checked')].map(input => Number(input.value))
     if (!selectedDays.length) return window.alert('Choose at least one day.')
     if (!values.start_time || !values.end_time || values.end_time <= values.start_time) return window.alert('End time must be later than start time.')
+    const lunch = lunchFor(selectedSection.academic_year)
+    if (overlapsLunch(lunch, values.start_time, values.end_time) && !window.confirm(`This class overlaps lunch (${String(lunch.lunch_start).slice(0, 5)} - ${String(lunch.lunch_end).slice(0, 5)}). Save it anyway?`)) return
     const payload = { subject_id: Number(values.subject_id), section_id: Number(selectedSection.section_id), faculty_name: values.faculty_name.trim() || null, room: values.room.trim() || null, start_time: values.start_time, end_time: values.end_time }
     const ids = values.schedule_id ? values.schedule_id.split(',').map(Number) : []
     const existing = schedules.filter(item => ids.includes(item.schedule_id))
@@ -129,5 +173,6 @@
   document.getElementById('faculty-picker-search').oninput = renderFacultyPicker
   document.querySelectorAll('.schedule-preset').forEach(button => button.onclick = () => { const days = button.dataset.days.split(',').filter(Boolean); document.querySelectorAll('#schedule-form input[name="day_of_week"]').forEach(input => { input.checked = days.includes(input.value) }) })
   await loadData()
+  await loadLunch()
   hideLoadingScreen()
 

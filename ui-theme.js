@@ -767,6 +767,12 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .has-notif-bell .admin-page-head, .has-notif-bell .toolbar { padding-right:300px; }
 .profile-grid { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:16px; align-items:start; }
 .profile-grid > .admin-table-wrap { margin:0 !important; overflow:visible; }
+.lunch-card { margin-bottom:18px; }
+.lunch-form { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; }
+.lunch-form label { display:flex; flex-direction:column; gap:4px; font-size:13px; font-weight:600; color:var(--ui-muted); }
+.lunch-form input, .lunch-form select { width:auto; min-width:130px; margin:0; }
+.lunch-card .admin-note { margin:10px 0 0; }
+.schedule-gap td { background:#f3f7fd; color:#64748b; font-size:13px; font-style:italic; text-align:center; letter-spacing:.02em; }
 .schedule-head { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 14px; margin:0 0 14px; }
 .schedule-head h3 { margin:0; color:var(--ui-blue-dark); font-size:20px; }
 .schedule-head .admin-note { margin:0; }

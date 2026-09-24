@@ -1910,3 +1910,248 @@ begin
 end $$;
 notify pgrst, 'reload schema';
 -- END migration-v17-revoke-unused-definer-functions.sql
+
+
+-- ============================================================
+-- BEGIN migration-v18-attendance-legacy-columns.sql
+-- The live attendance table still had two legacy NOT NULL columns (schedule_id -> class_schedules, "date").
+-- save_attendance() never sets them, so every faculty attendance save failed. Relax them.
+-- ============================================================
+alter table attendance alter column schedule_id drop not null;
+alter table attendance alter column "date" drop not null;
+notify pgrst, 'reload schema';
+-- END migration-v18-attendance-legacy-columns.sql
+
+
+-- ============================================================
+-- BEGIN migration-v19-sample-data.sql   (OPTIONAL demo data; safe to skip on a real restore)
+-- Sections relabelled to 2026-2027 (matches the enrollments), rooms, full Mon-Fri timetables with teachers,
+-- faculty_subjects, Q1 grades (Masungit G6, Marumi G9) and one week of attendance (Masungit, Marumi, Mapayapa).
+-- The timetable was generated conflict-free (section / teacher / shared room) and the DB conflict trigger re-checks it.
+-- Idempotent. Run in one transaction. UNDO notes at the bottom.
+-- ============================================================
+alter table subject_schedules disable trigger faculty_load_notify;  -- no notification per generated row
+
+update sections set academic_year = '2026-2027';
+update sections set room = case section_id when 7 then 'Room 101' when 6 then 'Room 201' when 5 then 'Room 202' when 4 then 'Room 301' when 1 then 'Room 302' when 2 then 'Room 303' when 3 then 'Room 304' end;
+update sections set faculty_assigned = 'Irene Sofia Navarro' where section_id = 2;  -- was a registrar
+
+-- existing schedule rows: fill teacher + room (times untouched)
+update subject_schedules set faculty_name = 'Bernardo Luis Reyes', room = 'Room 301' where schedule_id in (12,13,14,15,16);
+update subject_schedules set faculty_name = 'Althea Marie Santos', room = 'Room 101' where schedule_id in (21,22,23,24,25);
+update subject_schedules set faculty_name = 'Eunice Grace Villanueva', room = 'Room 101' where schedule_id in (26,27,28,29,30);
+update subject_schedules set faculty_name = 'Irene Sofia Navarro', room = 'Room 302' where schedule_id in (2);
+update subject_schedules set faculty_name = 'Irene Sofia Navarro', room = 'Room 303' where schedule_id in (3,8,9,10,11);
+update subject_schedules set faculty_name = 'Francis Miguel Torres', room = 'Room 301' where schedule_id in (5,17,18,19,20);
+
+-- new timetable blocks, repeated Monday-Friday (a day that already exists is skipped)
+insert into subject_schedules (subject_id, section_id, faculty_name, room, day_of_week, start_time, end_time)
+select b.subject_id, b.section_id, b.fac, b.room, d.day, b.st::time, b.en::time
+from (values
+  (1, 1, 'Hector Paolo Ramos', 'Room 302', '08:15', '09:00'),
+  (1, 2, 'Hector Paolo Ramos', 'Room 303', '13:45', '14:30'),
+  (1, 3, 'Hector Paolo Ramos', 'Room 304', '10:45', '11:30'),
+  (2, 1, 'Irene Sofia Navarro', 'Room 302', '09:00', '10:30'),
+  (2, 3, 'Irene Sofia Navarro', 'Room 304', '11:30', '12:15'),
+  (2, 4, 'Althea Marie Santos', 'Room 301', '15:15', '16:00'),
+  (2, 5, 'Althea Marie Santos', 'Room 202', '13:00', '13:45'),
+  (2, 6, 'Althea Marie Santos', 'Room 201', '14:30', '15:15'),
+  (3, 1, 'Bernardo Luis Reyes', 'Room 302', '10:45', '11:30'),
+  (3, 2, 'Bernardo Luis Reyes', 'Room 303', '15:15', '16:00'),
+  (3, 3, 'Bernardo Luis Reyes', 'Room 304', '14:30', '15:15'),
+  (3, 5, 'Bernardo Luis Reyes', 'Room 202', '07:30', '08:15'),
+  (3, 6, 'Bernardo Luis Reyes', 'Room 201', '08:15', '09:00'),
+  (3, 7, 'Bernardo Luis Reyes', 'Room 101', '13:45', '14:30'),
+  (4, 1, 'Eunice Grace Villanueva', 'Room 302', '13:00', '13:45'),
+  (4, 2, 'Francis Miguel Torres', 'Room 303', '09:00', '09:45'),
+  (4, 3, 'Eunice Grace Villanueva', 'Room 304', '13:45', '14:30'),
+  (4, 5, 'Eunice Grace Villanueva', 'Room 202', '14:30', '15:15'),
+  (4, 6, 'Francis Miguel Torres', 'Room 201', '13:00', '13:45'),
+  (5, 1, 'Carla Denise Garcia', 'Room 302', '11:30', '12:15'),
+  (5, 2, 'Carla Denise Garcia', 'Room 303', '10:00', '10:45'),
+  (5, 3, 'Carla Denise Garcia', 'Room 304', '13:00', '13:45'),
+  (5, 4, 'Carla Denise Garcia', 'Room 301', '07:30', '08:15'),
+  (5, 5, 'Carla Denise Garcia', 'Room 202', '15:15', '16:00'),
+  (5, 6, 'Carla Denise Garcia', 'Room 201', '09:00', '09:45'),
+  (5, 7, 'Carla Denise Garcia', 'Room 101', '14:30', '15:15'),
+  (6, 1, 'Francis Miguel Torres', 'Room 302', '13:45', '14:30'),
+  (6, 2, 'Francis Miguel Torres', 'Room 303', '11:30', '12:15'),
+  (6, 3, 'Francis Miguel Torres', 'Room 304', '07:30', '08:15'),
+  (6, 4, 'Francis Miguel Torres', 'Room 301', '08:15', '09:00'),
+  (6, 5, 'Diego Rafael Mendoza', 'Room 202', '08:15', '09:00'),
+  (6, 6, 'Diego Rafael Mendoza', 'Room 201', '10:45', '11:30'),
+  (6, 7, 'Francis Miguel Torres', 'Room 101', '15:15', '16:00'),
+  (7, 1, 'Gloria Mae Dela Peña', 'Gym', '15:15', '16:00'),
+  (7, 2, 'Gloria Mae Dela Peña', 'Gym', '14:30', '15:15'),
+  (7, 3, 'Gloria Mae Dela Peña', 'Gym', '09:00', '09:45'),
+  (7, 4, 'Gloria Mae Dela Peña', 'Gym', '13:45', '14:30'),
+  (7, 5, 'Gloria Mae Dela Peña', 'Gym', '11:30', '12:15'),
+  (7, 6, 'Gloria Mae Dela Peña', 'Gym', '07:30', '08:15'),
+  (7, 7, 'Gloria Mae Dela Peña', 'Gym', '13:00', '13:45'),
+  (8, 4, 'Julio Andres Castro', 'Computer Lab', '14:30', '15:15'),
+  (8, 5, 'Julio Andres Castro', 'Computer Lab', '13:45', '14:30'),
+  (8, 6, 'Julio Andres Castro', 'Computer Lab', '15:15', '16:00'),
+  (9, 4, 'Diego Rafael Mendoza', 'Room 301', '09:00', '09:45'),
+  (9, 5, 'Diego Rafael Mendoza', 'Room 202', '10:00', '10:45'),
+  (9, 6, 'Diego Rafael Mendoza', 'Room 201', '11:30', '12:15'),
+  (10, 1, 'Julio Andres Castro', 'Computer Lab', '07:30', '08:15'),
+  (10, 2, 'Julio Andres Castro', 'Computer Lab', '13:00', '13:45'),
+  (10, 3, 'Julio Andres Castro', 'Computer Lab', '10:00', '10:45')
+) as b(subject_id, section_id, fac, room, st, en)
+cross join generate_series(1, 5) as d(day)
+where not exists (select 1 from subject_schedules x where x.section_id = b.section_id and x.subject_id = b.subject_id
+                  and x.day_of_week = d.day and x.start_time = b.st::time)
+order by b.section_id, b.st, d.day;
+
+alter table subject_schedules enable trigger faculty_load_notify;
+
+-- faculty_subjects: one row per teacher/subject pair in the timetable; a registrar is no longer listed as a teacher
+delete from faculty_subjects where profile_id = 12;
+insert into faculty_subjects (profile_id, subject_id) values (1, 2), (2, 3), (3, 5), (4, 6), (4, 9), (5, 4), (6, 4), (6, 6), (7, 7), (8, 1), (9, 2), (10, 8), (10, 10)
+on conflict (profile_id, subject_id) do nothing;
+
+-- grades: first quarter of 2026-2027 for the students of Masungit (G6) and Marumi (G9), one row per timetable subject.
+-- Deterministic scores 78.0-96.9 derived from the ids, letter grade from the usual DepEd-style bands.
+insert into academic_history (student_id, school_year, subject, grade, first_sem_q1, letter_grade, remarks)
+select e.student_id, '2026-2027', sub.subject_name, g.score, g.score,
+       case when g.score >= 97 then 'A+' when g.score >= 92 then 'A' when g.score >= 87 then 'B+' when g.score >= 82 then 'B'
+            when g.score >= 78 then 'C+' when g.score >= 75 then 'C' else 'F' end,
+       'Sample: Q1 in progress'
+from enrollments e
+join (select distinct section_id, subject_id from subject_schedules) t on t.section_id = e.section_id
+join subjects sub on sub.subject_id = t.subject_id
+cross join lateral (select round(78 + ((e.student_id * 37 + sub.subject_id * 53) % 190) / 10.0, 2) as score) g
+where e.status = 'active' and e.section_id in (4, 7)
+on conflict (student_id, school_year, subject) do nothing;
+
+-- attendance: Mon 2026-09-21 .. Fri 2026-09-25 for Masungit, Marumi and Mapayapa, first-period subject of each section.
+-- About 88% Present, 6% Late, 4% Absent, 2% Excused (deterministic).
+insert into attendance (student_id, attendance_date, status, section_id, subject_id, recorded_by)
+select e.student_id, d::date,
+       case when h < 88 then 'Present' when h < 94 then 'Late' when h < 98 then 'Absent' else 'Excused' end,
+       e.section_id,
+       (select s.subject_id from subject_schedules s where s.section_id = e.section_id order by s.start_time, s.day_of_week limit 1),
+       'sample-data'
+from enrollments e
+cross join generate_series('2026-09-21'::date, '2026-09-25'::date, interval '1 day') as d
+cross join lateral (select (e.student_id * 31 + extract(day from d)::int * 17) % 100 as h) x
+where e.status = 'active' and e.section_id in (4, 6, 7)
+on conflict (student_id, attendance_date, section_id, subject_id) do nothing;
+
+insert into audit_logs (action, entity_type, details)
+values ('SEED_SAMPLE_DATA', 'system', jsonb_build_object('version', 'v19', 'note', 'demo schedules, grades and attendance'));
+notify pgrst, 'reload schema';
+
+-- UNDO (only to remove the demo data again; schedule rows added have schedule_id > 30):
+--   delete from attendance where recorded_by = 'sample-data';
+--   delete from academic_history where remarks = 'Sample: Q1 in progress';
+--   delete from subject_schedules where schedule_id > 30;
+--   (teacher/room on the 26 original schedule rows, section year/rooms and faculty_subjects were also changed; restore from backups/ if needed)
+-- END migration-v19-sample-data.sql
+
+
+-- ============================================================
+-- BEGIN migration-v20-school-year-settings.sql
+-- Lunch and break times are set per school year (the school changes them), not hard-coded.
+-- Everyone signed in can read them (schedule pages show the gap); only admins can change them.
+-- ============================================================
+create table if not exists school_year_settings (
+  school_year text primary key,
+  lunch_start time not null,
+  lunch_end time not null,
+  break_start time,
+  break_end time,
+  updated_at timestamptz not null default now(),
+  updated_by text,
+  constraint school_year_settings_lunch_check check (lunch_end > lunch_start),
+  constraint school_year_settings_break_check check ((break_start is null and break_end is null) or (break_start is not null and break_end > break_start))
+);
+insert into school_year_settings (school_year, lunch_start, lunch_end, break_start, break_end)
+values ('2026-2027', '11:00', '12:00', '09:45', '10:00')
+on conflict (school_year) do nothing;
+
+alter table school_year_settings enable row level security;
+revoke all on school_year_settings from anon;
+drop policy if exists school_year_settings_read on school_year_settings;
+create policy school_year_settings_read on school_year_settings for select to authenticated
+  using ((select current_app_role()) in (1, 2, 3, 4));
+drop policy if exists school_year_settings_admin on school_year_settings;
+create policy school_year_settings_admin on school_year_settings for all to authenticated
+  using ((select current_app_role()) = 1) with check ((select current_app_role()) = 1);
+drop trigger if exists school_year_settings_audit on school_year_settings;
+create trigger school_year_settings_audit after insert or update or delete on school_year_settings
+  for each row execute function audit_row_change('school_year');
+notify pgrst, 'reload schema';
+-- END migration-v20-school-year-settings.sql
+
+
+-- ============================================================
+-- BEGIN migration-v21-move-classes-out-of-lunch.sql
+-- Lunch for 2026-2027 is 11:00-12:00. Classes that started before lunch are cut at 11:00; classes that sat inside
+-- lunch move to the nearest free slot (same teacher / room, no section, teacher or shared-room clash, not in
+-- lunch or break, ending by 16:00). All-or-nothing: raises if any class cannot be placed.
+-- ============================================================
+do $$
+declare
+  ls time; le time; bs time; be time;
+  blk record; cand time; dur interval; moved boolean; total int := 0; tname text;
+  slots time[] := array['07:30','08:15','09:00','10:00','12:00','13:00','13:45','14:30','15:15']::time[];
+begin
+  select lunch_start, lunch_end, break_start, break_end into ls, le, bs, be from school_year_settings where school_year = '2026-2027';
+  if ls is null then raise exception 'No lunch settings for 2026-2027'; end if;
+  alter table subject_schedules disable trigger faculty_load_notify;  -- no notification per moved row
+
+  -- 1) long classes that start well before lunch stop when lunch starts
+  update subject_schedules set end_time = ls where start_time <= ls - interval '45 minutes' and start_time < ls and end_time > ls;
+
+  -- 2) everything else that touches lunch moves as a whole block (all its days at once). Same teacher first; if that
+  --    teacher has no free slot, the next free faculty member (one who already teaches the subject first).
+  for blk in
+    select section_id, subject_id, faculty_name, room, start_time, end_time, array_agg(schedule_id) as ids
+    from subject_schedules where start_time < le and end_time > ls
+    group by 1, 2, 3, 4, 5, 6 order by 1, 5
+  loop
+    dur := blk.end_time - blk.start_time;
+    moved := false;
+    for tname in
+      select nm from (
+        select blk.faculty_name as nm, 0 as pri where blk.faculty_name is not null
+        union all
+        select sp.first_name || ' ' || sp.last_name, 1 + case when exists (select 1 from faculty_subjects fs where fs.profile_id = sp.profile_id and fs.subject_id = blk.subject_id) then 0 else 1 end
+        from staff_profiles sp join users u on u.user_id = sp.user_id
+        where u.role_id = 3 and u.is_active and (sp.first_name || ' ' || sp.last_name) is distinct from blk.faculty_name
+      ) q order by pri, nm
+    loop
+      for cand in select s from unnest(slots) s order by abs(extract(epoch from (s - blk.start_time))), s loop
+        continue when cand < le and cand + dur > ls;
+        continue when bs is not null and cand < be and cand + dur > bs;
+        continue when cand + dur > time '16:00';
+        if not exists (
+          select 1 from subject_schedules x
+          where x.schedule_id <> all (blk.ids) and x.start_time < cand + dur and x.end_time > cand
+            and (x.section_id = blk.section_id
+                 or lower(coalesce(x.faculty_name, '')) = lower(tname)
+                 or (x.room = blk.room and blk.room in ('Gym', 'Computer Lab')))
+        ) then
+          update subject_schedules set faculty_name = tname, start_time = cand, end_time = cand + dur where schedule_id = any (blk.ids);
+          moved := true; total := total + 1;
+          exit;
+        end if;
+      end loop;
+      exit when moved;
+    end loop;
+    if not moved then raise exception 'Could not move section % subject % out of lunch', blk.section_id, blk.subject_id; end if;
+  end loop;
+
+  alter table subject_schedules enable trigger faculty_load_notify;
+  -- keep the faculty eligibility list in step with who now teaches what
+  insert into faculty_subjects (profile_id, subject_id)
+  select distinct sp.profile_id, ss.subject_id from subject_schedules ss
+  join staff_profiles sp on lower(trim(ss.faculty_name)) = lower(trim(sp.first_name || ' ' || sp.last_name))
+  join users u on u.user_id = sp.user_id and u.role_id = 3
+  on conflict (profile_id, subject_id) do nothing;
+  insert into audit_logs (action, entity_type, details)
+  values ('MOVE_CLASSES_OUT_OF_LUNCH', 'system', jsonb_build_object('lunch', ls || '-' || le, 'blocks_moved', total));
+end $$;
+notify pgrst, 'reload schema';
+-- END migration-v21-move-classes-out-of-lunch.sql

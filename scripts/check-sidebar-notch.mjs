@@ -1,9 +1,10 @@
 // Sidebar active-item "notch" check.
-// Renders the real sharedTheme plus the real mountSidebar() markup in headless Edge and
+// Renders the real sharedTheme plus the real mountSidebar() markup in headless Chrome/Edge and
 // verifies the two radial-gradient flares that round the active row into the sidebar.
 // The original bug: the row panel ::after (inset:0 0 0 62px, z-index:-1) leaked into the
 // active row, so the bottom flare stayed inside the row and was covered by the next row.
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { browserPath } from './browser-path.mjs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -12,7 +13,7 @@ import assert from 'node:assert/strict'
 
 const root = resolve(import.meta.dirname, '..')
 const js = readFileSync(join(root, 'ui-theme.js'), 'utf8')
-const theme = js.match(/const sharedTheme = `([\s\S]*?)`;/)[1]
+const theme = js.match(/const sharedTheme = (?:\/\* css \*\/ )?`([\s\S]*?)`;/)[1]
 const shellJs = readFileSync(join(root, 'shell.js'), 'utf8')
 const sidebar = shellJs.slice(shellJs.indexOf('export function mountSidebar'), shellJs.indexOf('export function mountProfile'))
 
@@ -25,7 +26,7 @@ assert.ok(theme.includes('top: calc(var(--sidebar-curve) * -1);'), 'top flare mu
 assert.ok(theme.includes('bottom: calc(var(--sidebar-curve) * -1);'), 'bottom flare must sit one radius below the active row')
 assert.match(theme, /\.app-sidebar \.sidebar-link\.active\s*\{[\s\S]*?z-index:\s*2/, 'active row must paint above its siblings so the flares are not covered')
 
-const edge = process.env.EDGE_PATH || 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+const edge = browserPath()
 const folder = mkdtempSync(join(tmpdir(), 'sidebar-notch-'))
 const fixture = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${theme}
   /* Collapse the brand so the rows start at y=0 and the geometry is predictable. */

@@ -1,7 +1,8 @@
-// Full registrar workflow smoke test: runs the REAL registrar.js in headless Edge with
+// Full registrar workflow smoke test: runs the REAL registrar.js in headless Chrome/Edge with
 // only the Supabase client stubbed. Verifies the auto-assign flow (plan -> confirm ->
 // RPC payload) and the Grade -> Section -> student filtering, without touching live data.
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { browserPath } from './browser-path.mjs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -151,7 +152,7 @@ try {
   writeFileSync(join(folder, 'loading-screen.js'), stubLoading)
   writeFileSync(join(folder, 'driver.js'), driverSource)
 
-  const edge = process.env.EDGE_PATH || 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+  const edge = browserPath()
   const result = spawnSync(edge, ['--headless', '--disable-gpu', '--no-first-run', '--disable-extensions', '--allow-file-access-from-files', `--user-data-dir=${join(folder, 'profile')}`, '--virtual-time-budget=9000', '--dump-dom', pathToFileURL(join(folder, 'fixture.html')).href], { encoding: 'utf8', timeout: 40000, maxBuffer: 6e6 })
   if (result.error) throw result.error
   const match = result.stdout.match(/<pre id="result">([\s\S]*?)<\/pre>/)
