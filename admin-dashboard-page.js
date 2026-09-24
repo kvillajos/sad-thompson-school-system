@@ -1,12 +1,12 @@
       import { supabase } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
-      import { escapeHtml as escape, formatDate } from './html.js'
+      import { escapeHtml as escape, formatDate, richText } from './html.js'
       import { toast } from './ui-theme.js'
-      import { withBusy } from './shell.js'
+      import { withBusy, confirmPassword } from './shell.js'
       import { isEditLocked, editLockMessage } from './edit-lock.js'
       import { describeError } from './errors.js'
       import { mountAdminShell } from './admin-page.js'
-import { mountAnnouncements } from './announcements.js'
+import { mountAnnouncements, pinIcon } from './announcements.js'
       const user = await mountAdminShell('dashboard')
 
       let applications = []
@@ -249,12 +249,23 @@ Shown once. Give it to the account owner.`)
       setInterval(loadProfileRequests, 30000)
       setInterval(loadApprovalRequests, 30000)
 
+      // "First Last" using only the first word of the first name; stored on the row because recipients can't read other users.
+      async function currentAuthorName() {
+        const { data } = await supabase.from('admins').select('first_name,last_name').eq('user_id', user.user_id).maybeSingle()
+        return data ? `${String(data.first_name).trim().split(/\s+/)[0]} ${String(data.last_name).trim()}` : user.username
+      }
+      // Rich message -> one line of plain text for the table cell.
+      const plainText = html => { const box = document.createElement('div'); box.innerHTML = richText(html || '').replace(/<\/(p|div|li|h3|blockquote)>|<br>/gi, ' '); return (box.textContent || '').replace(/\s+/g, ' ').trim() }
+      let announcementRows = []
+      let editingAnnouncement = null
       async function loadAnnouncements() {
         const table = document.getElementById('announcements-table')
-        const { data, error } = await supabase.from('announcements').select('id,title,message,kind,audience,pinned,posted_at,expires_at').order('pinned', { ascending: false }).order('posted_at', { ascending: false }).limit(30)
-        if (error) return table.innerHTML = `<tr><td colspan="6">${escape(error.message)}</td></tr>`
+        const { data, error } = await supabase.from('announcements').select('id,title,message,kind,audience,pinned,posted_at,expires_at,author_name').order('pinned', { ascending: false }).order('posted_at', { ascending: false }).limit(30)
+        if (error) return table.innerHTML = `<tr><td colspan="7">${escape(error.message)}</td></tr>`
+        announcementRows = data || []
         const audienceLabels = { all: 'Everyone', admin: 'Admins', registrar: 'Registrars', faculty: 'Faculty', student: 'Students' }
-        table.innerHTML = (data || []).map(a => `<tr><td>${a.pinned ? '&#128204; ' : ''}${escape(a.title)}</td><td>${escape(a.message || '-')}</td><td>${a.kind === 'maintenance' ? '<span class="badge">Maintenance</span>' : 'Notice'}${a.expires_at ? (new Date(a.expires_at) < new Date() ? ' <small>(expired)</small>' : `<br><small>hides ${formatDate(a.expires_at, true)}</small>`) : ''}</td><td>${audienceLabels[a.audience] || escape(a.audience)}</td><td>${formatDate(a.posted_at)}</td><td><button class="admin-view" data-pin-announcement="${a.id}" data-pinned="${a.pinned}">${a.pinned ? 'Unpin' : 'Pin'}</button> <button class="admin-remove" data-remove-announcement="${a.id}">Remove</button></td></tr>`).join('') || '<tr><td colspan="6">No announcements posted.</td></tr>'
+        table.innerHTML = (data || []).map(a => `<tr><td>${a.pinned ? pinIcon : ''}${escape(a.title)}</td><td class="ann-msg" title="${escape(plainText(a.message))}">${escape(plainText(a.message)) || '-'}</td><td>${a.kind === 'maintenance' ? '<span class="badge urgent-badge">Urgent</span>' : 'Notice'}${a.expires_at ? (new Date(a.expires_at) < new Date() ? ' <small>(expired)</small>' : `<br><small>hides ${formatDate(a.expires_at, true)}</small>`) : ''}</td><td>${audienceLabels[a.audience] || escape(a.audience)}</td><td>${escape(a.author_name || '-')}</td><td>${formatDate(a.posted_at)}</td><td class="ann-actions"><button class="admin-view" data-edit-announcement="${a.id}">Edit</button> <button class="admin-view" data-pin-announcement="${a.id}" data-pinned="${a.pinned}">${a.pinned ? 'Unpin' : 'Pin'}</button> <button class="admin-remove" data-remove-announcement="${a.id}">Remove</button></td></tr>`).join('') || '<tr><td colspan="7">No announcements posted.</td></tr>'
+        table.querySelectorAll('[data-edit-announcement]').forEach(button => button.onclick = () => openAnnouncementForm(announcementRows.find(row => row.id === Number(button.dataset.editAnnouncement))))
         table.querySelectorAll('[data-pin-announcement]').forEach(button => button.onclick = async () => {
           const { error: pinError } = await supabase.from('announcements').update({ pinned: button.dataset.pinned !== 'true' }).eq('id', Number(button.dataset.pinAnnouncement))
           if (pinError) return toast(describeError(pinError, 'Pin announcement'), 'error')
@@ -269,20 +280,73 @@ Shown once. Give it to the account owner.`)
           mountAnnouncements(document.getElementById('announcements-host'), 'admin', { list: false })
         })
       }
-      document.getElementById('add-announcement').onclick = () => {
+      // One modal for both new and edit; `row` is set when editing an existing announcement.
+      function openAnnouncementForm(row = null) {
+        editingAnnouncement = row
         document.getElementById('announcement-form').reset()
+        document.getElementById('announcement-modal-title').textContent = row ? 'Edit Announcement' : 'New Announcement'
+        document.getElementById('announcement-submit').textContent = row ? 'Save' : 'Post'
+        document.getElementById('announcement-message').innerHTML = row?.message ? richText(row.message) : ''
+        document.getElementById('announcement-date-wrap').classList.add('hidden')
+        if (row) {
+          document.getElementById('announcement-title').value = row.title
+          document.getElementById('announcement-kind').value = row.kind
+          document.getElementById('announcement-audience').value = row.audience
+          document.getElementById('announcement-pinned').checked = row.pinned
+          if (row.expires_at) {
+            document.getElementById('announcement-expires').value = 'date'
+            document.getElementById('announcement-date').value = new Date(new Date(row.expires_at) - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+            document.getElementById('announcement-date-wrap').classList.remove('hidden')
+          }
+        }
         document.getElementById('announcement-modal').classList.remove('hidden')
+      }
+      document.getElementById('add-announcement').onclick = () => openAnnouncementForm()
+      const editor = document.getElementById('announcement-message')
+      document.getElementById('announcement-toolbar').addEventListener('mousedown', event => {
+        const button = event.target.closest('[data-cmd]')
+        if (!button) return
+        event.preventDefault() // keep the text selection in the editor
+        editor.focus()
+        document.execCommand(button.dataset.cmd, false, button.dataset.arg || null)
+      })
+      editor.addEventListener('keydown', event => {
+        if (event.key !== 'Tab') return
+        event.preventDefault()
+        document.execCommand(event.shiftKey ? 'outdent' : 'indent')
+      })
+      editor.addEventListener('paste', event => { // paste as plain text so outside styling doesn't leak in
+        event.preventDefault()
+        document.execCommand('insertText', false, event.clipboardData.getData('text/plain'))
+      })
+      const dateInput = document.getElementById('announcement-date')
+      const openPicker = () => { try { dateInput.showPicker() } catch {} }
+      dateInput.min = ''
+      dateInput.onclick = openPicker
+      document.getElementById('announcement-expires').onchange = event => {
+        const isDate = event.target.value === 'date'
+        document.getElementById('announcement-date-wrap').classList.toggle('hidden', !isDate)
+        if (isDate) { dateInput.min = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16); dateInput.focus(); openPicker() }
       }
       document.getElementById('close-announcement').onclick = document.getElementById('cancel-announcement').onclick = () => document.getElementById('announcement-modal').classList.add('hidden')
       document.getElementById('announcement-form').addEventListener('submit', async (event) => {
         event.preventDefault()
         const title = document.getElementById('announcement-title').value.trim()
         if (!title) return
-        const message = document.getElementById('announcement-message').value.trim()
+        const messageBox = document.getElementById('announcement-message')
+        const message = messageBox.textContent.trim() ? messageBox.innerHTML.trim() : ''
+        if (message.length > 4000) return toast('Message is too long.', 'error')
         const kind = document.getElementById('announcement-kind').value
         const expires = document.getElementById('announcement-expires').value
-        const { error } = await supabase.from('announcements').insert({ title, message: message || null, kind, audience: kind === 'maintenance' ? 'all' : document.getElementById('announcement-audience').value, expires_at: expires ? new Date(Date.now() + Number(expires) * 3600000).toISOString() : null, pinned: document.getElementById('announcement-pinned').checked, created_by: user.user_id })
-        if (error) return toast(describeError(error, 'Post announcement'), 'error')
+        const picked = document.getElementById('announcement-date').value
+        if (expires === 'date' && (!picked || new Date(picked) <= new Date())) return toast('Pick a hide date in the future.', 'error')
+        const expiresAt = expires === 'date' ? new Date(picked).toISOString() : expires ? new Date(Date.now() + Number(expires) * 3600000).toISOString() : null
+        const payload = { title, message: message || null, kind, audience: kind === 'maintenance' ? 'all' : document.getElementById('announcement-audience').value, expires_at: expiresAt, pinned: document.getElementById('announcement-pinned').checked }
+        if (editingAnnouncement && !await confirmPassword(user.email, 'Enter your password to save changes to this announcement.')) return
+        const { error } = editingAnnouncement
+          ? await supabase.from('announcements').update(payload).eq('id', editingAnnouncement.id)
+          : await supabase.from('announcements').insert({ ...payload, created_by: user.user_id, author_name: await currentAuthorName() })
+        if (error) return toast(describeError(error, editingAnnouncement ? 'Save announcement' : 'Post announcement'), 'error')
         document.getElementById('announcement-modal').classList.add('hidden')
         await loadAnnouncements()
         mountAnnouncements(document.getElementById('announcements-host'), 'admin', { list: false })

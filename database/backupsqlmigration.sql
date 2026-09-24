@@ -1791,3 +1791,101 @@ begin
 end $$;
 grant execute on function admin_update_student(integer, jsonb) to authenticated;
 -- END migration-v14-student-edit-notifications.sql
+
+
+-- ============================================================
+-- BEGIN migration-v15-security-hardening.sql
+-- Security audit fixes: shift_student / manual_place_student / auto_place_student had no role check
+-- and were callable by anyone holding the public anon key; archive_audit_logs (which deletes audit
+-- rows) was callable by anyone; every SECURITY DEFINER function was executable by anon.
+-- ============================================================
+create or replace function shift_student(p_student_id integer,p_target_section_id integer,p_reason text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare old_section integer; old_name text; new_name text; student_grade integer;
+begin
+  if coalesce((select current_app_role()), 0) not in (1, 2) then raise exception 'Not authorized'; end if;
+  if nullif(trim(p_reason),'') is null then raise exception 'Shift reason is required'; end if;
+  select grade_level into student_grade from students where student_id=p_student_id for update; if not found then raise exception 'Student not found'; end if;
+  select section_name into new_name from sections where section_id=p_target_section_id and grade_level=student_grade; if not found then raise exception 'Target section is not eligible'; end if;
+  if (select count(*) from enrollments where section_id=p_target_section_id and status='active') >= (select capacity from sections where section_id=p_target_section_id) then raise exception 'Target section is full'; end if;
+  select section_id into old_section from enrollments where student_id=p_student_id and status='active' order by created_at desc limit 1;
+  if old_section=p_target_section_id then raise exception 'Student is already in the target section'; end if;
+  if old_section is not null then select section_name into old_name from sections where section_id=old_section; end if;
+  update enrollments set section_id=p_target_section_id where student_id=p_student_id and status='active';
+  insert into shift_requests(student_id,from_section_id,target_section_id,reason) values(p_student_id,old_section,p_target_section_id,p_reason);
+  insert into notifications(title,message,entity_type,entity_id) values('Student Section Shift','Student shifted from '||coalesce(old_name,'Unassigned')||' to '||new_name||'.','student',p_student_id);
+  insert into audit_logs(action,entity_type,entity_id,details) values('SHIFT_STUDENT','student',p_student_id,jsonb_build_object('from_section',old_section,'target_section',p_target_section_id,'reason',p_reason));
+  return jsonb_build_object('student_id',p_student_id,'from_section',old_name,'to_section',new_name);
+end $$;
+create or replace function manual_place_student(p_student_id integer,p_section_id integer)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare target sections%rowtype; student_grade integer;
+begin
+  if coalesce((select current_app_role()), 0) not in (1, 2) then raise exception 'Not authorized'; end if;
+  select * into target from sections where section_id=p_section_id for update; if not found then raise exception 'Section not found'; end if;
+  select grade_level into student_grade from students where student_id=p_student_id; if not found then raise exception 'Student not found'; end if;
+  if target.grade_level<>student_grade then raise exception 'Grade level is not eligible for this section'; end if;
+  if (select count(*) from enrollments where section_id=p_section_id and status='active')>=target.capacity then raise exception 'Target section is full'; end if;
+  insert into enrollments(student_id,school_year,grade_level,section_id,status,enrolled_at) values(p_student_id,extract(year from current_date)::text||'-'||(extract(year from current_date)+1)::text,student_grade,p_section_id,'active',now()) on conflict(student_id,school_year) do update set section_id=excluded.section_id,status='active';
+  insert into audit_logs(action,entity_type,entity_id,details) values('MANUAL_PLACE','student',p_student_id,jsonb_build_object('section_id',p_section_id));
+  return jsonb_build_object('section_id',target.section_id,'section_name',target.section_name);
+end $$;
+create or replace function auto_place_student(p_student_id integer,p_grade_level integer)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare target sections%rowtype; old_section integer;
+begin
+  if coalesce((select current_app_role()), 0) not in (1, 2) then raise exception 'Not authorized'; end if;
+  if not exists(select 1 from students where student_id=p_student_id) then raise exception 'Student not found'; end if;
+  select section_id into old_section from enrollments where student_id=p_student_id and status='active' order by created_at desc limit 1;
+  select s.* into target from sections s where s.grade_level=p_grade_level and (select count(*) from enrollments e where e.section_id=s.section_id and e.status='active')<s.capacity order by (select count(*) from enrollments e where e.section_id=s.section_id and e.status='active'),s.section_name limit 1 for update;
+  if not found then raise exception 'No eligible section has available capacity'; end if;
+  if old_section=target.section_id then return jsonb_build_object('section_id',target.section_id,'section_name',target.section_name); end if;
+  insert into enrollments(student_id,school_year,grade_level,section_id,status,enrolled_at) values(p_student_id,extract(year from current_date)::text||'-'||(extract(year from current_date)+1)::text,p_grade_level,target.section_id,'active',now()) on conflict(student_id,school_year) do update set section_id=excluded.section_id,grade_level=excluded.grade_level,status='active';
+  insert into audit_logs(action,entity_type,entity_id,details) values('AUTO_PLACE','student',p_student_id,jsonb_build_object('section_id',target.section_id));
+  return jsonb_build_object('section_id',target.section_id,'section_name',target.section_name);
+end $$;
+
+-- Audit-log archiving is a maintenance job (runs as postgres/service role), never a browser call.
+revoke execute on function archive_audit_logs(date) from public, anon, authenticated;
+
+-- Nothing except the login lookup needs to run before sign-in. Strip the default anon/public grant from
+-- every function in public, then give the one exception back.
+do $$
+declare f record;
+begin
+  for f in select p.oid::regprocedure as sig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and p.prokind = 'f'
+  loop
+    execute format('revoke execute on function %s from public, anon', f.sig);
+  end loop;
+end $$;
+do $$
+declare f record;
+begin
+  for f in select p.oid::regprocedure as sig from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'find_login_email'
+  loop execute format('grant execute on function %s to anon, authenticated', f.sig); end loop;
+end $$;
+
+-- roles had RLS off (advisor ERROR): allow read-only for signed-in users.
+alter table public.roles enable row level security;
+drop policy if exists roles_read on public.roles;
+create policy roles_read on public.roles for select to authenticated using ((select current_app_role()) in (1,2,3,4));
+
+notify pgrst, 'reload schema';
+-- END migration-v15-security-hardening.sql
+
+
+-- ============================================================
+-- BEGIN migration-v16-announcement-author.sql
+-- Recipients cannot read other users' rows, so the author's display name ("First Last", first word of
+-- the first name only) is stored on the announcement when it is posted.
+-- ============================================================
+alter table announcements add column if not exists author_name text;
+update announcements a
+set author_name = split_part(trim(ad.first_name), ' ', 1) || ' ' || trim(ad.last_name)
+from admins ad
+where ad.user_id = a.created_by and a.author_name is null;
+-- One-off data fix: the two demo announcements were reassigned to the admin account gkhan.
+update announcements set created_by = (select user_id from users where username = 'gkhan'), author_name = 'Genghis Khan' where id in (2, 3);
+notify pgrst, 'reload schema';
+-- END migration-v16-announcement-author.sql

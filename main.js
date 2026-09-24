@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured, showConfigurationError } from './auth-client.js'
 import { hideLoadingScreen, showLoadingScreen } from './loading-screen.js'
 import { applyUiTheme } from './ui-theme.js'
-import { loadMaintenanceNotices } from './announcements.js'
+import { loadMaintenanceNotices, renderLoginNotices } from './announcements.js'
 import { escapeHtml } from './html.js'
 
 applyUiTheme()
@@ -26,7 +26,7 @@ hideLoadingScreen()
 
 // Maintenance announcements are public so people see them before signing in.
 loadMaintenanceNotices().then(notices => {
-  document.getElementById('maintenance-notices').innerHTML = notices.map(item => `<div class="maintenance-banner" role="status"><strong>${item.pinned ? '&#128204; ' : ''}${escapeHtml(item.title)}</strong>${item.message ? `<span>${escapeHtml(item.message)}</span>` : ''}</div>`).join('')
+  renderLoginNotices(document.getElementById('maintenance-notices'), notices)
 }).catch(() => {})
 
 if (!isSupabaseConfigured) showConfigurationError()
