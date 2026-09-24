@@ -19,10 +19,12 @@ const stub = `
   ]
   const supabase = {
     from: (table) => table === 'announcements'
-      ? { select: () => ({ order: () => ({ limit: async () => ({ data: [] }) }) }), insert: async () => ({ error: null }) }
+      ? { select: () => ({ order: () => ({ order: () => ({ limit: async () => ({ data: [] }) }), limit: async () => ({ data: [] }) }) }), insert: async () => ({ error: null }) }
       : table === 'audit_logs'
         ? { select: () => ({ order: () => ({ limit: async () => ({ data: [] }) }) }) }
       : table === 'profile_change_requests'
+        ? { select: () => ({ eq: () => ({ order: async () => ({ data: [] }) }) }) }
+      : table === 'approval_requests'
         ? { select: () => ({ eq: () => ({ order: async () => ({ data: [] }) }) }) }
       : { select: () => ({ in: () => ({ order: async () => ({ data: rows }) }) }) },
     rpc: async () => ({ data: null, error: null }),
@@ -43,6 +45,7 @@ const stub = `
   const toast = () => {}
   const describeError = (error, context) => (context || 'Request') + ' failed: ' + (error?.message || error || 'an unexpected error occurred.')
   const mountAdminShell = async () => requireRole(1)
+  const mountAnnouncements = async () => {}
   window.addEventListener('error', event => { const el = document.getElementById('result'); if (el && !el.textContent) el.textContent = 'PAGE_ERROR: ' + (event.message || 'unknown') })`
 const body = script
   .replace(/^\s*import[^\n]*\n/gm, '')
@@ -56,7 +59,7 @@ const fixture = html
   try {
   await loadApplications()
   await new Promise(r => setTimeout(r, 3500))
-  const rowHtml = document.getElementById('pending-table').innerHTML
+  const rowHtml = document.getElementById('approvals-table').innerHTML
   const markerOnLocked = rowHtml.includes('data-review="1"') && rowHtml.includes('✏️')
   const noMarkerOnOpen = !rowHtml.includes('data-review="2"') || !(rowHtml.split('data-review="2"')[0].endsWith('editing</b>'))
   openReview('1')

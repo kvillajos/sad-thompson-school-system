@@ -20,7 +20,7 @@ export async function loadFacultyContext(activePage = 'dashboard') {
     ['Attendance', '/faculty/faculty-attendance.html', '✓', 'attendance'],
     ['Reports', '/faculty/faculty-reports.html', '▧', 'reports']
   ]
-  mountSidebar(navigation.map(([label, href, icon, page]) => ({ label, href, icon, active: page === activePage })), 'Faculty Portal')
+  mountSidebar(navigation.map(([label, href, icon, page]) => ({ label, href, icon, active: page === activePage })), 'Faculty Portal', 'faculty')
   const profileResult = await supabase.from('staff_profiles').select('first_name,last_name').eq('user_id', user.user_id).single()
   const profile = profileResult.data
   const facultyName = profile ? `${profile.first_name} ${profile.last_name}` : user.username

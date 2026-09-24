@@ -1,6 +1,6 @@
 -- TCSMS consolidated database backup.
 -- Run this file in Supabase SQL Editor as the single, complete database setup.
--- Source order: base schema, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11.
+-- Source order: base schema, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14.
 
 
 -- ============================================================
@@ -1416,3 +1416,378 @@ end $$;
 
 grant execute on function lock_faculty_grades(integer, text) to authenticated;
 -- END migration-v11-faculty-grade-lock.sql
+
+
+-- ============================================================
+-- BEGIN migration-v12-approval-requests.sql
+-- ============================================================
+-- One approval queue for sensitive actions. Staff file a request; only an admin can approve it.
+-- Covers: grade corrections (faculty), withdrawal/transfer-out (registrar), batch promotion
+-- (registrar), account actions (registrar). Also notifies faculty when their teaching load changes.
+-- Run after backupsqlmigration.sql. Safe to re-run.
+create table if not exists approval_requests (
+  id serial primary key,
+  request_type text not null check (request_type in ('grade_correction','withdrawal','promotion','account_action','override')),
+  payload jsonb not null,
+  summary text not null,
+  reason text not null,
+  requested_by integer references users(user_id),
+  requester_name text,
+  status text not null default 'pending' check (status in ('pending','approved','rejected')),
+  remarks text,
+  reviewed_by integer references users(user_id),
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table approval_requests drop constraint if exists approval_requests_request_type_check;
+alter table approval_requests add constraint approval_requests_request_type_check
+  check (request_type in ('grade_correction','withdrawal','promotion','account_action','override'));
+create index if not exists idx_approval_status on approval_requests(status, created_at desc);
+alter table approval_requests enable row level security;
+drop policy if exists approval_read on approval_requests;
+-- Read-only from the browser: every write goes through the functions below.
+create policy approval_read on approval_requests for select to authenticated
+  using ((select current_app_role()) = 1 or requested_by = (select user_id from users where lower(email) = lower(auth.jwt() ->> 'email') and is_active));
+revoke insert, update, delete on approval_requests from authenticated;
+
+-- The old direct entry points would bypass the queue, so only the review function may call them.
+revoke execute on function transfer_student_out(integer, text) from public, authenticated;
+revoke execute on function batch_promote_students(integer, text, integer[]) from public, authenticated;
+
+create or replace function approval_actor(p_role integer)
+returns table(uid integer, uname text) language plpgsql security definer set search_path = public as $$
+begin
+  return query select user_id, username::text from users
+    where lower(email) = lower(auth.jwt() ->> 'email') and is_active and role_id = p_role limit 1;
+  if not found then raise exception 'Not authorized for this request'; end if;
+end $$;
+
+create or replace function request_grade_correction(p_subject_id integer, p_school_year text, p_student_id integer, p_new_grade numeric, p_letter text, p_reason text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a record; subj text; old_grade numeric; is_locked boolean; sname text; rid integer;
+begin
+  select * into a from approval_actor(3);
+  if nullif(trim(p_reason), '') is null then raise exception 'A reason is required'; end if;
+  if p_new_grade is null or p_new_grade < 0 or p_new_grade > 100 then raise exception 'Grade must be between 0 and 100'; end if;
+  select subject_name into subj from subjects where subject_id = p_subject_id;
+  if subj is null then raise exception 'Subject not found'; end if;
+  if not faculty_teaches_subject(p_subject_id) or not faculty_teaches_student(p_student_id) then raise exception 'This class is not assigned to you'; end if;
+  select grade, locked into old_grade, is_locked from academic_history where student_id = p_student_id and school_year = p_school_year and subject = subj;
+  if not found then raise exception 'No grade on record for that student'; end if;
+  if not is_locked then raise exception 'Grades are not locked; edit them directly'; end if;
+  if exists (select 1 from approval_requests where status = 'pending' and request_type = 'grade_correction'
+      and (payload->>'student_id')::int = p_student_id and payload->>'subject' = subj and payload->>'school_year' = p_school_year) then
+    raise exception 'A correction for this grade is already awaiting approval';
+  end if;
+  select first_name || ' ' || last_name into sname from students where student_id = p_student_id;
+  insert into approval_requests(request_type, payload, summary, reason, requested_by, requester_name)
+  values ('grade_correction',
+    jsonb_build_object('student_id', p_student_id, 'subject', subj, 'school_year', p_school_year, 'old_grade', old_grade, 'new_grade', p_new_grade, 'letter_grade', nullif(trim(p_letter), '')),
+    format('%s, %s (%s): %s → %s', sname, subj, p_school_year, old_grade, p_new_grade), trim(p_reason), a.uid, a.uname)
+  returning id into rid;
+  return jsonb_build_object('request_id', rid);
+end $$;
+
+create or replace function request_withdrawal(p_student_id integer, p_kind text, p_reason text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a record; sname text; rid integer;
+begin
+  select * into a from approval_actor(2);
+  if p_kind not in ('Transferred','Withdrawn') then raise exception 'Unknown request kind'; end if;
+  if nullif(trim(p_reason), '') is null then raise exception 'A reason is required'; end if;
+  select first_name || ' ' || last_name into sname from students where student_id = p_student_id;
+  if sname is null then raise exception 'Student not found'; end if;
+  if exists (select 1 from approval_requests where status = 'pending' and request_type = 'withdrawal' and (payload->>'student_id')::int = p_student_id) then
+    raise exception 'This student already has a pending request';
+  end if;
+  insert into approval_requests(request_type, payload, summary, reason, requested_by, requester_name)
+  values ('withdrawal', jsonb_build_object('student_id', p_student_id, 'kind', p_kind),
+    format('%s: %s', case when p_kind = 'Transferred' then 'Transfer out' else 'Withdrawal' end, sname), trim(p_reason), a.uid, a.uname)
+  returning id into rid;
+  return jsonb_build_object('request_id', rid);
+end $$;
+
+create or replace function request_promotion(p_grade_level integer, p_school_year text, p_excluded integer[], p_reason text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a record; total integer; rid integer;
+begin
+  select * into a from approval_actor(2);
+  if nullif(trim(p_school_year), '') is null then raise exception 'A school year is required'; end if;
+  select count(*) into total from students where grade_level = p_grade_level and not (student_id = any(coalesce(p_excluded, '{}')));
+  if total = 0 then raise exception 'No students to promote in that grade level'; end if;
+  insert into approval_requests(request_type, payload, summary, reason, requested_by, requester_name)
+  values ('promotion', jsonb_build_object('grade_level', p_grade_level, 'school_year', p_school_year, 'excluded', coalesce(p_excluded, '{}')),
+    format('Promote Grade %s to next year (%s): %s student(s), %s excluded', p_grade_level, p_school_year, total, coalesce(array_length(p_excluded, 1), 0)),
+    coalesce(nullif(trim(p_reason), ''), 'Year-end promotion'), a.uid, a.uname)
+  returning id into rid;
+  return jsonb_build_object('request_id', rid, 'students', total);
+end $$;
+
+create or replace function request_account_action(p_username text, p_action text, p_new_role integer, p_reason text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a record; target record; rid integer;
+begin
+  select * into a from approval_actor(2);
+  if p_action not in ('reset','deactivate','activate','role_change') then raise exception 'Unknown account action'; end if;
+  if nullif(trim(p_reason), '') is null then raise exception 'A reason is required'; end if;
+  select user_id, username, role_id into target from users where lower(username) = lower(trim(p_username));
+  if not found then raise exception 'No account with that username'; end if;
+  if target.user_id = a.uid or target.role_id = 1 then raise exception 'That account cannot be targeted from a registrar request'; end if;
+  if p_action = 'role_change' and (target.role_id = 4 or p_new_role not in (2,3) or p_new_role = target.role_id) then
+    raise exception 'Role change must move a staff account to a different staff role';
+  end if;
+  if exists (select 1 from approval_requests where status = 'pending' and request_type = 'account_action' and (payload->>'target_user_id')::int = target.user_id) then
+    raise exception 'This account already has a pending request';
+  end if;
+  insert into approval_requests(request_type, payload, summary, reason, requested_by, requester_name)
+  values ('account_action', jsonb_build_object('target_user_id', target.user_id, 'username', target.username, 'action', p_action, 'new_role', p_new_role),
+    format('%s: %s', case p_action when 'reset' then 'Reset password' when 'deactivate' then 'Deactivate account' when 'activate' then 'Reactivate account' else 'Change role to ' || case p_new_role when 2 then 'Registrar' else 'Faculty' end end, target.username),
+    trim(p_reason), a.uid, a.uname)
+  returning id into rid;
+  return jsonb_build_object('request_id', rid);
+end $$;
+
+-- Admin decision. Database-only actions run here in one transaction; password reset and
+-- activate/deactivate touch Supabase Auth, so the browser runs the provision-account Edge
+-- Function first and then records the approval here.
+create or replace function review_approval(p_id integer, p_approve boolean, p_remarks text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a record; r approval_requests%rowtype; pl jsonb; requester_email text; outcome jsonb := '{}'::jsonb;
+begin
+  select * into a from approval_actor(1);
+  select * into r from approval_requests where id = p_id for update;
+  if not found or r.status <> 'pending' then raise exception 'This request is no longer pending'; end if;
+  pl := r.payload;
+  if p_approve then
+    if r.request_type = 'grade_correction' then
+      -- The lock trigger allows only the lock flag to change on a locked row, so unlock, edit, relock.
+      update academic_history set locked = false where student_id = (pl->>'student_id')::int and school_year = pl->>'school_year' and subject = pl->>'subject';
+      update academic_history set final = (pl->>'new_grade')::numeric, grade = (pl->>'new_grade')::numeric, letter_grade = pl->>'letter_grade'
+        where student_id = (pl->>'student_id')::int and school_year = pl->>'school_year' and subject = pl->>'subject';
+      update academic_history set locked = true where student_id = (pl->>'student_id')::int and school_year = pl->>'school_year' and subject = pl->>'subject';
+    elsif r.request_type = 'withdrawal' then
+      perform transfer_student_out((pl->>'student_id')::int, r.reason);
+      update students set enrollment_status = pl->>'kind' where student_id = (pl->>'student_id')::int;
+    elsif r.request_type = 'promotion' then
+      outcome := batch_promote_students((pl->>'grade_level')::int, pl->>'school_year', array(select jsonb_array_elements_text(pl->'excluded')::int));
+    elsif r.request_type = 'override' then
+      perform place_with_override((pl->>'student_id')::int, (pl->>'section_id')::int, r.reason, r.requester_name);
+    elsif r.request_type = 'account_action' and pl->>'action' = 'role_change' then
+      update users set role_id = (pl->>'new_role')::int where user_id = (pl->>'target_user_id')::int;
+    end if;
+  end if;
+  update approval_requests set status = case when p_approve then 'approved' else 'rejected' end,
+    remarks = nullif(trim(p_remarks), ''), reviewed_by = a.uid, reviewed_at = now() where id = p_id;
+  insert into audit_logs(action, entity_type, entity_id, details)
+  values (case when p_approve then 'APPROVE_REQUEST' else 'REJECT_REQUEST' end, r.request_type, p_id,
+    jsonb_build_object('summary', r.summary, 'requested_by', r.requester_name, 'reviewed_by', a.uname, 'remarks', p_remarks));
+  select email into requester_email from users where user_id = r.requested_by;
+  insert into notifications(recipient_email, recipient_user_id, title, message, entity_type, entity_id)
+  values (requester_email, r.requested_by, 'Request ' || case when p_approve then 'approved' else 'rejected' end,
+    r.summary || coalesce(' — ' || nullif(trim(p_remarks), ''), ''), 'approval_request', p_id);
+  return outcome || jsonb_build_object('status', case when p_approve then 'approved' else 'rejected' end);
+end $$;
+
+grant execute on function request_grade_correction(integer, text, integer, numeric, text, text) to authenticated;
+grant execute on function request_withdrawal(integer, text, text) to authenticated;
+grant execute on function request_promotion(integer, text, integer[], text) to authenticated;
+grant execute on function request_account_action(text, text, integer, text) to authenticated;
+grant execute on function review_approval(integer, boolean, text) to authenticated;
+
+-- Faculty load changes need no approval: the affected teacher is just notified and taps "I see".
+create or replace function notify_faculty_load_change() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare subj text; sec text; note text;
+begin
+  select subject_name into subj from subjects where subject_id = coalesce(new.subject_id, old.subject_id);
+  select section_name into sec from sections where section_id = coalesce(new.section_id, old.section_id);
+  if tg_op = 'DELETE' or (tg_op = 'UPDATE' and old.faculty_name is distinct from new.faculty_name) then
+    insert into notifications(recipient_email, recipient_user_id, title, message, entity_type, entity_id)
+    select u.email, u.user_id, 'Teaching load updated', format('You are no longer assigned to %s (%s).', subj, sec), 'schedule', old.schedule_id
+    from staff_profiles sp join users u on u.user_id = sp.user_id
+    where lower(trim(sp.first_name || ' ' || sp.last_name)) = lower(trim(old.faculty_name));
+  end if;
+  if tg_op <> 'DELETE' and new.faculty_name is not null
+     and (tg_op = 'INSERT' or (old.faculty_name, old.day_of_week, old.start_time, old.end_time, old.room, old.section_id, old.subject_id)
+          is distinct from (new.faculty_name, new.day_of_week, new.start_time, new.end_time, new.room, new.section_id, new.subject_id)) then
+    note := case when tg_op = 'INSERT' or old.faculty_name is distinct from new.faculty_name
+      then format('You were assigned to %s (%s).', subj, sec)
+      else format('Your schedule for %s (%s) was changed.', subj, sec) end;
+    insert into notifications(recipient_email, recipient_user_id, title, message, entity_type, entity_id)
+    select u.email, u.user_id, 'Teaching load updated', note, 'schedule', new.schedule_id
+    from staff_profiles sp join users u on u.user_id = sp.user_id
+    where lower(trim(sp.first_name || ' ' || sp.last_name)) = lower(trim(new.faculty_name));
+  end if;
+  return coalesce(new, old);
+end $$;
+drop trigger if exists faculty_load_notify on subject_schedules;
+create trigger faculty_load_notify after insert or update or delete on subject_schedules
+for each row execute function notify_faculty_load_change();
+
+create or replace function acknowledge_notification(p_id integer) returns void
+language sql security definer set search_path = public as $$
+  update notifications set is_read = true where id = p_id and lower(recipient_email) = lower(auth.jwt() ->> 'email');
+$$;
+grant execute on function acknowledge_notification(integer) to authenticated;
+
+-- Capacity override: a section that is full can take one more student, but only with a reason and
+-- an admin's say-so (approval of a registrar request, or the admin acting directly). Grade-level
+-- eligibility is never bypassed. The trigger honours a transaction-local flag that only
+-- place_with_override sets.
+create or replace function enforce_enrollment_capacity() returns trigger language plpgsql as $$
+declare target sections%rowtype; student_grade integer;
+begin
+  if new.status <> 'active' or new.section_id is null then return new; end if;
+  select * into target from sections where section_id = new.section_id for update;
+  if not found then raise exception 'Section not found'; end if;
+  select grade_level into student_grade from students where student_id = new.student_id;
+  if student_grade is not null and student_grade <> target.grade_level then raise exception 'Student grade level is not eligible for this section'; end if;
+  if coalesce(current_setting('app.capacity_override', true), '') <> 'on'
+     and (select count(*) from enrollments where section_id = new.section_id and status = 'active' and id <> coalesce(new.id, -1)) >= target.capacity then
+    raise exception 'Target section is full';
+  end if;
+  return new;
+end $$;
+
+create or replace function place_with_override(p_student_id integer, p_section_id integer, p_reason text, p_actor text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare target sections%rowtype; student_grade integer; yr text; seats integer;
+begin
+  select * into target from sections where section_id = p_section_id for update;
+  if not found then raise exception 'Section not found'; end if;
+  select grade_level into student_grade from students where student_id = p_student_id;
+  if not found then raise exception 'Student not found'; end if;
+  if target.grade_level <> student_grade then raise exception 'Grade level is not eligible for this section'; end if;
+  yr := extract(year from current_date)::text || '-' || (extract(year from current_date) + 1)::text;
+  perform set_config('app.capacity_override', 'on', true);
+  insert into enrollments(student_id, school_year, grade_level, section_id, status, enrolled_at)
+  values (p_student_id, yr, student_grade, p_section_id, 'active', now())
+  on conflict (student_id, school_year) do update set section_id = excluded.section_id, grade_level = excluded.grade_level, status = 'active';
+  perform set_config('app.capacity_override', 'off', true);
+  select count(*) into seats from enrollments where section_id = p_section_id and status = 'active';
+  insert into audit_logs(action, entity_type, entity_id, details)
+  values ('OVERRIDE_PLACE', 'student', p_student_id, jsonb_build_object('section_id', p_section_id, 'section', target.section_name, 'enrolled_now', seats, 'capacity', target.capacity, 'reason', p_reason, 'approved_by', p_actor));
+  return jsonb_build_object('section_name', target.section_name, 'enrolled_now', seats, 'capacity', target.capacity);
+end $$;
+revoke execute on function place_with_override(integer, integer, text, text) from public, authenticated;
+
+create or replace function request_capacity_override(p_student_id integer, p_section_id integer, p_reason text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a record; target sections%rowtype; s record; seats integer; rid integer;
+begin
+  select * into a from approval_actor(2);
+  if nullif(trim(p_reason), '') is null then raise exception 'A reason is required'; end if;
+  select * into target from sections where section_id = p_section_id;
+  if not found then raise exception 'Section not found'; end if;
+  select first_name || ' ' || last_name as name, grade_level into s from students where student_id = p_student_id;
+  if not found then raise exception 'Student not found'; end if;
+  if s.grade_level is distinct from target.grade_level then raise exception 'Grade level is not eligible for this section'; end if;
+  if exists (select 1 from enrollments where student_id = p_student_id and section_id = p_section_id and status = 'active') then raise exception 'Student is already in this section'; end if;
+  select count(*) into seats from enrollments where section_id = p_section_id and status = 'active';
+  if seats < target.capacity then raise exception 'This section still has open seats; place the student normally'; end if;
+  if exists (select 1 from approval_requests where status = 'pending' and request_type = 'override' and (payload->>'student_id')::int = p_student_id) then
+    raise exception 'This student already has a pending override request';
+  end if;
+  insert into approval_requests(request_type, payload, summary, reason, requested_by, requester_name)
+  values ('override', jsonb_build_object('student_id', p_student_id, 'section_id', p_section_id),
+    format('Capacity override: %s into %s (%s/%s seats, would be %s)', s.name, target.section_name, seats, target.capacity, seats + 1), trim(p_reason), a.uid, a.uname)
+  returning id into rid;
+  return jsonb_build_object('request_id', rid);
+end $$;
+
+create or replace function admin_place_override(p_student_id integer, p_section_id integer, p_reason text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a record;
+begin
+  select * into a from approval_actor(1);
+  if nullif(trim(p_reason), '') is null then raise exception 'A reason is required'; end if;
+  return place_with_override(p_student_id, p_section_id, trim(p_reason), a.uname);
+end $$;
+grant execute on function request_capacity_override(integer, integer, text) to authenticated;
+grant execute on function admin_place_override(integer, integer, text) to authenticated;
+-- END migration-v12-approval-requests.sql
+
+
+-- ============================================================
+-- BEGIN migration-v13-announcement-kinds.sql
+-- ============================================================
+-- Announcements get an audience (which dashboard shows them), a kind, an expiry and a pin. A 'maintenance'
+-- announcement also appears on the public login screen, so the login page can read it
+-- without signing in; anon may read only the columns granted below, never created_by.
+-- Run after backupsqlmigration.sql. Safe to re-run.
+alter table announcements add column if not exists kind text not null default 'notice';
+alter table announcements add column if not exists audience text not null default 'all';
+alter table announcements add column if not exists expires_at timestamptz;
+alter table announcements add column if not exists pinned boolean not null default false;
+alter table announcements drop constraint if exists announcements_kind_check;
+alter table announcements add constraint announcements_kind_check check (kind in ('notice','maintenance'));
+alter table announcements drop constraint if exists announcements_audience_check;
+alter table announcements add constraint announcements_audience_check check (audience in ('all','admin','registrar','faculty','student'));
+
+drop policy if exists announcements_read on announcements;
+create policy announcements_read on announcements for select to authenticated
+  using ((expires_at is null or expires_at > now())
+    and (audience = 'all' or (select current_app_role()) = case audience when 'admin' then 1 when 'registrar' then 2 when 'faculty' then 3 else 4 end));
+
+drop policy if exists announcements_public_maintenance on announcements;
+create policy announcements_public_maintenance on announcements for select to anon
+  using (kind = 'maintenance' and (expires_at is null or expires_at > now()));
+grant select (id, title, message, kind, audience, pinned, posted_at, expires_at) on announcements to anon;
+-- END migration-v13-announcement-kinds.sql
+
+
+-- ============================================================
+-- BEGIN migration-v14-student-edit-notifications.sql
+-- ============================================================
+-- Admin edits to a student's record: the admin must re-enter their password in the app, the
+-- change is applied and audited in one transaction, and the student gets a notification
+-- with before/after values. Notifications visible to non-staff expire after 7 days.
+-- Also lets 'Withdrawn' be a student status (request_withdrawal sets it on approval).
+-- Run after backupsqlmigration.sql. Safe to re-run.
+alter table notifications add column if not exists details jsonb;
+
+drop policy if exists user_notifications on notifications;
+create policy user_notifications on notifications for select to authenticated
+  using ((select current_app_role()) in (1,2)
+    or (lower(recipient_email) = lower(auth.jwt() ->> 'email') and created_at > now() - interval '7 days'));
+
+alter table students drop constraint if exists students_enrollment_status_check;
+alter table students add constraint students_enrollment_status_check
+  check (enrollment_status in ('Enrolled','Pending','Graduated','Transferred','Withdrawn'));
+
+create or replace function admin_update_student(p_student_id integer, p_changes jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  a record; old_row jsonb; k text; newval text; diff jsonb := '{}'::jsonb; sets text := '';
+  student_email text; student_user integer;
+  allowed text[] := array['first_name','middle_name','last_name','date_of_birth','gender','grade_level','enrollment_status',
+    'address','contact_number','guardian_name','guardian_relationship','guardian_phone','guardian_email','medical_notes'];
+begin
+  select * into a from approval_actor(1);
+  select to_jsonb(s) into old_row from students s where s.student_id = p_student_id for update;
+  if old_row is null then raise exception 'Student not found'; end if;
+  foreach k in array allowed loop
+    if p_changes ? k then
+      newval := nullif(trim(p_changes->>k), '');
+      if (old_row->>k) is distinct from newval then
+        if k in ('first_name','last_name') and newval is null then raise exception '% is required', replace(k, '_', ' '); end if;
+        diff := diff || jsonb_build_object(k, jsonb_build_object('from', old_row->k, 'to', to_jsonb(newval)));
+        sets := sets || format('%I = %L, ', k, newval);
+      end if;
+    end if;
+  end loop;
+  if diff = '{}'::jsonb then raise exception 'No changes to save'; end if;
+  execute format('update students set %s updated_at = now() where student_id = %L', sets, p_student_id);
+  select user_id, email into student_user, student_email from users where student_id = p_student_id limit 1;
+  if student_email is not null then
+    insert into notifications(recipient_email, recipient_user_id, title, message, entity_type, entity_id, details)
+    values (student_email, student_user, 'Your student record was updated',
+      'An administrator updated: ' || (select string_agg(replace(key, '_', ' '), ', ') from jsonb_object_keys(diff) as key) || '.',
+      'student_update', p_student_id, diff);
+  end if;
+  insert into audit_logs(action, entity_type, entity_id, details)
+  values ('ADMIN_UPDATE_STUDENT', 'student', p_student_id, jsonb_build_object('actor', a.uname, 'changes', diff));
+  return diff;
+end $$;
+grant execute on function admin_update_student(integer, jsonb) to authenticated;
+-- END migration-v14-student-edit-notifications.sql

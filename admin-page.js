@@ -22,6 +22,6 @@ export async function mountAdminShell(active) {
   const user = await requireRole(1)
   if (!user) throw new Error('Unauthorized')
   mountProfile(user, 'Administrator', signOut)
-  mountSidebar(adminNav(active), 'Administrative<br>Control')
+  mountSidebar(adminNav(active), 'Administrative<br>Control', 'admin')
   return user
 }

@@ -14,7 +14,7 @@ export async function withBusy(button, busyLabel, action) {
   }
 }
 
-export function mountSidebar(items, brand) {
+export function mountSidebar(items, brand, role) {
   const icons = {
     '⌂': '<svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path></svg>',
     '▣': '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M8 8h8v8H8z"></path></svg>',
@@ -26,6 +26,7 @@ export function mountSidebar(items, brand) {
   const existing = document.querySelector('.app-sidebar, .side, .admin-sidebar');
   if (existing) existing.remove();
   document.body.classList.add('has-app-sidebar');
+  if (role) document.body.dataset.role = role;
   const sidebar = document.createElement('aside');
   sidebar.className = 'app-sidebar';
   sidebar.innerHTML = `<img src="/assets/logo.png" alt="Thompson Christian School" class="sidebar-logo"><div class="sidebar-brand">${brand}</div><nav class="sidebar-nav"></nav>`;
@@ -65,6 +66,40 @@ export function mountProfile(user, roleLabel, onSignOut) {
   document.body.appendChild(profile);
   const toggle = profile.querySelector('.profile-toggle');
   const dropdown = profile.querySelector('.profile-dropdown');
+  // Drag the profile bar sideways to move it out of the way. It stays on the top edge (fixed
+  // margin) and the position is remembered per browser.
+  const MARGIN = 24;
+  const minX = () => {
+    const side = document.querySelector('.app-sidebar')?.getBoundingClientRect();
+    return (side && side.width < window.innerWidth / 2 ? side.right : 0) + MARGIN; // stacked mobile sidebar doesn't count
+  };
+  const clampX = x => Math.max(minX(), Math.min(window.innerWidth - profile.offsetWidth - MARGIN, x));
+  const placeAt = x => { profile.style.left = `${clampX(x)}px`; profile.style.right = 'auto'; };
+  try { const saved = Number(localStorage.getItem('tcsms_profile_x')); if (Number.isFinite(saved) && saved > 0) placeAt(saved); } catch {}
+  window.addEventListener('resize', () => { if (profile.style.left) placeAt(profile.getBoundingClientRect().left); });
+  let dragStart = null;
+  let justDragged = false;
+  toggle.addEventListener('pointerdown', event => { dragStart = { x: event.clientX, left: profile.getBoundingClientRect().left, moved: false }; });
+  window.addEventListener('pointermove', event => {
+    if (!dragStart) return;
+    const dx = event.clientX - dragStart.x;
+    if (!dragStart.moved && Math.abs(dx) < 6) return;
+    dragStart.moved = true;
+    profile.classList.add('dragging');
+    dropdown.classList.add('hidden');
+    placeAt(dragStart.left + dx);
+  });
+  window.addEventListener('pointerup', () => {
+    if (!dragStart) return;
+    if (dragStart.moved) {
+      justDragged = true;
+      setTimeout(() => { justDragged = false; }, 0);
+      try { localStorage.setItem('tcsms_profile_x', String(Math.round(profile.getBoundingClientRect().left))); } catch {}
+    }
+    profile.classList.remove('dragging');
+    dragStart = null;
+  });
+  toggle.addEventListener('click', event => { if (justDragged) event.stopImmediatePropagation(); }, true);
   toggle.addEventListener('click', () => {
     dropdown.classList.toggle('hidden');
     toggle.setAttribute('aria-expanded', String(!dropdown.classList.contains('hidden')));
@@ -231,11 +266,34 @@ function openProfileModal(user, roleLabel, profile) {
 }
 
 // Resolves true only after the signed-in user re-enters their own password correctly.
+// Wraps a password input with an eye button so people can check what they typed.
+const EYE_OPEN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.9 10.9 0 0 1 12 19C5 19 1 12 1 12a19.8 19.8 0 0 1 5.06-5.94"/><path d="M9.9 4.24A10.4 10.4 0 0 1 12 5c7 0 11 7 11 7a19.7 19.7 0 0 1-3.17 4.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+function withPasswordToggle(input) {
+  const wrap = document.createElement('div');
+  wrap.className = 'pw-wrap';
+  input.replaceWith(wrap);
+  wrap.append(input);
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'pw-toggle';
+  toggle.innerHTML = EYE_OPEN;
+  toggle.setAttribute('aria-label', 'Show password');
+  toggle.onclick = () => {
+    const reveal = input.type === 'password';
+    input.type = reveal ? 'text' : 'password';
+    toggle.innerHTML = reveal ? EYE_OFF : EYE_OPEN;
+    toggle.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+  };
+  wrap.append(toggle);
+}
+
 export function confirmPassword(email, message = 'Enter your password to continue.') {
   return new Promise(resolve => {
     const prompt = document.createElement('div'); prompt.className = 'admin-modal stack-above';
-    prompt.innerHTML = `<div class="admin-modal-box" style="width:min(100%,420px)"><div class="admin-modal-head"><h3>Confirm Password</h3><button type="button" data-password-close>x</button></div><form data-password-form><p>${message}</p><input type="password" data-profile-password autocomplete="current-password" required><p class="login-hint" data-password-error style="color:#c0392b;margin:0" role="alert"></p><div class="admin-actions"><button type="button" class="admin-cancel" data-password-cancel>Cancel</button><button type="submit" class="admin-primary">Confirm</button></div></form></div>`;
+    prompt.innerHTML = `<div class="admin-modal-box" style="width:min(100%,400px)"><div class="admin-modal-head"><h3>Confirm Password</h3><button type="button" data-password-close>x</button></div><form data-password-form style="grid-template-columns:1fr;gap:8px"><input type="password" data-profile-password placeholder="Password" autocomplete="current-password" required style="margin:0;align-self:start"><small style="color:#64748b;line-height:1.4">${message}</small><p class="login-hint" data-password-error style="color:#c0392b;margin:0;font-size:13px" role="alert"></p><div class="admin-actions" style="margin-top:4px"><button type="button" class="admin-cancel" data-password-cancel>Cancel</button><button type="submit" class="admin-primary">Confirm</button></div></form></div>`;
     document.body.appendChild(prompt);
+    withPasswordToggle(prompt.querySelector('[data-profile-password]'));
     const finish = value => { prompt.remove(); resolve(value); };
     prompt.querySelector('[data-password-close]').onclick = prompt.querySelector('[data-password-cancel]').onclick = () => finish(false);
     prompt.querySelector('[data-password-form]').onsubmit = async event => {
@@ -253,6 +311,7 @@ function confirmProfileChange(email, action) {
     const prompt = document.createElement('div'); prompt.className = 'admin-modal';
     prompt.innerHTML = `<div class="admin-modal-box" style="width:min(100%,420px)"><div class="admin-modal-head"><h3>Confirm Changes</h3><button type="button" data-password-close>x</button></div><p>Enter your password to confirm this change.</p><input type="password" data-profile-password autocomplete="current-password"><div class="admin-actions"><button type="button" class="admin-cancel" data-password-cancel>Cancel</button><button type="button" class="admin-primary" data-password-confirm>Confirm</button></div></div>`;
     document.body.appendChild(prompt);
+    withPasswordToggle(prompt.querySelector('[data-profile-password]'));
     const close = () => { prompt.remove(); resolve(null); };
     prompt.querySelector('[data-password-close]').onclick = prompt.querySelector('[data-password-cancel]').onclick = close;
     prompt.querySelector('[data-password-confirm]').onclick = async () => { const password = prompt.querySelector('[data-profile-password]').value; if (!password) return window.alert('Enter your password.'); const confirmation = await supabase.auth.signInWithPassword({ email, password }); if (confirmation.error) return window.alert('Password verification failed.'); const result = await action(); prompt.remove(); resolve(result.error ? (window.alert(result.error.message), null) : result); };
@@ -274,6 +333,7 @@ function openPasswordModal() {
     </form>
   </div>`;
   document.body.appendChild(modal);
+  modal.querySelectorAll('input[type="password"]').forEach(withPasswordToggle);
   const close = () => modal.remove();
   modal.querySelector('#tcsms-password-close').addEventListener('click', close);
   modal.querySelector('#tcsms-password-cancel').addEventListener('click', close);

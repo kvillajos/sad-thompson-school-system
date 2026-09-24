@@ -172,14 +172,13 @@ async function uploadDocuments(applicationId) {
   }
 }
 
-$('refresh-applications').addEventListener('click', loadApplications)
 export async function loadApplications() {
   const { data, error } = await supabase.from('admission_applications').select('*').order('created_at',{ascending:false})
   if (error) return toast(error.message,'error')
   state.applications = data || []
   $('applications-table').innerHTML = state.applications.map(a => `<tr>
     <td>${escapeHtml(`${a.first_name} ${a.last_name}`)}</td><td>${escapeHtml(gradeLabel(a.grade_level))}</td><td>${statusBadge(a.status)}</td>
-    <td>${formatDate(a.created_at)}</td><td>${a.status === 'draft' ? `<button class="small btn-approve" data-resume="${a.id}">Resume</button>` : `<button class="small btn-review" data-review="${a.id}">Review</button>`}</td></tr>`).join('') || '<tr><td colspan="5">No applications found.</td></tr>'
+    <td>${formatDate(a.created_at)}</td><td>${a.status === 'draft' ? `<button class="admin-approve" data-resume="${a.id}">Resume</button>` : `<button class="admin-view" data-review="${a.id}">Review</button>`}</td></tr>`).join('') || '<tr><td colspan="5">No applications found.</td></tr>'
   document.querySelectorAll('[data-review]').forEach(b => b.addEventListener('click', () => openReview(b.dataset.review)))
   document.querySelectorAll('[data-resume]').forEach(b => b.addEventListener('click', () => resumeApplication(b.dataset.resume)))
 }
@@ -211,7 +210,7 @@ async function openDrafts() {
   state.drafts = data || []
   state.applications = [...state.drafts, ...state.applications.filter(application => !state.drafts.some(draft => draft.id === application.id))]
   $('drafts-list').innerHTML = state.drafts.length
-    ? `<table><thead><tr><th>Name</th><th>Grade</th><th>Last Saved</th><th>Actions</th></tr></thead><tbody>${state.drafts.map(draft => `<tr><td>${escapeHtml(`${draft.first_name || ''} ${draft.last_name || ''}`.trim())}</td><td>${escapeHtml(draft.grade_level == null ? '-' : gradeLabel(draft.grade_level))}</td><td>${draft.updated_at ? formatDate(draft.updated_at, true) : '-'}</td><td><button class="small btn-approve" data-draft-resume="${draft.id}">Resume</button> <button class="small btn-remove" data-draft-delete="${draft.id}">Delete</button></td></tr>`).join('')}</tbody></table>`
+    ? `<table><thead><tr><th>Name</th><th>Grade</th><th>Last Saved</th><th>Actions</th></tr></thead><tbody>${state.drafts.map(draft => `<tr><td>${escapeHtml(`${draft.first_name || ''} ${draft.last_name || ''}`.trim())}</td><td>${escapeHtml(draft.grade_level == null ? '-' : gradeLabel(draft.grade_level))}</td><td>${draft.updated_at ? formatDate(draft.updated_at, true) : '-'}</td><td><button class="admin-approve" data-draft-resume="${draft.id}">Resume</button> <button class="admin-remove" data-draft-delete="${draft.id}">Delete</button></td></tr>`).join('')}</tbody></table>`
     : '<p class="empty-state">No drafts saved.</p>'
   $('drafts-list').querySelectorAll('[data-draft-resume]').forEach(button => button.onclick = () => resumeApplication(button.dataset.draftResume))
   $('drafts-list').querySelectorAll('[data-draft-delete]').forEach(button => button.onclick = () => deleteDraft(button.dataset.draftDelete))
@@ -315,4 +314,4 @@ async function saveReviewEdits() {
 $('review-content').addEventListener('submit', e => {
   e.preventDefault()
   withBusy(e.target.querySelector('button'), 'Saving…', saveReviewEdits)
-})
+})

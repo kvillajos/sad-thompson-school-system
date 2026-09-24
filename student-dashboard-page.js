@@ -8,10 +8,13 @@
       import { buildSemesterTable } from './semester-grades.js'
       import { buildTranscript } from './transcript.js'
       import { printElement } from './print.js'
+      import { mountAnnouncements } from './announcements.js'
+      import { mountNotificationBell } from './notifications.js'
       applyUiTheme()
       const user = await requireRole(4)
       if (!user) throw new Error('Unauthorized')
       mountProfile(user, 'Student', signOut)
+      mountNotificationBell(user)
       mountSidebar([
         { label: 'Dashboard', tab: 'dashboard', active: true, icon: '⌂' },
         { label: 'Grades', tab: 'grades', icon: '♧' },
@@ -118,13 +121,6 @@
         document.getElementById('student-transcript-print').innerHTML = html
       }
 
-      async function loadAnnouncements() {
-        const table = document.getElementById('announcements-table')
-        const { data, error } = await supabase.from('announcements').select('title,posted_at').order('posted_at', { ascending: false }).limit(8)
-        if (error) return table.innerHTML = `<tr><td colspan="2">${escape(error.message)}</td></tr>`
-        table.innerHTML = (data || []).map(a => `<tr><td>${escape(a.title)}</td><td>${formatDate(a.posted_at)}</td></tr>`).join('') || '<tr><td colspan="2">No announcements posted.</td></tr>'
-      }
-
       async function loadAttendance() {
         const table = document.getElementById('attendance-table')
         if (!user.student_id) return table.innerHTML = '<tr><td colspan="2">No student record linked.</td></tr>'
@@ -157,6 +153,6 @@
       document.getElementById('print-unofficial-transcript').onclick = () => printElement(document.getElementById('student-transcript-print'), 'printing-transcript')
 
       await loadStudent()
-      await Promise.all([loadSchedule(), loadGrades(), loadAnnouncements(), loadAttendance()])
+      await Promise.all([loadSchedule(), loadGrades(), mountAnnouncements(document.getElementById('announcements-host'), 'student'), loadAttendance()])
       hideLoadingScreen()
     

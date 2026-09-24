@@ -1,7 +1,8 @@
 import { installTableSort } from './table-sort.js';
+import { installTablePages } from './table-pages.js';
 import { describeError } from './errors.js';
 
-const sharedTheme = `
+const sharedTheme = /* css */ `
 :root {
   --ui-bg: #f3f6fb;
   --ui-surface: #f8faff;
@@ -657,6 +658,95 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 }
 .modalbox th { background:var(--ui-navy); color:#fff; }
 .login-panel .app-version { margin:14px 0 0; text-align:center; color:#93a7c4; font-size:11px; letter-spacing:.03em; }
+/* Searchable type filter (input + custom list; the native datalist popup can't be styled). */
+.combo { position:relative; width:260px; max-width:100%; }
+.combo input { box-sizing:border-box; width:100%; margin:0; padding:9px 34px 9px 12px; border:1px solid #d3dbe8; border-radius:10px; background:#fff; color:var(--ui-navy); font:inherit; font-size:14px; }
+.combo input:focus { outline:none; border-color:#2f6fed; box-shadow:0 0 0 3px rgba(47,111,237,.15); }
+.combo-toggle { position:absolute; right:4px; top:4px; bottom:4px; width:28px; border:0; background:none; color:#64748b; cursor:pointer; border-radius:8px; font-size:12px; }
+.combo-toggle:hover { background:#eef3fb; }
+.combo-list { position:absolute; z-index:30; left:0; right:0; top:calc(100% + 6px); margin:0; padding:6px; list-style:none; background:#fff; border:1px solid #dbe3ef; border-radius:12px; box-shadow:0 12px 28px rgba(7,27,58,.16); max-height:280px; overflow:auto; }
+.combo-list li { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; color:var(--ui-navy); font-size:14px; cursor:pointer; }
+.combo-list li:hover, .combo-list li.active { background:#eef3fb; }
+.combo-list li[aria-selected="true"] { font-weight:700; }
+.combo-list li small { min-width:22px; text-align:center; padding:1px 7px; border-radius:999px; background:#e3ebf8; color:#17345f; font-size:11px; font-weight:700; }
+.combo-list .combo-empty { color:#64748b; cursor:default; }
+.combo-list .combo-empty:hover { background:none; }
+.maintenance-banner { display:flex; flex-direction:column; gap:2px; margin:0 0 14px; padding:12px 16px; border-radius:12px; background:#fff7e6; border:1px solid #f3cf8a; border-left:5px solid #e0961a; color:#6b4a06; font-size:14px; }
+.maintenance-banner strong { color:#5a3c03; }
+.announcement-item { display:flex; justify-content:space-between; gap:16px; padding:10px 0; border-top:1px solid #edf1f6; }
+.announcement-item:first-of-type { border-top:0; }
+.announcement-item p { margin:3px 0 0; color:#475569; font-size:14px; }
+.announcement-item small { color:#64748b; white-space:nowrap; }
+.login-panel .maintenance-banner { margin:0 0 16px; font-size:13px; text-align:left; }
+.pw-wrap { position:relative; }
+.pw-wrap input { padding-right:44px !important; }
+.pw-toggle { position:absolute; right:6px; top:50%; transform:translateY(-50%); margin:0; padding:6px; width:32px; height:32px; display:grid; place-items:center; border:0; border-radius:8px; background:transparent; color:#64748b; cursor:pointer; box-shadow:none; }
+.pw-toggle:hover { background:#eef3fb; color:#17345f; }
+.account-hero { display:flex; align-items:center; gap:16px; padding:14px 16px; margin:0 0 16px; border:1px solid #e5ebf4; border-radius:14px; background:#f8faff; }
+.account-avatar { flex:none; width:64px; height:64px; border-radius:50%; display:grid; place-items:center; overflow:hidden; background:linear-gradient(160deg,#2f5fa8,#17345f); color:#fff; font-size:22px; font-weight:700; letter-spacing:.02em; }
+.account-avatar img { width:100%; height:100%; object-fit:cover; }
+.account-hero-name { margin:0; font-size:17px; font-weight:700; color:var(--ui-navy); }
+.account-hero-meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.account-hero .admin-view { margin-left:auto; }
+.account-edit-grid { display:grid !important; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; align-items:end; margin:0 0 4px; }
+.account-edit-grid label { font-size:12px; color:#64748b; font-weight:600; }
+.account-edit-grid input, .account-edit-grid select { width:100%; box-sizing:border-box; margin-top:4px; padding:7px 10px !important; font-size:13px; }
+.account-edit-grid .admin-actions { grid-column:1/-1; }
+.account-edit-grid .admin-actions button { padding:7px 16px; font-size:13px; }
+@media (max-width:700px) { .account-edit-grid { grid-template-columns:1fr; } }
+.floating-profile { display:flex; align-items:flex-start; gap:10px; }
+.has-notif-bell .admin-page-head, .has-notif-bell .toolbar { padding-right:300px; }
+.notif { position:relative; }
+.notif-toggle { position:relative; width:53px; height:53px; display:grid; place-items:center; padding:0; border:1px solid var(--ui-border); border-radius:16px; background:#fff; color:var(--ui-blue-dark); cursor:pointer; box-shadow:0 3px 12px rgba(7,27,58,.1); }
+.notif-toggle:hover { background:#f3f7fd; }
+.notif-count { position:absolute; top:7px; right:7px; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; display:grid; place-items:center; border-radius:9px; background:#c0392b; color:#fff; font-size:11px; font-weight:700; }
+.notif-panel { position:absolute; right:0; top:60px; width:340px; max-height:420px; overflow:auto; padding:8px; background:#fff; border:1px solid #dbe3ef; border-radius:14px; box-shadow:0 12px 28px rgba(7,27,58,.16); z-index:120; }
+.notif-item { display:flex; flex-direction:column; gap:2px; width:100%; margin:0; padding:10px 12px; border:0; border-radius:10px; background:none; text-align:left; cursor:pointer; color:var(--ui-text); font:inherit; }
+.notif-item:hover { background:#eef3fb; }
+.notif-item.unread { background:#f3f7fd; box-shadow:inset 3px 0 0 var(--ui-blue); }
+.notif-item span { font-size:13px; color:#475569; }
+.notif-item small { color:#94a3b8; font-size:11px; }
+.notif-empty { margin:0; padding:14px; text-align:center; color:#64748b; font-size:13px; }
+.account-edit-grid .wide { grid-column:1/-1; }
+.account-edit-grid textarea { width:100%; box-sizing:border-box; margin-top:4px; padding:7px 10px; font-size:13px; min-height:60px; resize:vertical; }
+.account-section-head { display:flex; align-items:center; justify-content:space-between; margin:20px 0 8px; }
+.account-section-head h4 { margin:0 !important; }
+@media (min-width:701px) { .layout > .app-sidebar { position:sticky; top:0; align-self:flex-start; flex:none; height:100vh; z-index:90; } .layout > .main { flex:1; min-width:0; } }
+.floating-profile .profile-toggle { cursor:grab; touch-action:none; }
+.floating-profile.dragging, .floating-profile.dragging .profile-toggle { cursor:grabbing; user-select:none; }
+.subtabs { display:flex; gap:4px; margin:0 0 -1px 14px; position:relative; z-index:1; overflow-x:auto; }
+.subtab { flex:none; padding:10px 18px; border:1px solid #e5ebf4; border-bottom:0; border-radius:12px 12px 0 0; background:#e9eef7; color:var(--ui-muted); font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+.subtab:hover { background:#f1f5fb; color:var(--ui-blue-dark); }
+.subtab.active { background:#fff; color:var(--ui-blue-dark); box-shadow:0 -3px 0 var(--ui-blue) inset; }
+.override-form { display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; align-items:start; }
+.override-form label { display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:var(--ui-blue-dark); }
+.override-form input, .override-form select, .override-form textarea { width:100%; box-sizing:border-box; margin:0; padding:10px 12px; border:1px solid #b9c8dc; border-radius:11px; background:#fff; color:var(--ui-text); font:inherit; font-size:14px; font-weight:400; }
+.override-form input:focus, .override-form select:focus, .override-form textarea:focus { outline:none; border-color:#2f6fed; box-shadow:0 0 0 3px rgba(47,111,237,.15); }
+.override-form textarea { min-height:70px; resize:vertical; }
+.override-form .wide, .override-form .actions { grid-column:1/-1; }
+.override-form .actions { display:flex; justify-content:flex-end; margin:0; }
+@media (max-width:700px) { .override-form { grid-template-columns:1fr; } }
+tbody tr[hidden] { display:none !important; }
+.table-pager { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:12px 4px 0; color:var(--ui-muted); font-size:13px; }
+.table-pager .pager-nav { display:inline-flex; align-items:center; gap:10px; }
+.pager-btn { border:1px solid #c9dbfb; border-radius:9px; padding:6px 12px; background:#eaf1ff; color:var(--ui-blue-dark); font:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+.pager-btn:hover:not(:disabled) { background:#dbe7fc; }
+.pager-btn:disabled { opacity:.45; cursor:not-allowed; }
+@media print { tbody tr[hidden] { display:table-row !important; } .table-pager { display:none !important; } }
+/* Role bar: a thin gradient strip across the very top tells the roles apart. Students have none. */
+body[data-role]::before { content:''; position:fixed; top:0; left:0; right:0; height:12px; z-index:200; pointer-events:none; background:var(--role-bar); }
+
+body[data-role="admin"] { --role-bar: linear-gradient(90deg, #091c3c 0%, #091c3c 18%, #3b184f 39%, #4c1c6c 60%); }
+body[data-role="registrar"] { --role-bar: linear-gradient(90deg, #091c3c 0%, #091c3c 18%, #2a1a2e 32%, #5a1a22 46%, #6a1818 60%); }
+body[data-role="faculty"] { --role-bar: linear-gradient(90deg, #091c3c 0%, #091c3c 18%, #143d33 39%, #1e5a3a 60%); }
+
+/* Joins the bar to the sidebar: square the sidebar's top-right corner and draw a navy
+   concave corner so the page area curves into the bar (desktop only; students unaffected). */
+@media (min-width:701px) {
+  body[data-role] .app-sidebar { border-top-right-radius:0; }
+  body[data-role]::after { content:''; position:fixed; top:12px; left:244px; width:28px; height:28px; z-index:200; pointer-events:none; background:radial-gradient(circle at 100% 100%, transparent 27.5px, #091c3c 28px); }
+}
+@media print { body[data-role]::before, body[data-role]::after { display:none; } }
 `;
 
 const SPAM_GUARD_MS = 600;
@@ -670,7 +760,7 @@ function installSpamGuard() {
     const target = event.target.closest('button, [type="submit"], .admin-view, .admin-remove, .sidebar-link');
     // Menu toggles open/close instantly and can't double-submit anything, so they don't
     // need the cooldown that guards real actions (saves, deletes) from a double-click.
-    if (!target || target.closest('.profile-toggle')) return;
+    if (!target || target.closest('.profile-toggle, .pw-toggle, .notif-toggle, .notif-item, .subtab, .pager-btn')) return;
     const now = Date.now();
     const last = Number(target.dataset.tcsmsLastClick || 0);
     if (now - last < SPAM_GUARD_MS) {
@@ -714,5 +804,6 @@ export function applyUiTheme() {
   }
   installSpamGuard();
   installTableSort();
+  installTablePages();
   installGlobalErrorHandler();
 }

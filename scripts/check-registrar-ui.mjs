@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 const root = resolve(import.meta.dirname, '..')
 const html = readFileSync(join(root, 'student-records.html'), 'utf8')
-const registrarModules = ['registrar.js', 'registrar-admissions.js', 'registrar-sectioning.js', 'registrar-academic.js', 'registrar-shifting.js']
+const registrarModules = ['registrar.js', 'registrar-admissions.js', 'registrar-sectioning.js', 'registrar-academic.js', 'registrar-shifting.js', 'registrar-requests.js']
 const js = registrarModules.map(name => readFileSync(join(root, name), 'utf8')).join('\n')
 const entryJs = readFileSync(join(root, 'registrar.js'), 'utf8')
 const sectioningJs = readFileSync(join(root, 'registrar-sectioning.js'), 'utf8')
@@ -35,7 +35,10 @@ try {
     nav.innerHTML = items.map(i => '<button data-tab="'+i.tab+'" class="'+(i.active?'active':'')+'">'+i.label+'</button>').join('');
     document.body.prepend(nav);
   }
+  const loadMyRequests = () => {};
+  const mountAnnouncements = () => {};
   ${landing}
+  $('new-enrollment').onclick = () => document.querySelector('[data-tab="admission"]').click();
   const visiblePanels = () => [...document.querySelectorAll('[data-panel]')].filter(p => getComputedStyle(p).display !== 'none').map(p => p.id);
   const landingPanels = visiblePanels();
   $('new-enrollment').click();

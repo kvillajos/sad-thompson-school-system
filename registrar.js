@@ -6,6 +6,8 @@ import { $, state } from './registrar-state.js'
 import { loadApplications } from './registrar-admissions.js'
 import { loadSections, loadEnrollments } from './registrar-sectioning.js'
 import { loadAcademic } from './registrar-academic.js'
+import { mountAnnouncements } from './announcements.js'
+import { loadMyRequests } from './registrar-requests.js'
 import { loadStudents, refreshShiftSections, renderPromotionExclusions } from './registrar-shifting.js'
 
 applyUiTheme()
@@ -25,8 +27,8 @@ mountSidebar([
   { label: 'Transcript', tab: 'transcript', icon: '▱' },
   { label: 'Batch Promotion', tab: 'promotion', icon: '↗' },
   { label: 'Transfer & Shifting', tab: 'shifting', icon: '⇄' },
-  { label: 'Feedback Log', tab: 'feedback', icon: '☷' }
-], 'Registry and<br>Student Records')
+  { label: 'Requests & Feedback', tab: 'requests', icon: '✉' }
+], 'Registry and<br>Student Records', 'registrar')
 
 const tabs = [...document.querySelectorAll('[data-tab]')]
 const panels = [...document.querySelectorAll('[data-panel]')]
@@ -36,7 +38,10 @@ tabs.forEach((tab) => tab.addEventListener('click', () => {
   tab.classList.add('active')
   $(tab.dataset.tab).classList.remove('hidden')
   if (tab.dataset.tab === 'sectioning') loadSections()
+  if (tab.dataset.tab === 'requests') loadMyRequests()
 }))
+
+mountAnnouncements($('announcements-host'), 'registrar')
 
 async function init(){
   const results = await Promise.allSettled([loadApplications(), loadSections(), loadStudents(), loadEnrollments()])
@@ -46,4 +51,4 @@ async function init(){
   await refreshShiftSections()
   hideLoadingScreen()
 }
-init()
+init()

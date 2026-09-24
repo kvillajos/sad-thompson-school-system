@@ -1,0 +1,65 @@
+TCSMS — session handoff (desktop app -> VS Code)
+Written: 2026-09-24
+
+REPOS (push branch + main to BOTH every time, no PRs, no Claude co-author line):
+- origin      = https://github.com/mjmlatip/sad-thompson-school-system.git
+- destination = https://github.com/kvillajos/sad-thompson-school-system.git
+Current branch: Refactor-Evertyhing
+
+STANDING RULES
+- Ask permission before running SQL on live Supabase (project "thompson-school-system",
+  id wewgmhtuvrkonqdawtqc), and always append the change to database/backupsqlmigration.sql
+  (the single consolidated SQL file, currently through v13).
+- When asked to put something on "a branch or main", push to both repos.
+
+WHAT'S DONE THIS SESSION (all committed=NO, not yet pushed)
+1. Login version label now shows branch + build date/time (Asia/Manila), no more commit hash.
+   File: vite.config.js
+2. Login side panel reverted to solid navy (gradient removed). File: ui-theme.js
+3. Admin dashboard: merged Admission + Profile-change tables into one "Pending Approvals"
+   table with a Type filter. Filter is now a custom searchable combobox (type-to-search or
+   pick from list, shows a pending count per type) — not a plain <select>.
+   Files: admin-dashboard.html, admin-dashboard-page.js, ui-theme.js (.combo* CSS)
+4. New approval-request workflow (v12 SQL, APPLIED to live Supabase already):
+   - Grade corrections (faculty request via "Request correction" button on locked grades)
+   - Withdrawal / transfer-out (registrar requests, admin approves)
+   - Batch promotion (registrar requests, admin approves)
+   - Account actions: reset/deactivate/activate/role-change (registrar requests)
+   - Capacity override: place a student in a full section (registrar requests OR admin
+     places directly from Manage Sections). Grade-level eligibility still enforced.
+   - Faculty schedule/load changes need NO approval — teacher just gets a dashboard notice
+     with an "I see" button (acknowledge_notification RPC).
+   Files: database/backupsqlmigration.sql (v12 block), admin-dashboard-page.js,
+   registrar-requests.js (new), override-form.js (new), registrar.js, registrar-shifting.js,
+   faculty/faculty-grades-page.js, faculty/faculty-dashboard-page.js/.html, admin-sections.html/js,
+   student-records.html
+5. Announcements overhaul (v13 SQL, written into backupsqlmigration.sql but NOT YET APPLIED
+   to Supabase — still needs to be run):
+   - Announcements now have kind (notice/maintenance) and audience (all/admin/registrar/
+     faculty/student), plus optional expires_at.
+   - Every dashboard (admin, registrar, faculty, student) shows announcements for its role.
+   - "Maintenance" announcements also show as a banner on the LOGIN screen (public, no
+     login needed) via an anon-readable RLS policy that exposes only title/message/kind/
+     audience/dates, never created_by.
+   - Admin dashboard's School-wide Attendance card was REMOVED per request.
+   Files: database/backupsqlmigration.sql (v13 block), announcements.js (new), main.js,
+   index.html, admin-dashboard.html/js, student-dashboard.html/-page.js, faculty/*, registrar.js
+
+NEXT STEPS / PENDING
+- Apply v13 SQL block (bottom of database/backupsqlmigration.sql) to Supabase — NOT done yet.
+  Ask permission first, then run it, then `notify pgrst, 'reload schema';`.
+- Nothing from today is committed or pushed. Run all `npm run check:*` (22 scripts) and
+  `npx vite build` before committing — both were passing as of last check.
+- Two check scripts had to be repaired for the new files/tables this session:
+  scripts/check-admin-lock.mjs, scripts/check-registrar-ui.mjs, scripts/check-registrar-flow.mjs
+  (added registrar-requests.js / override-form.js / announcements.js to their fixture copies).
+- User asked about schedule-conflict overrides (separate from capacity overrides) — not built,
+  was offered but not confirmed.
+- Untracked .claude/ directory — leave alone unless asked.
+
+OPEN QUESTION FROM USER (unresolved)
+- Server architecture: user only using Supabase temporarily, plans real backend later.
+  Answered: one DB is enough for a school this size; business logic lives in Postgres
+  functions/RLS; migrating later mainly means replacing Supabase Auth + the
+  provision-account edge function, and reworking supabase.from()/.rpc() calls in the
+  frontend. No action taken, just discussion.

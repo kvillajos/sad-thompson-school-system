@@ -4,7 +4,9 @@
     import { escapeHtml as escape, gradeLevelOptions } from './html.js'
     import { describeError } from './errors.js'
     import { mountAdminShell } from './admin-page.js'
+    import { mountOverrideForm } from './override-form.js'
     await mountAdminShell('sections')
+    mountOverrideForm(document.getElementById('override-form'), { rpc: 'admin_place_override', button: 'Place with Override', done: 'Student placed with override.' })
     const modal = document.getElementById('section-modal')
     const form = document.getElementById('section-form')
     const modalTitle = document.getElementById('section-modal-title')
