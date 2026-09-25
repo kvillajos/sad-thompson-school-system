@@ -1,6 +1,6 @@
 // Runnable check for the schedule day-tab helpers: npm run check:daytabs
 import assert from 'node:assert/strict'
-import { todayDay, visibleDays, initialDay, withGaps, gapsFrom, overlapsLunch } from '../day-tabs.js'
+import { todayDay, visibleDays, initialDay, withGaps, gapsFrom, overlapsLunch, time12 } from '../day-tabs.js'
 
 assert.equal(todayDay(new Date(2026, 8, 21)), 1, 'Monday -> 1')
 assert.equal(todayDay(new Date(2026, 8, 27)), 7, 'Sunday -> 7, not 0')
@@ -12,7 +12,13 @@ assert.equal(initialDay([1, 2, 3, 4, 5], 7), 1, 'weekend with no classes falls b
 const classes = [{ start_time: '07:30:00', end_time: '09:00:00' }, { start_time: '12:00:00', end_time: '13:00:00' }]
 const gaps = [{ label: 'Lunch break', start: '11:00', end: '12:00' }, { label: 'Break', start: '09:45', end: '10:00' }]
 assert.deepEqual(withGaps(classes, gaps).map(item => item.type + '@' + item.start), ['class@07:30', 'gap@09:45', 'gap@11:00', 'class@12:00'], 'gaps sit between classes in time order')
-assert.deepEqual(withGaps([{ start_time: '09:30:00', end_time: '11:00:00' }], gaps).map(item => item.type), ['class', 'gap'], 'a break inside a class is not drawn, lunch after it still is')
+assert.deepEqual(withGaps([{ start_time: '09:30:00', end_time: '11:00:00' }, { start_time: '12:00:00', end_time: '13:00:00' }], gaps).map(item => item.type), ['class', 'gap', 'class'], 'a break inside a class is not drawn, lunch between classes still is')
+assert.deepEqual(withGaps([{ start_time: '10:00:00', end_time: '10:45:00' }], gaps).map(item => item.type), ['class'], 'no break before the first class, no lunch after the last')
+assert.deepEqual(withGaps([{ start_time: '07:30:00', end_time: '08:15:00' }], gaps).map(item => item.type), ['class'], 'nothing after the last class')
+assert.equal(time12('07:30:00'), '7:30 AM')
+assert.equal(time12('12:00'), '12:00 PM')
+assert.equal(time12('00:05'), '12:05 AM')
+assert.equal(time12('13:45:00'), '1:45 PM')
 const settings = { lunch_start: '11:00:00', lunch_end: '12:00:00', break_start: '09:45:00', break_end: '10:00:00' }
 assert.deepEqual(gapsFrom(settings), gaps)
 assert.deepEqual(gapsFrom({ ...settings, break_start: null, break_end: null }), [gaps[0]], 'break is optional')

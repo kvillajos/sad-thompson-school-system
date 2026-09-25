@@ -16,7 +16,7 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
       let profileRequests = []
       let approvalErrors = []
       let approvalRequests = []
-      const requestLabels = { admission: 'Admission', profile: 'Profile change', grade_correction: 'Grade correction', withdrawal: 'Withdrawal / transfer', promotion: 'Batch promotion', account_action: 'Account action', override: 'Capacity override' }
+      const requestLabels = { admission: 'Admission', profile: 'Profile change', grade_correction: 'Grade correction', withdrawal: 'Withdrawal / transfer', promotion: 'Batch promotion', account_action: 'Account action', override: 'Capacity override', student_profile: 'Student profile edit' }
       const approvalsTable = document.getElementById('approvals-table')
       const approvalFilter = document.getElementById('approval-filter')
 

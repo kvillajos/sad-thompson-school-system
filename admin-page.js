@@ -9,7 +9,6 @@ const NAV = [
   ['Manage Sections', '/admin-sections.html', '▤', 'sections'],
   ['Manage Subjects', '/admin-subjects.html', '♧', 'subjects'],
   ['Manage Schedules', '/admin-schedules.html', '▱', 'schedules'],
-  ['Curriculum Review', '/admin-curriculum.html', '☷', 'curriculum'],
   ['Audit Trail', '/admin-audit.html', '▤', 'audit']
 ]
 

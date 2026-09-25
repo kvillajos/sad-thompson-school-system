@@ -171,12 +171,12 @@ function openProfileModal(user, roleLabel, profile) {
   modal.innerHTML = `<div class="admin-modal-box profile-modal-box">
     <div class="admin-modal-head"><h3>Edit Profile</h3><button type="button" id="tcsms-profile-close">x</button></div>
     <form id="tcsms-profile-form" class="profile-form" novalidate>
-      <div><img id="tcsms-profile-preview" class="profile-picture-preview" alt="Current profile picture"><div class="profile-identity"><p class="profile-readonly"><b>Username:</b> ${String(user?.username || '-')}</p><p class="profile-readonly"><b>Role:</b> ${safeRole}</p></div></div>
-      <label class="admin-full">First Name<input id="tcsms-profile-first-name" maxlength="80" required></label>
+      <div><div class="pfp-edit-wrap"><img id="tcsms-profile-preview" class="profile-picture-preview" alt="Current profile picture"><button type="button" class="pfp-edit-btn" id="tcsms-profile-edit-pic" aria-label="Change profile picture" aria-haspopup="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><div class="pfp-menu hidden" id="tcsms-profile-menu"><button type="button" id="tcsms-profile-upload">Upload image</button><button type="button" id="tcsms-profile-camera">Use camera</button><button type="button" id="tcsms-profile-remove" class="danger">Remove picture</button></div></div><div class="profile-identity"><p class="profile-readonly"><b>Username:</b> ${String(user?.username || '-')}</p><p class="profile-readonly"><b>Role:</b> ${safeRole}</p></div></div>
+      <label class="admin-full">First Name<input id="tcsms-profile-first-name" maxlength="80"></label>
       <label class="admin-full">Middle Name<input id="tcsms-profile-middle-name" maxlength="80"></label>
-      <label class="admin-full">Last Name<input id="tcsms-profile-last-name" maxlength="80" required></label>
-      <label class="admin-full">Email<input id="tcsms-profile-email" type="email" data-current="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))}" placeholder="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))}" required></label>
-      <div class="admin-full"><label>Profile Picture</label><div class="profile-picture-actions"><input id="tcsms-profile-picture" type="file" accept="image/png,image/jpeg,image/webp" hidden><button type="button" class="admin-view" id="tcsms-profile-upload">Upload Image</button><button type="button" class="admin-view" id="tcsms-profile-camera">Use Camera</button><button type="button" class="admin-cancel" id="tcsms-profile-remove">Remove Existing</button></div><small>Images are cropped and saved as 50x50 pixels.</small></div>
+      <label class="admin-full">Last Name<input id="tcsms-profile-last-name" maxlength="80"></label>
+      <label class="admin-full">Email<input id="tcsms-profile-email" type="email" data-current="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))}" placeholder="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))}"></label>
+      <input id="tcsms-profile-picture" type="file" accept="image/png,image/jpeg,image/webp" hidden>
       <div class="admin-actions"><button type="button" id="tcsms-profile-cancel" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Confirm Changes</button></div>
     </form>
   </div>`;
@@ -206,10 +206,11 @@ function openProfileModal(user, roleLabel, profile) {
     [['#tcsms-profile-first-name', data.first_name], ['#tcsms-profile-middle-name', data.middle_name], ['#tcsms-profile-last-name', data.last_name]].forEach(([selector, value]) => {
       const input = modal.querySelector(selector);
       input.dataset.current = value || '';
-      input.placeholder = value || '';
+      input.value = value || '';
       input.classList.toggle('has-value', Boolean(value));
     });
     const email = modal.querySelector('#tcsms-profile-email');
+    email.value = email.dataset.current;
     email.classList.add('has-value');
     setProfilePicture(data.profile_picture_url || pictureResult.data?.profile_picture_url);
   };
@@ -231,7 +232,9 @@ function openProfileModal(user, roleLabel, profile) {
     const lastName = valueFor('#tcsms-profile-last-name');
     const email = valueFor('#tcsms-profile-email');
     if (!firstName || !lastName || !email) return window.alert('Enter your name and email.');
-    const result = await confirmProfileChange(user.email, () => supabase.rpc('submit_profile_change', { p_first_name: firstName, p_middle_name: middleName || null, p_last_name: lastName, p_email: email }));
+    const changed = ['first-name', 'middle-name', 'last-name', 'email'].some(id => { const input = modal.querySelector(`#tcsms-profile-${id}`); return input.value.trim() !== (input.dataset.current || ''); });
+    if (!changed && !modal.profilePictureBlob) return close();
+    const result = await confirmProfileChange(user.email, async () => changed ? supabase.rpc('submit_profile_change', { p_first_name: firstName, p_middle_name: middleName || null, p_last_name: lastName, p_email: email }) : {});
     if (!result) return;
     if (modal.profilePictureBlob) {
       const picture = modal.profilePictureBlob;
@@ -244,12 +247,13 @@ function openProfileModal(user, roleLabel, profile) {
       setProfilePicture(publicUrl);
     }
     close();
-    window.alert('Profile changes submitted for administrator approval.');
+    window.alert(changed ? 'Profile changes submitted for administrator approval.' : 'Profile picture updated.');
   });
+  const previewPicture = blob => { modal.profilePictureBlob = blob; const preview = modal.querySelector('#tcsms-profile-preview'); preview.classList.remove('profile-picture-placeholder'); preview.alt = 'Selected profile picture'; preview.src = URL.createObjectURL(blob); };
   const cropImage = (source, name = 'profile.png') => new Promise(resolve => {
     const crop = document.createElement('div');
     crop.className = 'admin-modal';
-    crop.innerHTML = `<div class="admin-modal-box profile-crop-box"><div class="admin-modal-head"><h3>Crop Profile Picture</h3><button type="button" data-crop-close>x</button></div><canvas width="240" height="240" id="tcsms-crop-canvas"></canvas><label>Zoom<input type="range" id="tcsms-crop-zoom" min="1" max="3" step="0.01" value="1"></label><label>Horizontal Position<input type="range" id="tcsms-crop-x" min="0" max="100" value="50"></label><label>Vertical Position<input type="range" id="tcsms-crop-y" min="0" max="100" value="50"></label><div class="admin-actions"><button type="button" class="admin-cancel" data-crop-cancel>Cancel</button><button type="button" class="admin-primary" data-crop-save>Use Cropped Image</button></div></div>`;
+    crop.innerHTML = `<div class="admin-modal-box profile-crop-box"><div class="admin-modal-head"><h3>Crop Profile Picture</h3><button type="button" data-crop-close>x</button></div><div class="crop-stage"><canvas width="240" height="240" id="tcsms-crop-canvas"></canvas><div class="crop-circle"></div></div><small class="crop-hint">Keep your face inside the circle.</small><label>Zoom<input type="range" id="tcsms-crop-zoom" min="1" max="3" step="0.01" value="1"></label><label>Horizontal Position<input type="range" id="tcsms-crop-x" min="0" max="100" value="50"></label><label>Vertical Position<input type="range" id="tcsms-crop-y" min="0" max="100" value="50"></label><div class="admin-actions"><button type="button" class="admin-cancel" data-crop-cancel>Cancel</button><button type="button" class="admin-primary" data-crop-save>Use Cropped Image</button></div></div>`;
     document.body.appendChild(crop);
     const canvas = crop.querySelector('canvas'); const context = canvas.getContext('2d');
     const draw = () => { const zoom = Number(crop.querySelector('#tcsms-crop-zoom').value); const side = Math.min(source.width, source.height) / zoom; const left = (source.width - side) * Number(crop.querySelector('#tcsms-crop-x').value) / 100; const top = (source.height - side) * Number(crop.querySelector('#tcsms-crop-y').value) / 100; context.clearRect(0, 0, 240, 240); context.drawImage(source, left, top, side, side, 0, 0, 240, 240); };
@@ -258,10 +262,13 @@ function openProfileModal(user, roleLabel, profile) {
     crop.querySelector('[data-crop-close]').onclick = crop.querySelector('[data-crop-cancel]').onclick = close;
     crop.querySelector('[data-crop-save]').onclick = () => canvas.toBlob(blob => { crop.remove(); resolve(new File([blob], name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' })); }, 'image/png');
   });
-  const chooseImage = file => { if (!file || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return window.alert('Use PNG, JPG, or WEBP for the profile picture.'); const image = new Image(); image.onload = async () => { modal.profilePictureBlob = await cropImage(image, file.name); }; image.src = URL.createObjectURL(file); };
+  const chooseImage = file => { if (!file || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return window.alert('Use PNG, JPG, or WEBP for the profile picture.'); const image = new Image(); image.onload = async () => { const blob = await cropImage(image, file.name); if (blob) previewPicture(blob); }; image.src = URL.createObjectURL(file); };
+  const menu = modal.querySelector('#tcsms-profile-menu');
+  modal.querySelector('#tcsms-profile-edit-pic').onclick = event => { event.stopPropagation(); menu.classList.toggle('hidden'); };
+  modal.addEventListener('click', () => menu.classList.add('hidden'));
   modal.querySelector('#tcsms-profile-upload').onclick = () => modal.querySelector('#tcsms-profile-picture').click();
   modal.querySelector('#tcsms-profile-picture').onchange = event => chooseImage(event.target.files?.[0]);
-  modal.querySelector('#tcsms-profile-camera').onclick = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ video: true }); const camera = document.createElement('div'); camera.className = 'admin-modal'; camera.innerHTML = `<div class="admin-modal-box camera-box"><div class="admin-modal-head"><h3>Take Profile Picture</h3><button type="button" data-camera-close>x</button></div><video autoplay playsinline style="width:100%"></video><div class="admin-actions"><button type="button" class="admin-cancel" data-camera-cancel>Cancel</button><button type="button" class="admin-primary" data-camera-capture>Capture</button></div></div>`; document.body.appendChild(camera); const video = camera.querySelector('video'); video.srcObject = stream; const stop = () => { stream.getTracks().forEach(track => track.stop()); camera.remove(); }; camera.querySelector('[data-camera-close]').onclick = camera.querySelector('[data-camera-cancel]').onclick = stop; camera.querySelector('[data-camera-capture]').onclick = async () => { const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.getContext('2d').drawImage(video, 0, 0); const image = new Image(); image.onload = async () => { stop(); modal.profilePictureBlob = await cropImage(image); }; image.src = canvas.toDataURL('image/png'); }; } catch { window.alert('Camera access was not available.'); } };
+  modal.querySelector('#tcsms-profile-camera').onclick = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ video: true }); const camera = document.createElement('div'); camera.className = 'admin-modal'; camera.innerHTML = `<div class="admin-modal-box camera-box"><div class="admin-modal-head"><h3>Take Profile Picture</h3><button type="button" data-camera-close>x</button></div><video autoplay playsinline style="width:100%"></video><div class="admin-actions"><button type="button" class="admin-cancel" data-camera-cancel>Cancel</button><button type="button" class="admin-primary" data-camera-capture>Capture</button></div></div>`; document.body.appendChild(camera); const video = camera.querySelector('video'); video.srcObject = stream; const stop = () => { stream.getTracks().forEach(track => track.stop()); camera.remove(); }; camera.querySelector('[data-camera-close]').onclick = camera.querySelector('[data-camera-cancel]').onclick = stop; camera.querySelector('[data-camera-capture]').onclick = async () => { const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.getContext('2d').drawImage(video, 0, 0); const image = new Image(); image.onload = async () => { stop(); const blob = await cropImage(image); if (blob) previewPicture(blob); }; image.src = canvas.toDataURL('image/png'); }; } catch { window.alert('Camera access was not available.'); } };
   modal.querySelector('#tcsms-profile-remove').onclick = async () => { const result = await confirmProfileChange(user.email, () => supabase.rpc('remove_own_profile_picture')); if (result) { setProfilePicture(null); window.alert('Profile picture removed.'); } };
 }
 
@@ -336,9 +343,9 @@ function openPasswordModal() {
   modal.innerHTML = `<div class="admin-modal-box" style="width:min(100%,420px)">
     <div class="admin-modal-head"><h3>Change Password</h3><button type="button" id="tcsms-password-close">x</button></div>
     <form id="tcsms-password-form">
-      <label class="admin-full">New Password<input type="password" id="tcsms-new-password" minlength="8" autocomplete="new-password" required></label>
+      <label class="admin-full">New Password<input type="password" id="tcsms-new-password" minlength="8" autocomplete="new-password"></label>
       <div class="pw-meter" aria-live="polite"><div class="pw-bar"><span id="tcsms-pw-fill"></span></div><small id="tcsms-pw-label">Enter a password</small><ul id="tcsms-pw-rules">${passwordRules.map(([label]) => `<li>${label}</li>`).join('')}</ul></div>
-      <label class="admin-full">Confirm Password<input type="password" id="tcsms-confirm-password" minlength="8" autocomplete="new-password" required></label>
+      <label class="admin-full">Confirm Password<input type="password" id="tcsms-confirm-password" minlength="8" autocomplete="new-password"></label>
       <div class="admin-actions"><button type="button" id="tcsms-password-cancel" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Update Password</button></div>
     </form>
   </div>`;

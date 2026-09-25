@@ -1,15 +1,15 @@
       import { supabase, requireRole, signOut } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
-      import { mountDayTabs, gapsFrom } from './day-tabs.js'
+      import { mountDayTabs, gapsFrom, timeRange12 } from './day-tabs.js'
       import { loadSchoolYearSettings } from './school-settings.js'
       import { dayNames, escapeHtml as escape, formatDate, gradeLabel } from './html.js'
       import { applyUiTheme } from './ui-theme.js'
-      import { mountProfile, mountSidebar } from './shell.js'
+      import { mountProfile, mountSidebar, confirmPassword } from './shell.js'
       import { attendanceSummaryLine } from './attendance.js'
       import { generalAverage, letterGrade } from './grades.js'
       import { buildSemesterTable } from './semester-grades.js'
       import { buildTranscript } from './transcript.js'
-      import { printElement } from './print.js'
+      import { previewPdf, pdfName } from './pdf-preview.js'
       import { mountAnnouncements } from './announcements.js'
       import { mountNotificationBell } from './notifications.js'
       applyUiTheme()
@@ -95,6 +95,31 @@
         showProfilePicture(student?.profile_picture_url)
       }
 
+      // Request an edit: every box starts with the current value; only boxes that were changed are sent, then the password is confirmed and an administrator approves.
+      const editModal = document.getElementById('edit-request-modal')
+      const editForm = document.getElementById('edit-request-form')
+      const closeEditRequest = () => editModal.classList.add('hidden')
+      document.getElementById('open-edit-request').onclick = () => {
+        for (const input of editForm.querySelectorAll('[name]')) {
+          if (input.name === 'reason') { input.value = ''; continue }
+          input.value = student?.[input.name] ?? ''
+          input.dataset.current = input.value
+        }
+        editModal.classList.remove('hidden')
+      }
+      document.getElementById('edit-request-close').onclick = document.getElementById('edit-request-cancel').onclick = closeEditRequest
+      editForm.onsubmit = async event => {
+        event.preventDefault()
+        const changes = {}
+        for (const input of editForm.querySelectorAll('[name]:not([name="reason"])')) if (input.value.trim() !== input.dataset.current) changes[input.name] = input.value.trim()
+        if (!Object.keys(changes).length) return window.alert('You have not changed anything.')
+        if (!await confirmPassword(user.email, 'Enter your password to send this request.')) return
+        const { error } = await supabase.rpc('request_student_profile', { p_changes: changes, p_reason: editForm.elements.reason.value })
+        if (error) return window.alert(error.message)
+        closeEditRequest()
+        window.alert('Request sent. An administrator will review it, and you will get a notification.')
+      }
+
       async function loadSchedule() {
         const host = document.getElementById('schedule-days')
         document.getElementById('schedule-section').textContent = sectionId ? `Section: ${sectionName}` : 'No section yet'
@@ -106,7 +131,7 @@
         mountDayTabs(host, data || [], {
           gaps: gapsFrom(settings),
           headers: ['Subject', 'Faculty', 'Room', 'Time'],
-          cells: item => [escape(item.subjects?.subject_name || ''), escape(item.faculty_name || '-'), escape(item.room || '-'), `${escape(item.start_time?.slice(0,5))} - ${escape(item.end_time?.slice(0,5))}`],
+          cells: item => [escape(item.subjects?.subject_name || ''), escape(item.faculty_name || '-'), escape(item.room || '-'), timeRange12(item.start_time, item.end_time)],
           emptyText: 'No classes'
         })
       }
@@ -213,7 +238,7 @@
       document.getElementById('grade-year-filter').onchange = renderGrades
       document.getElementById('grade-semester-filter').onchange = renderGrades
       document.getElementById('transcript-year-filter').onchange = renderTranscript
-      document.getElementById('print-unofficial-transcript').onclick = () => printElement(document.getElementById('student-transcript-print'), 'printing-transcript')
+      document.getElementById('print-unofficial-transcript').onclick = () => previewPdf(document.getElementById('student-transcript-print'), { title: 'Unofficial Transcript', filename: pdfName('Unofficial Transcript', student), printClass: 'printing-transcript' })
 
       await loadStudent()
       await Promise.all([loadSchedule(), loadGrades(), mountAnnouncements(document.getElementById('announcements-host'), 'student'), loadAttendance()])

@@ -33,7 +33,7 @@
         <div class="admin-page-head"><div><h2>Unofficial Transcript</h2></div></div>
         <label>School Year <select id="transcript-year-filter"><option value="">All school years</option></select></label>
         <div id="transcript-preview" class="admin-table-wrap" style="margin-top:16px"></div>
-        <button class="admin-primary" id="print-unofficial-transcript" type="button">Print / Save as PDF</button>
+        <button class="admin-primary" id="print-unofficial-transcript" type="button">View PDF</button>
       </section>
 
       <section data-panel="schedule" class="hidden">
@@ -65,6 +65,7 @@
             </dl>
             <p class="admin-note" style="margin-bottom:0">To change your password, use the profile menu in the top-right corner.</p>
           </section>
+          <div class="profile-side">
           <section class="admin-table-wrap"><div class="admin-section-title"><h3>Profile Picture</h3></div>
             <div class="pfp-card">
               <div id="profile-picture-preview" class="student-card-photo pfp-big" aria-label="Profile picture"></div>
@@ -77,10 +78,32 @@
               <small class="admin-note" id="picture-hint">PNG, JPG or WEBP, up to 3 MB.</small>
             </div>
           </section>
+          <section class="admin-table-wrap edit-request-card"><div class="admin-section-title"><h3>Request an Edit</h3></div>
+            <p class="admin-note">Need to correct your details? Send a request. An administrator reviews it before anything changes.</p>
+            <button class="admin-primary" type="button" id="open-edit-request">Request edit</button>
+          </section>
+          </div>
         </div>
         <section class="admin-table-wrap" style="margin-top:16px"><div class="admin-section-title"><h3>Attendance Record</h3></div><p id="attendance-summary" class="admin-note"></p><table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody id="attendance-table"><tr><td colspan="2">Loading attendance...</td></tr></tbody></table></section>
       </section>
     </main>
+    <div id="edit-request-modal" class="admin-modal hidden"><div class="admin-modal-box profile-modal-box edit-request-box"><div class="admin-modal-head"><h3>Request Profile Edit</h3><button type="button" id="edit-request-close" aria-label="Close">x</button></div>
+      <form id="edit-request-form" class="profile-form" novalidate>
+        <p class="admin-note admin-full">Change only what you need. Fields you leave alone stay as they are.</p>
+        <label>First Name<input name="first_name" maxlength="80"></label>
+        <label>Middle Name<input name="middle_name" maxlength="80"></label>
+        <label>Last Name<input name="last_name" maxlength="80"></label>
+        <label>Date of Birth<input name="date_of_birth" type="date"></label>
+        <label>Contact Number<input name="contact_number" maxlength="40"></label>
+        <label>Guardian<input name="guardian_name" maxlength="120"></label>
+        <label>Relationship<input name="guardian_relationship" maxlength="60"></label>
+        <label>Guardian Phone<input name="guardian_phone" maxlength="40"></label>
+        <label class="admin-full">Guardian Email<input name="guardian_email" type="email" maxlength="120"></label>
+        <label class="admin-full">Address<input name="address" maxlength="200"></label>
+        <label class="admin-full">Medical Notes<textarea name="medical_notes" rows="3" maxlength="1000"></textarea></label>
+        <label class="admin-full">Reason (optional)<input name="reason" maxlength="200" placeholder="e.g. We moved to a new address"></label>
+        <div class="admin-actions admin-full"><button type="button" class="admin-cancel" id="edit-request-cancel">Cancel</button><button class="admin-primary" type="submit">Submit request</button></div>
+      </form></div></div>
     <section id="student-transcript-print" class="transcript-print-card" aria-hidden="true"></section>
     <script type="module" src="/student-dashboard-page.js"></script>
   </body>

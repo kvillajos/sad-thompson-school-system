@@ -87,6 +87,7 @@ export function installTableSort(doc = document) {
     const header = event.target.closest?.('th')
     if (!header || !header.closest('table')) return
     const table = header.closest('table')
+    if (table.hasAttribute?.('data-no-sort')) return
     if (!table.tHead) return
     prepareHeaders(table)
     sortByColumn(table, columnOf(header))
@@ -102,7 +103,7 @@ export function installTableSort(doc = document) {
 
   const refresh = () => {
     doc.querySelectorAll('table').forEach(table => {
-      if (!table.tHead || !table.tBodies[0]) return
+      if (!table.tHead || !table.tBodies[0] || table.hasAttribute?.('data-no-sort')) return
       prepareHeaders(table)
       const state = sortState.get(table)
       if (state) sortTable(table, state.column, state.direction)

@@ -1,6 +1,6 @@
 import { supabase } from '../auth-client.js'
 import { mountAnnouncements } from '../announcements.js'
-import { mountDayTabs, gapsFrom } from '../day-tabs.js'
+import { mountDayTabs, gapsFrom, timeRange12 } from '../day-tabs.js'
 import { loadSchoolYearSettings } from '../school-settings.js'
 import { loadFacultyContext, escapeHtml, dayNames } from './faculty-common.js'
 
@@ -15,7 +15,7 @@ if (context) {
   else mountDayTabs($('schedule-days'), context.schedules, {
     gaps: gapsFrom(await loadSchoolYearSettings(context.schoolYear)),
     headers: ['Subject', 'Section', 'Room', 'Time'],
-    cells: item => [escapeHtml(item.subjects?.subject_name), escapeHtml(item.sections?.section_name), escapeHtml(item.room || '-'), escapeHtml(`${item.start_time?.slice(0, 5)} - ${item.end_time?.slice(0, 5)}`)],
+    cells: item => [escapeHtml(item.subjects?.subject_name), escapeHtml(item.sections?.section_name), escapeHtml(item.room || '-'), timeRange12(item.start_time, item.end_time)],
     emptyText: 'No classes'
   })
   $('student-table').innerHTML = context.enrollmentError ? `<tr><td colspan="4">${escapeHtml(context.enrollmentError.message)}</td></tr>` : context.enrollments.map(item => `<tr><td>${escapeHtml(item.students?.lrn_number || item.student_id)}</td><td>${escapeHtml(`${item.students?.first_name || ''} ${item.students?.last_name || ''}`)}</td><td>${escapeHtml(item.students?.grade_level)}</td><td>Active</td></tr>`).join('') || '<tr><td colspan="4">No students assigned.</td></tr>'

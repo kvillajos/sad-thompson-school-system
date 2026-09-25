@@ -27,7 +27,7 @@
 - Admin dashboard, section management, subject CRUD, schedules, filtering, and capacity validation
 - Schedule conflict detection for sections, faculty, and rooms
 - Registrar admissions, enrollment, section placement, academic history, transcripts, promotion, shifting, and feedback
-- Admin faculty management, account review, and curriculum review checklist
+- Admin faculty management and account review
 - Faculty dashboard with assigned schedules and student rosters
 - Student, faculty, registrar, subject, and profile seed data
 - Role-aware RLS policies replacing broad authenticated access

@@ -24,7 +24,6 @@ mountSidebar([
   { label: 'Applications', tab: 'applications', icon: '♙' },
   { label: 'Section Students', tab: 'sectioning', icon: '▤' },
   { label: 'Academic History', tab: 'academic', icon: '♧' },
-  { label: 'Transcript', tab: 'transcript', icon: '▱' },
   { label: 'Batch Promotion', tab: 'promotion', icon: '↗' },
   { label: 'Transfer & Shifting', tab: 'shifting', icon: '⇄' },
   { label: 'Requests & Feedback', tab: 'requests', icon: '✉' }

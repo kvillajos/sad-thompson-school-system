@@ -25,8 +25,6 @@ export async function loadStudents(){
   state.studentSections=new Map((enrollments||[]).map(row=>[String(row.student_id),row.sections?.section_name||'No Section']))
   const shiftSections = [...new Set([...state.studentSections.values()].filter(Boolean))].sort()
   $('shift-student-filter').innerHTML = '<option value="">All sections</option>' + shiftSections.map(section => `<option>${escapeHtml(section)}</option>`).join('')
-  const html=state.students.map(s=>`<option value="${s.student_id}">${escapeHtml(s.lrn_number||s.student_id)} — ${escapeHtml(s.first_name||'')} ${escapeHtml(s.last_name||'')}</option>`).join('')
-  $('transcript-student').innerHTML=html
   renderStudentDirectory()
   renderShiftStudents()
   renderAcademicStudents()

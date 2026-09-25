@@ -2155,3 +2155,292 @@ begin
 end $$;
 notify pgrst, 'reload schema';
 -- END migration-v21-move-classes-out-of-lunch.sql
+
+
+-- ============================================================
+-- BEGIN migration-v22-student-profile-edit-requests.sql
+-- Students request edits to their own profile (name, birth date, address, contact, guardian, medical notes).
+-- Nothing changes until an administrator approves it in the existing approvals queue (approval_requests).
+-- ============================================================
+alter table approval_requests drop constraint if exists approval_requests_request_type_check;
+alter table approval_requests add constraint approval_requests_request_type_check
+  check (request_type in ('grade_correction','withdrawal','promotion','account_action','override','student_profile'));
+
+create or replace function request_student_profile(p_changes jsonb, p_reason text default null)
+returns jsonb language plpgsql security definer set search_path to 'public' as $$
+declare
+  a record; sid int; s students%rowtype; k text; cur text; nv text; changed jsonb := '{}'::jsonb; parts text[] := '{}'; rid int; lim int;
+  labels jsonb := '{"first_name":"First name","middle_name":"Middle name","last_name":"Last name","date_of_birth":"Date of birth","address":"Address","contact_number":"Contact number","guardian_name":"Guardian","guardian_relationship":"Relationship","guardian_phone":"Guardian phone","guardian_email":"Guardian email","medical_notes":"Medical notes"}';
+begin
+  select * into a from approval_actor(4);
+  select student_id into sid from users where user_id = a.uid;
+  select * into s from students where student_id = sid;
+  if not found then raise exception 'No student record is linked to this account'; end if;
+  for k in select jsonb_object_keys(p_changes) loop
+    if not labels ? k then raise exception 'You cannot request a change to %', k; end if;
+    nv := nullif(trim(p_changes->>k), '');
+    lim := case when k = 'medical_notes' then 1000 else 200 end;
+    if length(coalesce(nv, '')) > lim then raise exception '% is too long', labels->>k; end if;
+    if k in ('first_name','last_name') and nv is null then raise exception '% cannot be empty', labels->>k; end if;
+    if k = 'date_of_birth' then
+      if nv is null then raise exception 'Date of birth cannot be empty'; end if;
+      if nv::date > current_date then raise exception 'Date of birth cannot be in the future'; end if;
+    end if;
+    if k = 'guardian_email' and nv is not null and nv !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception 'Guardian email is not valid'; end if;
+    execute format('select %I::text from students where student_id = $1', k) into cur using sid;
+    if nv is distinct from nullif(cur, '') then
+      changed := changed || jsonb_build_object(k, nv);
+      parts := parts || format('%s: %s -> %s', labels->>k, coalesce(cur, '(blank)'), coalesce(nv, '(blank)'));
+    end if;
+  end loop;
+  if changed = '{}'::jsonb then raise exception 'Nothing was changed'; end if;
+  if exists (select 1 from approval_requests where status = 'pending' and request_type = 'student_profile' and (payload->>'student_id')::int = sid) then
+    raise exception 'You already have a profile edit waiting for approval';
+  end if;
+  insert into approval_requests(request_type, payload, summary, reason, requested_by, requester_name)
+  values ('student_profile', jsonb_build_object('student_id', sid, 'changes', changed),
+    format('%s %s - %s', s.first_name, s.last_name, array_to_string(parts, '; ')),
+    coalesce(nullif(trim(p_reason), ''), 'Student requested a profile update'), a.uid, a.uname)
+  returning id into rid;
+  return jsonb_build_object('request_id', rid);
+end $$;
+revoke all on function request_student_profile(jsonb, text) from public, anon;
+grant execute on function request_student_profile(jsonb, text) to authenticated;
+
+-- review_approval: same as before plus the student_profile branch
+create or replace function review_approval(p_id integer, p_approve boolean, p_remarks text default null)
+returns jsonb language plpgsql security definer set search_path to 'public' as $$
+declare a record; r approval_requests%rowtype; pl jsonb; requester_email text; outcome jsonb := '{}'::jsonb; ch jsonb;
+begin
+  select * into a from approval_actor(1);
+  select * into r from approval_requests where id = p_id for update;
+  if not found or r.status <> 'pending' then raise exception 'This request is no longer pending'; end if;
+  pl := r.payload;
+  if p_approve then
+    if r.request_type = 'grade_correction' then
+      update academic_history set locked = false where student_id = (pl->>'student_id')::int and school_year = pl->>'school_year' and subject = pl->>'subject';
+      update academic_history set final = (pl->>'new_grade')::numeric, grade = (pl->>'new_grade')::numeric, letter_grade = pl->>'letter_grade'
+        where student_id = (pl->>'student_id')::int and school_year = pl->>'school_year' and subject = pl->>'subject';
+      update academic_history set locked = true where student_id = (pl->>'student_id')::int and school_year = pl->>'school_year' and subject = pl->>'subject';
+    elsif r.request_type = 'withdrawal' then
+      perform transfer_student_out((pl->>'student_id')::int, r.reason);
+      update students set enrollment_status = pl->>'kind' where student_id = (pl->>'student_id')::int;
+    elsif r.request_type = 'promotion' then
+      outcome := batch_promote_students((pl->>'grade_level')::int, pl->>'school_year', array(select jsonb_array_elements_text(pl->'excluded')::int));
+    elsif r.request_type = 'override' then
+      perform place_with_override((pl->>'student_id')::int, (pl->>'section_id')::int, r.reason, r.requester_name);
+    elsif r.request_type = 'account_action' and pl->>'action' = 'role_change' then
+      update users set role_id = (pl->>'new_role')::int where user_id = (pl->>'target_user_id')::int;
+    elsif r.request_type = 'student_profile' then
+      ch := pl->'changes';
+      update students set
+        first_name = case when ch ? 'first_name' then ch->>'first_name' else first_name end,
+        middle_name = case when ch ? 'middle_name' then ch->>'middle_name' else middle_name end,
+        last_name = case when ch ? 'last_name' then ch->>'last_name' else last_name end,
+        date_of_birth = case when ch ? 'date_of_birth' then (ch->>'date_of_birth')::date else date_of_birth end,
+        address = case when ch ? 'address' then ch->>'address' else address end,
+        contact_number = case when ch ? 'contact_number' then ch->>'contact_number' else contact_number end,
+        guardian_name = case when ch ? 'guardian_name' then ch->>'guardian_name' else guardian_name end,
+        guardian_relationship = case when ch ? 'guardian_relationship' then ch->>'guardian_relationship' else guardian_relationship end,
+        guardian_phone = case when ch ? 'guardian_phone' then ch->>'guardian_phone' else guardian_phone end,
+        guardian_email = case when ch ? 'guardian_email' then ch->>'guardian_email' else guardian_email end,
+        medical_notes = case when ch ? 'medical_notes' then ch->>'medical_notes' else medical_notes end,
+        updated_at = now()
+      where student_id = (pl->>'student_id')::int;
+    end if;
+  end if;
+  update approval_requests set status = case when p_approve then 'approved' else 'rejected' end,
+    remarks = nullif(trim(p_remarks), ''), reviewed_by = a.uid, reviewed_at = now() where id = p_id;
+  insert into audit_logs(action, entity_type, entity_id, details)
+  values (case when p_approve then 'APPROVE_REQUEST' else 'REJECT_REQUEST' end, r.request_type, p_id,
+    jsonb_build_object('summary', r.summary, 'requested_by', r.requester_name, 'reviewed_by', a.uname, 'remarks', p_remarks));
+  select email into requester_email from users where user_id = r.requested_by;
+  insert into notifications(recipient_email, recipient_user_id, title, message, entity_type, entity_id)
+  values (requester_email, r.requested_by, 'Request ' || case when p_approve then 'approved' else 'rejected' end,
+    r.summary || coalesce(' - ' || nullif(trim(p_remarks), ''), ''), 'approval_request', p_id);
+  return outcome || jsonb_build_object('status', case when p_approve then 'approved' else 'rejected' end);
+end $$;
+notify pgrst, 'reload schema';
+-- END migration-v22-student-profile-edit-requests.sql
+
+
+-- ============================================================
+-- BEGIN migration-v23-replace-demo-accounts.sql
+-- Removes the four demo accounts (admin, registrar, faculty, student) and creates five real ones:
+--   mjlatip (admin), jtalaba (registrar), asomido (faculty), sdeguzman (student, Grade 10), kvillajos (student, Grade 11).
+-- Password for each is its username + 123 (as requested). All other profile columns are filled with placeholder data.
+-- Sign-in accounts are created straight in auth.users / auth.identities with a bcrypt hash (same shape GoTrue writes).
+-- The old test student "Khyle Christian Villajos" (LRN-TEST-001, no enrollments/grades/attendance) is kept and becomes kvillajos.
+-- Grade 11 has no section yet, so kvillajos has no section until the registrar creates one and places him.
+-- UNDO: restore from backups/tcsms-full-backup-*.sql (public data) and re-create auth accounts with the provision-account function.
+-- ============================================================
+do $$
+declare a record; uid uuid; nid int; sid int;
+begin
+  -- 1) remove the old demo accounts (legacy faculty row has no cascade; admins/registrars/staff_profiles/profile_change_requests cascade)
+  delete from faculty where user_id = 6;
+  update students set user_id = null where user_id = 7;
+  delete from users where username in ('admin', 'registrar', 'faculty', 'student');
+  delete from auth.users where lower(email) in ('jvcubillan@addu.edu.ph', 'mjmlatip@addu.edu.ph', 'asomido@addu.edu.ph', 'kvillajos@addu.edu.ph');
+
+  -- 2) sign-in accounts + users rows
+  for a in select * from (values
+    ('mjlatip',   'mjmlatip@addu.edu.ph',    1),
+    ('sdeguzman', 'stcdeguzman@addu.edu.ph', 4),
+    ('kvillajos', 'kvillajos@addu.edu.ph',   4),
+    ('jtalaba',   'jotalaba@addu.edu.ph',    2),
+    ('asomido',   'asomido@addu.edu.ph',     3)
+  ) as v(username, email, role_id)
+  loop
+    uid := gen_random_uuid();
+    insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                            created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change_token_current, email_change, phone_change_token, reauthentication_token, is_sso_user, is_anonymous)
+    values ('00000000-0000-0000-0000-000000000000', uid, 'authenticated', 'authenticated', a.email, extensions.crypt(a.username || '123', extensions.gen_salt('bf')), now(),
+            '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', false, false);
+    insert into auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+    values (gen_random_uuid(), uid, uid::text, jsonb_build_object('sub', uid::text, 'email', a.email, 'email_verified', true, 'phone_verified', false), 'email', now(), now(), now());
+    insert into users (username, email, password_hash, role_id, is_active)
+    values (a.username, a.email, extensions.crypt(a.username || '123', extensions.gen_salt('bf')), a.role_id, true);
+  end loop;
+
+  -- 3) profiles
+  insert into admins (user_id, employee_code, first_name, middle_name, last_name)
+  select user_id, 'ADM-MJLATIP', 'Mj', 'Mallari', 'Latip' from users where username = 'mjlatip';
+
+  insert into staff_profiles (user_id, employee_no, first_name, middle_name, last_name, department, specialization, phone)
+  select user_id, 'REG-004', 'John', 'Reyes', 'Talaba', 'Registrar Office', 'Student Records', '09170000104' from users where username = 'jtalaba';
+  insert into staff_profiles (user_id, employee_no, first_name, middle_name, last_name, department, specialization, phone)
+  select user_id, 'FAC-011', 'Angela', 'Marie', 'Somido', 'Senior High School', 'English', '09170000111' from users where username = 'asomido';
+
+  -- Sam De Guzman, Grade 10, placed in Malaya (Grade 10, 2026-2027) if it still has room
+  insert into students (lrn_number, first_name, middle_name, last_name, date_of_birth, gender, enrollment_status, grade_level, address, contact_number,
+                        guardian_name, guardian_relationship, guardian_phone, guardian_email, medical_notes)
+  values ('TCS-26-10041', 'Sam', 'Cruz', 'De Guzman', '2010-03-18', 'Male', 'Enrolled', 10, '27 Roxas Ave., Davao City', '09175550141',
+          'Roberto De Guzman', 'Father', '09175550142', 'deguzman.guardian@example.com', 'None reported')
+  returning student_id into sid;
+  update users set student_id = sid where username = 'sdeguzman';
+  if (select count(*) from enrollments where section_id = 2 and status = 'active') >= (select capacity from sections where section_id = 2) then
+    raise exception 'Malaya is full';
+  end if;
+  insert into enrollments (student_id, school_year, grade_level, section_id, status, enrolled_at) values (sid, '2026-2027', 10, 2, 'active', now());
+
+  -- Khyle Villajos, Grade 11: reuse the old test student record (no enrollments, grades or attendance)
+  update students set lrn_number = 'TCS-26-10042', first_name = 'Khyle', middle_name = 'Christian', last_name = 'Villajos', date_of_birth = '2009-05-14',
+    gender = 'Male', enrollment_status = 'Enrolled', grade_level = 11, address = '13 Bonifacio St., Davao City', contact_number = '09173000137',
+    guardian_name = 'Ricardo Villajos', guardian_relationship = 'Father', guardian_phone = '09284000211', guardian_email = 'villajos.guardian@example.com',
+    medical_notes = 'None reported', updated_at = now()
+  where student_id = 1;
+  update users set student_id = 1 where username = 'kvillajos';
+
+  insert into audit_logs (action, entity_type, details)
+  values ('REPLACE_DEMO_ACCOUNTS', 'system', jsonb_build_object('removed', array['admin','registrar','faculty','student'], 'created', array['mjlatip','jtalaba','asomido','sdeguzman','kvillajos']));
+end $$;
+notify pgrst, 'reload schema';
+-- END migration-v23-replace-demo-accounts.sql
+
+
+-- ============================================================
+-- BEGIN migration-v24-new-accounts-classes-grades.sql
+-- Fills in the v23 accounts: a Grade 11 section (Mabait) with a full Mon-Fri timetable, a new subject (Creative Writing),
+-- Angela Somido's classes, Khyle's enrollment, and Q1 grades + one week of attendance for Sam De Guzman and Khyle Villajos.
+-- The timetable is placed by the same rule as v21: no section / teacher / shared-room clash, never inside lunch or break, ends by 16:00.
+-- ============================================================
+do $$
+declare
+  ls time; le time; bs time; be time; sec int; ang text := 'Angela Marie Somido'; cw int;
+  blk record; cand time; n int := 0; slots time[] := array['07:30','08:15','09:00','10:00','12:00','13:00','13:45','14:30','15:15']::time[];
+  dur interval := interval '45 minutes'; placed boolean;
+begin
+  select lunch_start, lunch_end, break_start, break_end into ls, le, bs, be from school_year_settings where school_year = '2026-2027';
+
+  -- new subject
+  insert into subjects (subject_code, title, subject_name, units, grade_level, description, is_active)
+  values ('CW-101', 'Creative Writing', 'Creative Writing', 3, 11, 'Fiction, poetry and personal essay writing', true)
+  on conflict do nothing;
+  select subject_id into cw from subjects where subject_code = 'CW-101';
+
+  -- Grade 11 section
+  insert into sections (section_name, grade_level, academic_year, capacity, status, min_capacity, room, semester, faculty_assigned)
+  select 'Mabait', 11, '2026-2027', 40, 'active', 10, 'Room 401', '1st Semester', ang
+  where not exists (select 1 from sections where section_name = 'Mabait' and academic_year = '2026-2027');
+  select section_id into sec from sections where section_name = 'Mabait' and academic_year = '2026-2027';
+
+  -- timetable: one 45-minute block per subject, repeated Monday-Friday
+  alter table subject_schedules disable trigger faculty_load_notify;
+  for blk in
+    select * from (values
+      (2,  ang,                       'Room 401'),
+      (cw, ang,                       'Room 401'),
+      (11, 'Irene Sofia Navarro',     'Room 401'),
+      (4,  'Eunice Grace Villanueva', 'Room 401'),
+      (5,  'Carla Denise Garcia',     'Room 401'),
+      (6,  'Francis Miguel Torres',   'Room 401'),
+      (10, 'Julio Andres Castro',     'Computer Lab'),
+      (7,  'Gloria Mae Dela Peña',    'Gym')
+    ) as t(subject_id, fac, room)
+  loop
+    placed := false;
+    for cand in select s from unnest(slots) s order by s loop
+      continue when cand < le and cand + dur > ls;
+      continue when bs is not null and cand < be and cand + dur > bs;
+      continue when cand + dur > time '16:00';
+      if not exists (
+        select 1 from subject_schedules x
+        where x.start_time < cand + dur and x.end_time > cand
+          and (x.section_id = sec or lower(coalesce(x.faculty_name, '')) = lower(blk.fac) or (x.room = blk.room and blk.room in ('Gym', 'Computer Lab')))
+      ) then
+        insert into subject_schedules (subject_id, section_id, faculty_name, room, day_of_week, start_time, end_time)
+        select blk.subject_id, sec, blk.fac, blk.room, d, cand, cand + dur from generate_series(1, 5) d;
+        placed := true; n := n + 1;
+        exit;
+      end if;
+    end loop;
+    if not placed then raise exception 'No free slot for subject % in Mabait', blk.subject_id; end if;
+  end loop;
+  alter table subject_schedules enable trigger faculty_load_notify;
+
+  -- eligibility list follows the timetable
+  insert into faculty_subjects (profile_id, subject_id)
+  select distinct sp.profile_id, ss.subject_id from subject_schedules ss
+  join staff_profiles sp on lower(trim(ss.faculty_name)) = lower(trim(sp.first_name || ' ' || sp.last_name))
+  join users u on u.user_id = sp.user_id and u.role_id = 3
+  on conflict (profile_id, subject_id) do nothing;
+
+  -- Khyle joins Mabait
+  insert into enrollments (student_id, school_year, grade_level, section_id, status, enrolled_at)
+  select u.student_id, '2026-2027', 11, sec, 'active', now() from users u where u.username = 'kvillajos'
+  on conflict (student_id, school_year) do update set section_id = excluded.section_id, grade_level = 11, status = 'active';
+
+  -- Q1 grades for the two new students, one row per subject in their section's timetable
+  insert into academic_history (student_id, school_year, subject, grade, first_sem_q1, letter_grade, remarks)
+  select e.student_id, '2026-2027', sub.subject_name, g.score, g.score,
+         case when g.score >= 97 then 'A+' when g.score >= 92 then 'A' when g.score >= 87 then 'B+' when g.score >= 82 then 'B'
+              when g.score >= 78 then 'C+' when g.score >= 75 then 'C' else 'F' end,
+         'Sample: Q1 in progress'
+  from enrollments e
+  join users u on u.student_id = e.student_id and u.username in ('sdeguzman', 'kvillajos')
+  join (select distinct section_id, subject_id from subject_schedules) t on t.section_id = e.section_id
+  join subjects sub on sub.subject_id = t.subject_id
+  cross join lateral (select round(78 + ((e.student_id * 37 + sub.subject_id * 53) % 190) / 10.0, 2) as score) g
+  where e.status = 'active'
+  on conflict (student_id, school_year, subject) do nothing;
+
+  -- attendance: Mon 2026-09-21 .. Fri 2026-09-25, first-period subject of the section
+  insert into attendance (student_id, attendance_date, status, section_id, subject_id, recorded_by)
+  select e.student_id, d::date,
+         case when h < 88 then 'Present' when h < 94 then 'Late' when h < 98 then 'Absent' else 'Excused' end,
+         e.section_id,
+         (select s.subject_id from subject_schedules s where s.section_id = e.section_id order by s.start_time, s.day_of_week limit 1),
+         'sample-data'
+  from enrollments e
+  join users u on u.student_id = e.student_id and u.username in ('sdeguzman', 'kvillajos')
+  cross join generate_series('2026-09-21'::date, '2026-09-25'::date, interval '1 day') as d
+  cross join lateral (select (e.student_id * 31 + extract(day from d)::int * 17) % 100 as h) x
+  where e.status = 'active'
+  on conflict (student_id, attendance_date, section_id, subject_id) do nothing;
+
+  insert into audit_logs (action, entity_type, details)
+  values ('SEED_NEW_ACCOUNT_DATA', 'system', jsonb_build_object('version', 'v24', 'section', 'Mabait', 'blocks', n));
+end $$;
+notify pgrst, 'reload schema';
+-- END migration-v24-new-accounts-classes-grades.sql
