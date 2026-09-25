@@ -918,6 +918,13 @@ export function applyUiTheme() {
     style.id = 'shared-ui-theme';
     style.textContent = sharedTheme;
     document.head.appendChild(style);
+    // Team stylesheets (public/css/*): one file per task so branches never edit the same lines. They load after the main theme, so they win.
+    for (const name of ['theme-dark', 'responsive-tablet', 'responsive-mobile', 'documents']) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = `/css/${name}.css`;
+      document.head.appendChild(link);
+    }
   }
   installSpamGuard();
   installTableSort();

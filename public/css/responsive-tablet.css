@@ -1,0 +1,3 @@
+/* TABLET - owner: tablet-mode branch only. Tablets: 600px to 1024px. Keep everything inside the media query. */
+@media (min-width: 600px) and (max-width: 1024px) {
+}

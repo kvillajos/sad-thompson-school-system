@@ -1,0 +1,2 @@
+/* DARK MODE - owner: dark-mode branch only. Loaded on every page after the main theme (ui-theme.js), so rules here win. */
+/* Suggested hook: html[data-theme="dark"] { ... } and/or @media (prefers-color-scheme: dark) { ... } */
