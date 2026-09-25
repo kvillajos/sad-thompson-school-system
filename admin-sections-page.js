@@ -5,6 +5,7 @@
     import { describeError } from './errors.js'
     import { mountAdminShell } from './admin-page.js'
     import { mountOverrideForm } from './override-form.js'
+    import { fetchAll } from './fetch-all.js'
     await mountAdminShell('sections')
     mountOverrideForm(document.getElementById('override-form'), { rpc: 'admin_place_override', button: 'Place with Override', done: 'Student placed with override.' })
     const modal = document.getElementById('section-modal')
@@ -41,7 +42,7 @@
       const { data, error } = await supabase.from('sections').select('section_id,section_name,grade_level,capacity,academic_year,faculty_assigned,room').order('grade_level').order('section_name')
       if (error) return table.innerHTML = `<tr><td colspan="7">${escape(error.message)}</td></tr>`
       sections = data || []
-      const { data: enrollments, error: enrollmentError } = await supabase.from('enrollments').select('section_id').eq('status', 'active')
+      const { data: enrollments, error: enrollmentError } = await fetchAll(() => supabase.from('enrollments').select('section_id').eq('status', 'active').order('id'))
       if (enrollmentError) return table.innerHTML = `<tr><td colspan="7">${escape(enrollmentError.message)}</td></tr>`
       const counts = (enrollments || []).reduce((result, row) => { result[row.section_id] = (result[row.section_id] || 0) + 1; return result }, {})
       const search = document.getElementById('section-search').value.trim().toLowerCase()

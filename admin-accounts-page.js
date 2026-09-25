@@ -5,12 +5,13 @@
   import { confirmPassword } from './shell.js'
   import { describeError } from './errors.js'
   import { mountAdminShell } from './admin-page.js'
+  import { fetchAll } from './fetch-all.js'
   const admin = await mountAdminShell('accounts')
   const verify = message => confirmPassword(admin.email, message)
   const roleNames = { 1: 'Administrator', 2: 'Registrar', 3: 'Faculty', 4: 'Student' }
   let accounts = []
   async function loadAccounts() {
-    const result = await supabase.from('users').select('username,email,role_id,is_active,student_id,user_id,initial_password,profile_picture_url').order('role_id').order('username')
+    const result = await fetchAll(() => supabase.from('users').select('username,email,role_id,is_active,student_id,user_id,initial_password,profile_picture_url').order('role_id').order('username').order('user_id'))
     const table = document.getElementById('accounts-table')
     if (result.error) return table.innerHTML = `<tr><td colspan="6">${escape(result.error.message)}</td></tr>`
     accounts = result.data || []

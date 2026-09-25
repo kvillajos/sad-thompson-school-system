@@ -5,6 +5,7 @@ import { $, state } from './registrar-state.js'
 import { escapeHtml, formatDate, gradeLabel } from './html.js'
 import { planBalancedAssignments, studentsForSection } from './sectioning.js'
 import { statusBadge, bindViewStudentButtons } from './registrar-admissions.js'
+import { fetchAll } from './fetch-all.js'
 
 $('new-enrollment').onclick = () => document.querySelector('[data-tab="admission"]').click()
 
@@ -13,7 +14,7 @@ $('close-section-students').addEventListener('click', () => $('section-students-
 export async function loadSections() {
   const { data, error } = await supabase.from('sections').select('section_id,section_name,grade_level,capacity,faculty_assigned').order('grade_level').order('section_name')
   if (error) return toast(error.message,'error'); state.sections = data || []
-  const { data: enrollmentRows } = await supabase.from('enrollments').select('section_id').eq('status','active')
+  const { data: enrollmentRows } = await fetchAll(() => supabase.from('enrollments').select('section_id').eq('status','active').order('id'))
   const counts = (enrollmentRows || []).reduce((result, row) => { result[row.section_id] = (result[row.section_id] || 0) + 1; return result }, {})
   const sectionSearch = ($('section-search')?.value || '').trim().toLowerCase()
   const sectionGrade = $('section-grade-filter')?.value || ''
@@ -42,8 +43,8 @@ async function viewSectionStudents(sectionId) {
 }
 export async function loadEnrollments() {
   const [studentResult, enrollmentResult] = await Promise.all([
-    supabase.from('students').select('*').order('last_name'),
-    supabase.from('enrollments').select('id,student_id,school_year,enrolled_at,status,section_id,sections(section_name)').eq('status', 'active').order('school_year', { ascending: false })
+    fetchAll(() => supabase.from('students').select('*').order('last_name').order('student_id')),
+    fetchAll(() => supabase.from('enrollments').select('id,student_id,school_year,enrolled_at,status,section_id,sections(section_name)').eq('status', 'active').order('school_year', { ascending: false }).order('id'))
   ])
   if (studentResult.error || enrollmentResult.error) return toast((studentResult.error || enrollmentResult.error).message, 'error')
   const data = (studentResult.data || []).map(student => ({
@@ -102,8 +103,8 @@ $('enrollment-section-filter').onchange = loadEnrollments
 
 async function openPlacement(sectionId='') {
   const [studentResult, enrollmentResult] = await Promise.all([
-    supabase.from('students').select('*').order('last_name'),
-    supabase.from('enrollments').select('student_id,section_id,sections(section_name)').eq('status','active')
+    fetchAll(() => supabase.from('students').select('*').order('last_name').order('student_id')),
+    fetchAll(() => supabase.from('enrollments').select('student_id,section_id,sections(section_name)').eq('status','active').order('id'))
   ])
   if (studentResult.error) return toast(`Could not load placement students: ${studentResult.error.message}`,'error')
   state.students = studentResult.data || []
@@ -215,7 +216,7 @@ function previewAutoAssign() {
 }
 $('auto-assign-sections').onclick=async()=>{
   if(!state.students.length||!state.sections.length)return toast('Load students and sections first.','error')
-  const { data: enrollments, error } = await supabase.from('enrollments').select('student_id,section_id').eq('status','active')
+  const { data: enrollments, error } = await fetchAll(() => supabase.from('enrollments').select('student_id,section_id').eq('status','active').order('id'))
   if (error) return toast(error.message, 'error')
   state.enrolledByStudent = new Map((enrollments || []).map(row => [row.student_id, row.section_id]))
   $('auto-assign-exclude-search').value = ''

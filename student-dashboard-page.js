@@ -6,6 +6,7 @@
       import { applyUiTheme } from './ui-theme.js'
       import { mountProfile, mountSidebar, confirmPassword } from './shell.js'
       import { attendanceSummaryLine } from './attendance.js'
+      import { changedFields } from './edit-request.js'
       import { generalAverage, letterGrade } from './grades.js'
       import { buildSemesterTable } from './semester-grades.js'
       import { buildTranscript } from './transcript.js'
@@ -110,15 +111,27 @@
       document.getElementById('edit-request-close').onclick = document.getElementById('edit-request-cancel').onclick = closeEditRequest
       editForm.onsubmit = async event => {
         event.preventDefault()
-        const changes = {}
-        for (const input of editForm.querySelectorAll('[name]:not([name="reason"])')) if (input.value.trim() !== input.dataset.current) changes[input.name] = input.value.trim()
+        const changes = changedFields(student, Object.fromEntries([...editForm.querySelectorAll('[name]:not([name="reason"])')].map(input => [input.name, input.value])))
         if (!Object.keys(changes).length) return window.alert('You have not changed anything.')
         if (!await confirmPassword(user.email, 'Enter your password to send this request.')) return
         const { error } = await supabase.rpc('request_student_profile', { p_changes: changes, p_reason: editForm.elements.reason.value })
         if (error) return window.alert(error.message)
         closeEditRequest()
         window.alert('Request sent. An administrator will review it, and you will get a notification.')
+        showEditRequestStatus()
       }
+      // Shows "waiting for approval" on the card while a request is pending (needs migration v26; without it the card just stays as it was).
+      async function showEditRequestStatus() {
+        const { data, error } = await supabase.rpc('my_pending_profile_request')
+        const note = document.getElementById('edit-request-status')
+        const button = document.getElementById('open-edit-request')
+        const pending = !error && data
+        note.hidden = !pending
+        if (pending) note.textContent = `Pending since ${formatDate(data.created_at)}. An administrator is reviewing your request.`
+        button.disabled = Boolean(pending)
+        button.textContent = pending ? 'Request pending' : 'Request edit'
+      }
+      showEditRequestStatus()
 
       async function loadSchedule() {
         const host = document.getElementById('schedule-days')

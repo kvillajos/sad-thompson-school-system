@@ -2268,7 +2268,7 @@ notify pgrst, 'reload schema';
 -- BEGIN migration-v23-replace-demo-accounts.sql
 -- Removes the four demo accounts (admin, registrar, faculty, student) and creates five real ones:
 --   mjlatip (admin), jtalaba (registrar), asomido (faculty), sdeguzman (student, Grade 10), kvillajos (student, Grade 11).
--- Password for each is its username + 123 (as requested). All other profile columns are filled with placeholder data.
+-- Each account was given a starting password when this ran (not recorded here; change it after the demo). Other profile columns are placeholder data.
 -- Sign-in accounts are created straight in auth.users / auth.identities with a bcrypt hash (same shape GoTrue writes).
 -- The old test student "Khyle Christian Villajos" (LRN-TEST-001, no enrollments/grades/attendance) is kept and becomes kvillajos.
 -- Grade 11 has no section yet, so kvillajos has no section until the registrar creates one and places him.
@@ -2295,12 +2295,12 @@ begin
     uid := gen_random_uuid();
     insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
                             created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change_token_current, email_change, phone_change_token, reauthentication_token, is_sso_user, is_anonymous)
-    values ('00000000-0000-0000-0000-000000000000', uid, 'authenticated', 'authenticated', a.email, extensions.crypt(a.username || '123', extensions.gen_salt('bf')), now(),
+    values ('00000000-0000-0000-0000-000000000000', uid, 'authenticated', 'authenticated', a.email, extensions.crypt(<starting password>, extensions.gen_salt('bf')), now(),
             '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', false, false);
     insert into auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
     values (gen_random_uuid(), uid, uid::text, jsonb_build_object('sub', uid::text, 'email', a.email, 'email_verified', true, 'phone_verified', false), 'email', now(), now(), now());
     insert into users (username, email, password_hash, role_id, is_active)
-    values (a.username, a.email, extensions.crypt(a.username || '123', extensions.gen_salt('bf')), a.role_id, true);
+    values (a.username, a.email, extensions.crypt(<starting password>, extensions.gen_salt('bf')), a.role_id, true);
   end loop;
 
   -- 3) profiles
@@ -2444,3 +2444,167 @@ begin
 end $$;
 notify pgrst, 'reload schema';
 -- END migration-v24-new-accounts-classes-grades.sql
+
+
+-- ============================================================
+-- STATUS: NOT YET APPLIED to the live database (run it in the Supabase SQL editor)
+-- BEGIN migration-v25-schedule-teacher-id.sql
+-- Teachers were tied to classes by name text ("first last" compared with subject_schedules.faculty_name), so a renamed
+-- teacher lost every class and two teachers with one name shared them. Schedules now carry faculty_profile_id.
+--   * faculty_name stays as the display name and is kept in sync (typing/picking a name still works: it is resolved to an id).
+--   * renaming a staff profile renames it on their schedule rows; staff full names are unique.
+--   * faculty_section_ids(), faculty_teaches_subject(), the two faculty RLS policies and the teaching-load notices use the id.
+-- Also: Angela Somido's profile name matches the convention used by the other faculty ("first + middle" in first_name).
+-- ============================================================
+update staff_profiles set first_name = 'Angela Marie', middle_name = null
+where user_id = (select user_id from users where username = 'asomido');
+
+alter table subject_schedules add column if not exists faculty_profile_id integer references staff_profiles(profile_id) on delete set null;
+create index if not exists subject_schedules_faculty_profile_idx on subject_schedules(faculty_profile_id);
+create unique index if not exists staff_profiles_full_name_key on staff_profiles (lower(trim(first_name || ' ' || last_name)));
+
+update subject_schedules ss set faculty_profile_id = sp.profile_id
+from staff_profiles sp
+where ss.faculty_profile_id is null and lower(trim(ss.faculty_name)) = lower(trim(sp.first_name || ' ' || sp.last_name));
+
+create or replace function sync_schedule_faculty() returns trigger language plpgsql set search_path to 'public' as $$
+declare pid int; pname text;
+begin
+  if new.faculty_profile_id is not null and (tg_op = 'INSERT' or new.faculty_profile_id is distinct from old.faculty_profile_id) then
+    select trim(first_name || ' ' || last_name) into pname from staff_profiles where profile_id = new.faculty_profile_id;
+    new.faculty_name := pname;
+  elsif tg_op = 'INSERT' or new.faculty_profile_id is null or new.faculty_name is distinct from old.faculty_name then
+    if nullif(trim(coalesce(new.faculty_name, '')), '') is null then
+      new.faculty_profile_id := null;
+    else
+      select profile_id into pid from staff_profiles where lower(trim(first_name || ' ' || last_name)) = lower(trim(new.faculty_name));
+      new.faculty_profile_id := pid;
+    end if;
+  end if;
+  return new;
+end $$;
+drop trigger if exists a_sync_schedule_faculty on subject_schedules;
+create trigger a_sync_schedule_faculty before insert or update on subject_schedules for each row execute function sync_schedule_faculty();
+
+create or replace function propagate_staff_rename() returns trigger language plpgsql security definer set search_path to 'public' as $$
+begin
+  update subject_schedules set faculty_name = trim(new.first_name || ' ' || new.last_name) where faculty_profile_id = new.profile_id;
+  return new;
+end $$;
+drop trigger if exists staff_rename_schedules on staff_profiles;
+create trigger staff_rename_schedules after update of first_name, last_name on staff_profiles for each row
+  when (old.first_name is distinct from new.first_name or old.last_name is distinct from new.last_name) execute function propagate_staff_rename();
+
+create or replace function faculty_section_ids() returns setof integer language sql stable security definer set search_path to 'public' as $$
+  select distinct ss.section_id
+  from subject_schedules ss
+  join staff_profiles sp on sp.profile_id = ss.faculty_profile_id
+  where sp.user_id = (select user_id from users where lower(email) = lower(auth.jwt() ->> 'email') and is_active)
+$$;
+
+create or replace function faculty_teaches_subject(p_subject_id integer) returns boolean language sql stable security definer set search_path to 'public' as $$
+  select exists (
+    select 1 from subject_schedules ss
+    join staff_profiles sp on sp.profile_id = ss.faculty_profile_id
+    where ss.subject_id = p_subject_id
+      and sp.user_id = (select user_id from users where lower(email) = lower(auth.jwt() ->> 'email') and is_active)
+  )
+$$;
+
+drop policy if exists faculty_enrollment_roster on enrollments;
+create policy faculty_enrollment_roster on enrollments for select to authenticated
+  using ((select current_app_role()) = 3 and exists (
+    select 1 from subject_schedules ss join staff_profiles sp on sp.profile_id = ss.faculty_profile_id
+    where ss.section_id = enrollments.section_id
+      and sp.user_id = (select user_id from users where lower(email) = lower(auth.jwt() ->> 'email'))));
+drop policy if exists faculty_students on students;
+create policy faculty_students on students for select to authenticated
+  using ((select current_app_role()) = 3 and exists (
+    select 1 from enrollments e join subject_schedules ss on ss.section_id = e.section_id join staff_profiles sp on sp.profile_id = ss.faculty_profile_id
+    where e.student_id = students.student_id
+      and sp.user_id = (select user_id from users where lower(email) = lower(auth.jwt() ->> 'email'))));
+
+create or replace function notify_faculty_load_change() returns trigger language plpgsql security definer set search_path to 'public' as $$
+declare subj text; sec text; note text;
+begin
+  select subject_name into subj from subjects where subject_id = coalesce(new.subject_id, old.subject_id);
+  select section_name into sec from sections where section_id = coalesce(new.section_id, old.section_id);
+  if old.faculty_profile_id is not null and (tg_op = 'DELETE' or (tg_op = 'UPDATE' and old.faculty_profile_id is distinct from new.faculty_profile_id)) then
+    insert into notifications(recipient_email, recipient_user_id, title, message, entity_type, entity_id)
+    select u.email, u.user_id, 'Teaching load updated', format('You are no longer assigned to %s (%s).', subj, sec), 'schedule', old.schedule_id
+    from staff_profiles sp join users u on u.user_id = sp.user_id where sp.profile_id = old.faculty_profile_id;
+  end if;
+  if tg_op <> 'DELETE' and new.faculty_profile_id is not null
+     and (tg_op = 'INSERT' or (old.faculty_profile_id, old.day_of_week, old.start_time, old.end_time, old.room, old.section_id, old.subject_id)
+          is distinct from (new.faculty_profile_id, new.day_of_week, new.start_time, new.end_time, new.room, new.section_id, new.subject_id)) then
+    note := case when tg_op = 'INSERT' or old.faculty_profile_id is distinct from new.faculty_profile_id
+      then format('You were assigned to %s (%s).', subj, sec)
+      else format('Your schedule for %s (%s) was changed.', subj, sec) end;
+    insert into notifications(recipient_email, recipient_user_id, title, message, entity_type, entity_id)
+    select u.email, u.user_id, 'Teaching load updated', note, 'schedule', new.schedule_id
+    from staff_profiles sp join users u on u.user_id = sp.user_id where sp.profile_id = new.faculty_profile_id;
+  end if;
+  return coalesce(new, old);
+end $$;
+notify pgrst, 'reload schema';
+-- END migration-v25-schedule-teacher-id.sql
+
+
+-- ============================================================
+-- STATUS: NOT YET APPLIED (run after v25)
+-- BEGIN migration-v26-student-edit-request-status.sql
+-- (1) request_student_profile now records the values the student saw ("before"), so the admin can be warned when the record
+--     changed after the request was made. (2) my_pending_profile_request() lets a student see whether an edit is waiting.
+-- ============================================================
+create or replace function request_student_profile(p_changes jsonb, p_reason text default null)
+returns jsonb language plpgsql security definer set search_path to 'public' as $$
+declare
+  a record; sid int; s students%rowtype; k text; cur text; nv text; changed jsonb := '{}'::jsonb; before jsonb := '{}'::jsonb; parts text[] := '{}'; rid int; lim int;
+  labels jsonb := '{"first_name":"First name","middle_name":"Middle name","last_name":"Last name","date_of_birth":"Date of birth","address":"Address","contact_number":"Contact number","guardian_name":"Guardian","guardian_relationship":"Relationship","guardian_phone":"Guardian phone","guardian_email":"Guardian email","medical_notes":"Medical notes"}';
+begin
+  select * into a from approval_actor(4);
+  select student_id into sid from users where user_id = a.uid;
+  select * into s from students where student_id = sid;
+  if not found then raise exception 'No student record is linked to this account'; end if;
+  for k in select jsonb_object_keys(p_changes) loop
+    if not labels ? k then raise exception 'You cannot request a change to %', k; end if;
+    nv := nullif(trim(p_changes->>k), '');
+    lim := case when k = 'medical_notes' then 1000 else 200 end;
+    if length(coalesce(nv, '')) > lim then raise exception '% is too long', labels->>k; end if;
+    if k in ('first_name','last_name') and nv is null then raise exception '% cannot be empty', labels->>k; end if;
+    if k = 'date_of_birth' then
+      if nv is null then raise exception 'Date of birth cannot be empty'; end if;
+      if nv::date > current_date then raise exception 'Date of birth cannot be in the future'; end if;
+    end if;
+    if k = 'guardian_email' and nv is not null and nv !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception 'Guardian email is not valid'; end if;
+    execute format('select %I::text from students where student_id = $1', k) into cur using sid;
+    if nv is distinct from nullif(cur, '') then
+      changed := changed || jsonb_build_object(k, nv);
+      before := before || jsonb_build_object(k, nullif(cur, ''));
+      parts := parts || format('%s: %s -> %s', labels->>k, coalesce(cur, '(blank)'), coalesce(nv, '(blank)'));
+    end if;
+  end loop;
+  if changed = '{}'::jsonb then raise exception 'Nothing was changed'; end if;
+  if exists (select 1 from approval_requests where status = 'pending' and request_type = 'student_profile' and (payload->>'student_id')::int = sid) then
+    raise exception 'You already have a profile edit waiting for approval';
+  end if;
+  insert into approval_requests(request_type, payload, summary, reason, requested_by, requester_name)
+  values ('student_profile', jsonb_build_object('student_id', sid, 'changes', changed, 'before', before),
+    format('%s %s - %s', s.first_name, s.last_name, array_to_string(parts, '; ')),
+    coalesce(nullif(trim(p_reason), ''), 'Student requested a profile update'), a.uid, a.uname)
+  returning id into rid;
+  return jsonb_build_object('request_id', rid);
+end $$;
+
+create or replace function my_pending_profile_request() returns jsonb language plpgsql stable security definer set search_path to 'public' as $$
+declare a record; r approval_requests%rowtype;
+begin
+  select * into a from approval_actor(4);
+  select * into r from approval_requests where requested_by = a.uid and request_type = 'student_profile' and status = 'pending' order by created_at desc limit 1;
+  if not found then return null; end if;
+  return jsonb_build_object('id', r.id, 'created_at', r.created_at, 'summary', r.summary);
+end $$;
+revoke all on function my_pending_profile_request() from public, anon;
+grant execute on function my_pending_profile_request() to authenticated;
+notify pgrst, 'reload schema';
+-- END migration-v26-student-edit-request-status.sql

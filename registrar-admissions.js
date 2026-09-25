@@ -5,6 +5,7 @@ import { $, state } from './registrar-state.js'
 import { escapeHtml, formatDate, gradeLabel, gradeToNumber } from './html.js'
 import { attendanceSummaryLine } from './attendance.js'
 import { generalAverage, letterGrade } from './grades.js'
+import { fetchAll } from './fetch-all.js'
 
 // Grade is stored as a number but the select options are labels, so map back on resume.
 const gradeSelectLabel = (value) => value == null || value === '' ? '' : (Number.isFinite(Number(value)) ? gradeLabel(Number(value)) : String(value))
@@ -173,7 +174,7 @@ async function uploadDocuments(applicationId) {
 }
 
 export async function loadApplications() {
-  const { data, error } = await supabase.from('admission_applications').select('*').order('created_at',{ascending:false})
+  const { data, error } = await fetchAll(() => supabase.from('admission_applications').select('*').order('created_at',{ascending:false}).order('id'))
   if (error) return toast(error.message,'error')
   state.applications = data || []
   $('applications-table').innerHTML = state.applications.map(a => `<tr>

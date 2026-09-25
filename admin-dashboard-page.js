@@ -2,6 +2,7 @@
       import { hideLoadingScreen } from './loading-screen.js'
       import { escapeHtml as escape, formatDate, richText } from './html.js'
       import { toast } from './ui-theme.js'
+      import { staleFields } from './edit-request.js'
       import { withBusy, confirmPassword } from './shell.js'
       import { isEditLocked, editLockMessage } from './edit-lock.js'
       import { describeError } from './errors.js'
@@ -100,9 +101,20 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
         if (!approve) {
           remarks = window.prompt('Reason for rejecting (optional):')
           if (remarks === null) return
-        } else if (!window.confirm(`Approve this request?
+        } else {
+          // A profile edit is based on the values the student saw; warn if the record was changed by someone else since.
+          let warning = ''
+          if (request.request_type === 'student_profile' && request.payload?.before) {
+            const { data: record } = await supabase.from('students').select('*').eq('student_id', request.payload.student_id).maybeSingle()
+            const stale = staleFields(request.payload.before, record)
+            if (stale.length) warning = `
 
-${request.summary}`)) return
+WARNING: ${stale.join(', ')} changed after this request was made. Approving overwrites the newer value.`
+          }
+          if (!window.confirm(`Approve this request?
+
+${request.summary}${warning}`)) return
+        }
         await withBusy(button, approve ? 'Approving…' : 'Rejecting…', async () => {
           const action = request.payload
           // Password reset and (de)activation change the Supabase login, so the Edge Function runs before the approval is recorded.

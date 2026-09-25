@@ -147,6 +147,8 @@ try {
   writeFileSync(join(folder, 'transcript.js'), read('transcript.js'))
   writeFileSync(join(folder, 'print.js'), read('print.js'))
   writeFileSync(join(folder, 'pdf-preview.js'), read('pdf-preview.js'))
+  writeFileSync(join(folder, 'fetch-all.js'), read('fetch-all.js'))
+  writeFileSync(join(folder, 'edit-request.js'), read('edit-request.js'))
   writeFileSync(join(folder, 'auth-client.js'), stubAuth)
   writeFileSync(join(folder, 'ui-theme.js'), stubTheme)
   writeFileSync(join(folder, 'shell.js'), stubShell)

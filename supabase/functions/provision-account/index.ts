@@ -5,6 +5,18 @@
 // Deploy with: supabase functions deploy provision-account
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// Finds a login by email, reading the user list one page at a time until it is found (a single page only holds 1,000 accounts).
+async function findAuthUser(admin: any, email: string) {
+  const wanted = email.toLowerCase()
+  for (let page = 1; ; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error) return { user: null, error }
+    const user = data.users.find((u: any) => u.email?.toLowerCase() === wanted)
+    if (user || data.users.length < 1000) return { user: user ?? null, error: null }
+  }
+}
+
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -53,9 +65,8 @@ Deno.serve(async (req) => {
       const after = request.after_data
       const { data: target, error: targetError } = await admin.from('users').select('email,student_id,role_id').eq('user_id', request.user_id).single()
       if (targetError || !target) return json({ error: 'Target account not found' }, 404)
-      const { data: existingList, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      const { user: existingTarget, error: listError } = await findAuthUser(admin, target.email)
       if (listError) return json({ error: listError.message }, 500)
-      const existingTarget = existingList.users.find(u => u.email?.toLowerCase() === target.email.toLowerCase())
       if (existingTarget) {
         const authUpdate = await admin.auth.admin.updateUserById(existingTarget.id, { email: after.email, email_confirm: true })
         if (authUpdate.error) return json({ error: authUpdate.error.message }, 500)
@@ -90,10 +101,8 @@ Deno.serve(async (req) => {
       .from('users').select('user_id, username, email, initial_password, student_id').eq('user_id', user_id).single()
     if (accountError || !account) return json({ error: 'Account not found' }, 404)
 
-    const { data: existingList, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    const { user: existing, error: listError } = await findAuthUser(admin, account.email)
     if (listError) return json({ error: listError.message }, 500)
-
-    const existing = existingList.users.find(u => u.email?.toLowerCase() === account.email.toLowerCase())
 
     if (action === 'deactivate' || action === 'activate') {
       const isActive = action === 'activate'

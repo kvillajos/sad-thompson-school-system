@@ -5,6 +5,7 @@ import { $, state } from './registrar-state.js'
 import { escapeHtml, gradeLabel, gradeToNumber } from './html.js'
 import { loadSections, loadEnrollments, renderStudentDirectory } from './registrar-sectioning.js'
 import { renderAcademicStudents } from './registrar-academic.js'
+import { fetchAll } from './fetch-all.js'
 
 export function renderPromotionExclusions() {
   const search = $('promotion-exclude-search').value.trim().toLowerCase()
@@ -17,8 +18,8 @@ $('promotion-grade').onchange = renderPromotionExclusions
 
 export async function loadStudents(){
   const [{data,error},{data:enrollments}] = await Promise.all([
-    supabase.from('students').select('*').order('last_name'),
-    supabase.from('enrollments').select('student_id,section_id,sections(section_name)').eq('status','active')
+    fetchAll(() => supabase.from('students').select('*').order('last_name').order('student_id')),
+    fetchAll(() => supabase.from('enrollments').select('student_id,section_id,sections(section_name)').eq('status','active').order('id'))
   ])
   if(error)return toast(`Could not load students: ${error.message}`,'error')
   state.students=data||[]

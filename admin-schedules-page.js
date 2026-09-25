@@ -7,6 +7,7 @@
   import { mountAdminShell } from './admin-page.js'
   import { confirmPassword } from './shell.js'
   import { overlapsLunch } from './day-tabs.js'
+  import { fetchAll } from './fetch-all.js'
   const admin = await mountAdminShell('schedules')
 
   document.getElementById('section-grade').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades' })
@@ -102,7 +103,7 @@
     const [sectionResult, subjectResult, scheduleResult] = await Promise.all([
       supabase.from('sections').select('section_id,section_name,grade_level,academic_year,room').order('grade_level').order('section_name'),
       supabase.from('subjects').select('subject_id,subject_code,subject_name,grade_level').eq('is_active', true).order('subject_code'),
-      supabase.from('subject_schedules').select('schedule_id,subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_code,subject_name)').order('day_of_week').order('start_time')
+      fetchAll(() => supabase.from('subject_schedules').select('schedule_id,subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_code,subject_name)').order('day_of_week').order('start_time').order('schedule_id'))
     ])
     if (sectionResult.error) return document.getElementById('sections-table').innerHTML = `<tr><td colspan="5">${escape(sectionResult.error.message)}</td></tr>`
     if (subjectResult.error) return document.getElementById('sections-table').innerHTML = `<tr><td colspan="5">${escape(subjectResult.error.message)}</td></tr>`
