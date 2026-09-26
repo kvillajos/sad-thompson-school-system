@@ -1,2 +1,288 @@
-/* DARK MODE - owner: dark-mode branch only. Loaded on every page after the main theme (ui-theme.js), so rules here win. */
-/* Suggested hook: html[data-theme="dark"] { ... } and/or @media (prefers-color-scheme: dark) { ... } */
+/* Shared dark palette and surface overrides. Loaded after ui-theme.js. */
+@media screen {
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --ui-bg: #111821;
+  --ui-surface: #1a2431;
+  --ui-surface-strong: #202c3b;
+  --ui-navy: #111a27;
+  --ui-blue: #79a8ff;
+  --ui-blue-dark: #d7e4f8;
+  --ui-text: #e4eaf2;
+  --ui-muted: #a5b1c1;
+  --ui-border: #3a485b;
+  --ui-success: #52c788;
+  --ui-danger: #ff8989;
+  --ui-warning: #f2c66d;
+}
+
+html[data-theme="dark"] body {
+  background: var(--ui-bg) !important;
+  color: var(--ui-text) !important;
+}
+
+html[data-theme="dark"] .main {
+  background: var(--ui-bg) !important;
+}
+
+/* PDF preview is captured from screen styles, so keep its paper palette light here too. */
+html[data-theme="dark"] .pdf-sheet {
+  color-scheme: light;
+  --ui-bg: #f3f6fb;
+  --ui-surface: #f8faff;
+  --ui-surface-strong: #ffffff;
+  --ui-navy: #071b3a;
+  --ui-blue: #1756d1;
+  --ui-blue-dark: #17345f;
+  --ui-text: #17345f;
+  --ui-muted: #64748b;
+  --ui-border: #dbe3ef;
+  --ui-success: #16834b;
+  --ui-danger: #c0392b;
+  --ui-warning: #b7791f;
+  background: #fff !important;
+  color: #111 !important;
+}
+
+html[data-theme="dark"] .app-sidebar .sidebar-link.active {
+  color: #fff !important;
+}
+
+/* Shared card and dialog surfaces used by admin, registrar, faculty, and student pages. */
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .admin-table-wrap,
+html[data-theme="dark"] .admin-modal-box,
+html[data-theme="dark"] .modalbox,
+html[data-theme="dark"] .modal-content,
+html[data-theme="dark"] .admin-modal-head,
+html[data-theme="dark"] .modalbox > .modalhead,
+html[data-theme="dark"] .student-directory,
+html[data-theme="dark"] .review-grid,
+html[data-theme="dark"] .account-hero,
+html[data-theme="dark"] .moderator-card,
+html[data-theme="dark"] .schedule-summary {
+  background-color: var(--ui-surface-strong) !important;
+  color: var(--ui-text) !important;
+  border-color: var(--ui-border) !important;
+}
+
+html[data-theme="dark"] .admin-page-head h2,
+html[data-theme="dark"] .admin-section-title h3,
+html[data-theme="dark"] .student-card-head h3,
+html[data-theme="dark"] .admin-modal-head h3,
+html[data-theme="dark"] .account-details-box h4,
+html[data-theme="dark"] .faculty-details-box h4,
+html[data-theme="dark"] .schedule-head h3,
+html[data-theme="dark"] .modalbox h3,
+html[data-theme="dark"] .account-hero-name {
+  color: var(--ui-blue-dark) !important;
+}
+
+html[data-theme="dark"] .admin-summary-grid .card,
+html[data-theme="dark"] .admin-secondary,
+html[data-theme="dark"] .admin-view,
+html[data-theme="dark"] .admin-modal-head button,
+html[data-theme="dark"] .main button.btn.secondary,
+html[data-theme="dark"] .main button.small,
+html[data-theme="dark"] .modalhead button,
+html[data-theme="dark"] .pager-btn,
+html[data-theme="dark"] .schedule-pick-button,
+html[data-theme="dark"] .subtab,
+html[data-theme="dark"] .subtab.active {
+  background: #27364a !important;
+  color: #dce8fa !important;
+  border-color: #405471 !important;
+}
+
+html[data-theme="dark"] .admin-primary,
+html[data-theme="dark"] .admin-approve,
+html[data-theme="dark"] .main button.btn,
+html[data-theme="dark"] .schedule-button-primary {
+  background: #2458b7 !important;
+  border-color: #3971d3 !important;
+  color: #fff !important;
+}
+
+/* Form controls, including controls inside modals, custom pickers, and login. */
+html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .schedule-picker,
+html[data-theme="dark"] .combo-list,
+html[data-theme="dark"] .rte,
+html[data-theme="dark"] .rte-bar {
+  background-color: #182230 !important;
+  color: var(--ui-text) !important;
+  border-color: var(--ui-border) !important;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder,
+html[data-theme="dark"] .schedule-picker-text.empty {
+  color: #9aa9bd !important;
+  opacity: 1;
+}
+
+html[data-theme="dark"] .login-panel input {
+  background: #202c3b !important;
+  color: #f1f5fb !important;
+  border: 1px solid #43536a !important;
+}
+
+/* Menus, notifications, custom dropdowns, and popup contents. */
+html[data-theme="dark"] .profile-toggle,
+html[data-theme="dark"] .profile-dropdown,
+html[data-theme="dark"] .profile-dropdown button,
+html[data-theme="dark"] .pfp-menu,
+html[data-theme="dark"] .combo-list,
+html[data-theme="dark"] .notif-toggle,
+html[data-theme="dark"] .theme-toggle,
+html[data-theme="dark"] .notif-panel,
+html[data-theme="dark"] .schedule-actions {
+  background-color: var(--ui-surface-strong) !important;
+  color: var(--ui-text) !important;
+  border-color: var(--ui-border) !important;
+}
+
+html[data-theme="dark"] .profile-dropdown button:hover,
+html[data-theme="dark"] .profile-dropdown button:focus-visible,
+html[data-theme="dark"] .pfp-menu button:hover,
+html[data-theme="dark"] .combo-list li:hover,
+html[data-theme="dark"] .notif-item:hover,
+html[data-theme="dark"] .notif-item.unread,
+html[data-theme="dark"] .subtab:hover {
+  background-color: #2b3a4e !important;
+  color: #f1f5fb !important;
+}
+
+html[data-theme="dark"] .combo-list li,
+html[data-theme="dark"] .pfp-menu button,
+html[data-theme="dark"] .notif-item span,
+html[data-theme="dark"] .mail-subject,
+html[data-theme="dark"] .mail-row,
+html[data-theme="dark"] .mail-preview,
+html[data-theme="dark"] .mail-author,
+html[data-theme="dark"] .mail-date,
+html[data-theme="dark"] .mail-meta small,
+html[data-theme="dark"] .rte-bar button {
+  color: var(--ui-text) !important;
+}
+
+/* Table bodies and common legacy panels had fixed light colors in the shared theme. */
+html[data-theme="dark"] .admin-table-wrap td,
+html[data-theme="dark"] .main td,
+html[data-theme="dark"] .modalbox td,
+html[data-theme="dark"] .schedule-gap td {
+  color: var(--ui-text) !important;
+  border-color: var(--ui-border) !important;
+}
+
+html[data-theme="dark"] .main th,
+html[data-theme="dark"] .modalbox th {
+  background: var(--ui-navy) !important;
+  color: #fff !important;
+}
+
+html[data-theme="dark"] .review-grid > div,
+html[data-theme="dark"] .selected-row {
+  background: #27364a !important;
+}
+
+html[data-theme="dark"] .main .card > p,
+html[data-theme="dark"] .empty-state {
+  color: var(--ui-muted) !important;
+}
+
+html[data-theme="dark"] .note {
+  background: #392f1e !important;
+  color: #f2d89f !important;
+  border-color: #66502d !important;
+}
+
+html[data-theme="dark"] .academic-profile-photo,
+html[data-theme="dark"] .photo-preview,
+html[data-theme="dark"] .profile-picture-preview {
+  background: #27364a !important;
+  border-color: var(--ui-border) !important;
+}
+
+html[data-theme="dark"] .combo-list li small {
+  background: #34445a !important;
+  color: #e4eaf2 !important;
+}
+
+html[data-theme="dark"] .badge {
+  background: #344052 !important;
+  color: #e4eaf2 !important;
+}
+
+html[data-theme="dark"] .badge.active,
+html[data-theme="dark"] .badge.enrolled,
+html[data-theme="dark"] .badge.approved,
+html[data-theme="dark"] .badge.completed,
+html[data-theme="dark"] .badge.present {
+  background: #173c2b !important;
+  color: #8be0b0 !important;
+}
+
+html[data-theme="dark"] .badge.pending,
+html[data-theme="dark"] .badge.submitted,
+html[data-theme="dark"] .badge.under_review,
+html[data-theme="dark"] .badge.under-review,
+html[data-theme="dark"] .badge.draft,
+html[data-theme="dark"] .badge.late,
+html[data-theme="dark"] .badge.incomplete {
+  background: #44371e !important;
+  color: #f3d486 !important;
+}
+
+html[data-theme="dark"] .badge.inactive,
+html[data-theme="dark"] .badge.rejected,
+html[data-theme="dark"] .badge.dropped,
+html[data-theme="dark"] .badge.absent,
+html[data-theme="dark"] .badge.retained,
+html[data-theme="dark"] .badge.held {
+  background: #482b30 !important;
+  color: #ffaaaa !important;
+}
+
+html[data-theme="dark"] .badge.graduated,
+html[data-theme="dark"] .badge.transferred,
+html[data-theme="dark"] .badge.promoted {
+  background: #233959 !important;
+  color: #a9caff !important;
+}
+
+/* A few generated messages use inline colors rather than shared theme variables. */
+html[data-theme="dark"] [style*="color:#64748b"],
+html[data-theme="dark"] [style*="color: #64748b"] {
+  color: var(--ui-muted) !important;
+}
+
+html[data-theme="dark"] [style*="color:#c0392b"],
+html[data-theme="dark"] [style*="color: #c0392b"] {
+  color: var(--ui-danger) !important;
+}
+
+html[data-theme="dark"] .schedule-gap td,
+html[data-theme="dark"] .mail-row:hover,
+html[data-theme="dark"] .mail-row:focus-visible,
+html[data-theme="dark"] .notif-item.unread {
+  background-color: #202c3b !important;
+}
+
+html[data-theme="dark"] .mail-row.urgent,
+html[data-theme="dark"] .announcement-item.urgent,
+html[data-theme="dark"] .review-countdown {
+  background-color: #392f1e !important;
+  color: #f2d89f !important;
+}
+
+html[data-theme="dark"] .mail-meta,
+html[data-theme="dark"] .rte-bar,
+html[data-theme="dark"] .schedule-actions,
+html[data-theme="dark"] .section-box .admin-actions {
+  border-color: var(--ui-border) !important;
+}
+
+}
