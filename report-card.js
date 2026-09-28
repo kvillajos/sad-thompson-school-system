@@ -12,6 +12,7 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
   // 2. Calculate General Average
   const average = generalAverage(cleanRows)
   const name = `${student?.first_name || ''} ${student?.last_name || ''}`.trim()
+  const totals = attendance || { present: 0, late: 0, absent: 0, excused: 0, total: 0 }
 
   // 3. Exact subject sequence matching DepEd Form 138 specification
   const depedSubjects = [
@@ -107,7 +108,7 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
             <tr style="font-weight: bold; background-color: #ffffff;">
               <td class="text-left" style="text-align: center; font-weight: bold;">General Average</td>
               <td colspan="4"></td>
-              <td style="text-align: center;"><strong>${average ?? ''}</strong></td>
+              <td style="text-align: center;"><strong>${average ?? '-'}</strong></td>
               <td style="text-align: center;">${average ? (average >= 75 ? 'Passed' : 'Failed') : ''}</td>
             </tr>
           </tfoot>
@@ -125,6 +126,17 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
             <div>Fairly Satisfactory</div><div>75-79</div><div>Passed</div>
             <div>Did Not Meet Expectations</div><div>Below 75</div><div>Failed</div>
           </div>
+        </div>
+
+        <div class="attendance-remarks" style="margin-top: 20px; font-size: 10.5pt;">
+          <p><strong>Attendance:</strong> ${totals.present}/${totals.total} present, ${totals.late} late, ${totals.absent} absent, ${totals.excused} excused</p>
+          <p><strong>Remarks:</strong> ${escapeHtml(remarks || 'None')}</p>
+        </div>
+
+        <div class="signatures" style="display: flex; justify-content: space-between; gap: 24px; margin-top: 32px; font-size: 10.5pt;">
+          <div style="flex: 1; border-top: 1px solid #111; padding-top: 4px; text-align: center;">Class Adviser</div>
+          <div style="flex: 1; border-top: 1px solid #111; padding-top: 4px; text-align: center;">Parent / Guardian</div>
+          <div style="flex: 1; border-top: 1px solid #111; padding-top: 4px; text-align: center;">School Principal</div>
         </div>
       </main>
     </div>

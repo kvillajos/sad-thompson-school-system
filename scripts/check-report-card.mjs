@@ -27,7 +27,7 @@ assert.ok(html.includes('Keep up the good work'), 'remarks must appear')
 assert.ok(html.includes('Class Adviser') && html.includes('Parent / Guardian') && html.includes('School Principal'), 'signature block must appear')
 
 const empty = buildReportCard({ student: { first_name: 'No', last_name: 'Grades' }, gradeLevel: 'Grade 1', schoolYear: '2026-2027', academicRows: [] })
-assert.ok(empty.includes('No academic records yet.'))
+assert.ok(empty.includes('Learning Areas'), 'the full DepEd subject grid is shown even with no grades yet')
 assert.ok(empty.includes('>-<'), 'no average is shown when there are no grades')
 
 // --- the registrar wiring --------------------------------------------------
