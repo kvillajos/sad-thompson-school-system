@@ -1,3 +1,1779 @@
 /* MOBILE - owner: mobile-mode branch only. Phones: up to 599px. Keep everything inside the media query. */
 @media (max-width: 599px) {
+
+    /* =========================================
+       GENERAL MOBILE PAGE
+    ========================================= */
+
+    html,
+    body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    body {
+        margin: 0;
+        background: #f4f7fb !important;
+        background-image: none !important;
+    }
+
+    body.has-app-sidebar > main {
+        width: 100%;
+        max-width: 100%;
+        margin-left: 0 !important;
+
+        /* Space for mobile top bar */
+        padding: 84px 14px 30px !important;
+
+        box-sizing: border-box;
+    }
+
+
+    /* =========================================
+       REMOVE GRADIENTS
+    ========================================= */
+
+    /* Removes purple/blue role gradient */
+    body[data-role]::before {
+        display: none !important;
+        background: none !important;
+    }
+
+    body[data-role]::after {
+        display: none !important;
+    }
+
+    /* No gradient on sidebar */
+    .app-sidebar {
+        background: #0b2b50 !important;
+        background-image: none !important;
+    }
+
+    main,
+    .admin-page-head,
+    .admin-table-wrap {
+        background-image: none !important;
+    }
+
+
+    /* =========================================
+       MOBILE TOP BAR
+    ========================================= */
+
+    .mobile-topbar {
+        position: fixed;
+
+        top: 0;
+        left: 0;
+        right: 0;
+
+        height: 72px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        padding: 0 64px;
+
+        background: #0b2b50 !important;
+        background-image: none !important;
+
+        color: #ffffff;
+
+        z-index: 1000;
+
+        box-sizing: border-box;
+    }
+
+    .mobile-topbar-title {
+        width: 100%;
+
+        text-align: center;
+
+        color: #ffffff;
+
+        font-size: 15px;
+        font-weight: 700;
+
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+
+    /* =========================================
+       HAMBURGER / CLOSE BUTTON
+    ========================================= */
+
+    .mobile-menu-toggle {
+        position: fixed;
+
+        top: 14px;
+        left: 12px;
+
+        width: 44px;
+        height: 44px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        padding: 0;
+
+        border: 0;
+
+        background: transparent !important;
+        color: #ffffff;
+
+        font-size: 25px;
+        line-height: 1;
+
+        cursor: pointer;
+
+        z-index: 1305;
+
+        transition:
+            left 0.25s ease,
+            color 0.25s ease;
+    }
+
+    /* Move the same button to the right side of drawer */
+    body.mobile-nav-open .mobile-menu-toggle {
+        left: 238px;
+        color: #aebbc9;
+    }
+
+
+    /* =========================================
+       SIDEBAR DRAWER
+    ========================================= */
+
+    .app-sidebar,
+    body.has-app-sidebar > .app-sidebar {
+        position: fixed !important;
+
+        top: 0 !important;
+        left: 0 !important;
+
+        width: 290px !important;
+        max-width: 82vw !important;
+
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+
+        margin: 0 !important;
+
+        /* Leave space for profile */
+        padding: 94px 14px 22px !important;
+
+        border-radius: 0 !important;
+
+        background: #0b2b50 !important;
+        background-image: none !important;
+
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+
+        box-sizing: border-box;
+
+        transform: translateX(-105%);
+
+        transition: transform 0.25s ease;
+
+        z-index: 1300;
+    }
+
+    body.mobile-nav-open .app-sidebar {
+        transform: translateX(0);
+    }
+
+
+    /* Desktop logo/brand is not needed inside drawer */
+    .app-sidebar .sidebar-logo,
+    .app-sidebar .sidebar-brand {
+        display: none !important;
+    }
+
+
+    /* =========================================
+       MENU LABEL
+    ========================================= */
+
+    .app-sidebar .sidebar-nav::before {
+        content: "MENU";
+
+        display: block;
+
+        width: 100%;
+
+        margin: 4px 0 10px;
+        padding: 0 10px;
+
+        box-sizing: border-box;
+
+        color: #8193aa;
+
+        font-size: 10px;
+        font-weight: 700;
+
+        letter-spacing: 1px;
+    }
+
+
+    /* =========================================
+       SIDEBAR NAVIGATION
+    ========================================= */
+
+    .app-sidebar .sidebar-nav {
+        display: flex !important;
+
+        flex-direction: column !important;
+        flex-wrap: nowrap !important;
+
+        width: 100%;
+
+        min-height: 0 !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        gap: 4px !important;
+
+        background: transparent !important;
+
+        overflow: visible !important;
+    }
+
+    .app-sidebar .sidebar-link {
+        width: 100% !important;
+
+        min-height: 44px !important;
+
+        margin: 0 !important;
+
+        padding: 0 12px !important;
+
+        display: grid !important;
+
+        grid-template-columns: 32px minmax(0, 1fr) !important;
+
+        align-items: center !important;
+
+        border-radius: 11px !important;
+
+        background: transparent !important;
+
+        color: #b7c2cf !important;
+
+        font-size: 14px !important;
+        font-weight: 600 !important;
+
+        text-decoration: none;
+
+        box-sizing: border-box;
+
+        transform: none !important;
+    }
+
+    .app-sidebar .sidebar-link:hover {
+        background: rgba(255, 255, 255, 0.07) !important;
+
+        color: #ffffff !important;
+
+        transform: none !important;
+    }
+
+    .app-sidebar .sidebar-link.active {
+        background: #2463eb !important;
+
+        color: #ffffff !important;
+    }
+
+    .app-sidebar .sidebar-link.active::before,
+    .app-sidebar .sidebar-link.active::after {
+        display: none !important;
+    }
+
+    .app-sidebar .sidebar-link .sidebar-icon {
+        width: 32px !important;
+        height: 44px !important;
+
+        display: grid;
+        place-items: center;
+    }
+
+    .app-sidebar .sidebar-link .sidebar-label {
+        overflow: visible !important;
+
+        text-overflow: initial !important;
+
+        white-space: nowrap !important;
+    }
+
+
+    /* =========================================
+       PROFILE - CLOSED SIDEBAR
+    ========================================= */
+
+    .floating-profile {
+        position: fixed !important;
+
+        top: 14px !important;
+        right: 14px !important;
+        left: auto !important;
+
+        width: 44px;
+
+        z-index: 1100 !important;
+    }
+
+    .floating-profile .profile-toggle {
+        width: 44px !important;
+        height: 44px !important;
+
+        min-height: 44px !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        display: flex !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        border: 0 !important;
+
+        border-radius: 50% !important;
+
+        background: transparent !important;
+
+        box-shadow: none !important;
+    }
+
+    .floating-profile .profile-avatar {
+        width: 38px !important;
+        height: 38px !important;
+
+        flex: 0 0 38px !important;
+
+        background: #2f6fed !important;
+
+        color: white !important;
+
+        font-size: 13px !important;
+    }
+
+    .floating-profile .profile-avatar img {
+        width: 38px !important;
+        height: 38px !important;
+    }
+
+    /* Hide name while drawer is closed */
+    .floating-profile .profile-toggle > span:nth-child(2),
+    .floating-profile .profile-chevron {
+        display: none !important;
+    }
+
+
+    /* =========================================
+       PROFILE INSIDE OPEN DRAWER
+    ========================================= */
+
+    body.mobile-nav-open .floating-profile {
+        top: 22px !important;
+        left: 18px !important;
+        right: auto !important;
+
+        width: 205px !important;
+
+        z-index: 1302 !important;
+    }
+
+    body.mobile-nav-open .floating-profile .profile-toggle {
+        width: 205px !important;
+        height: 52px !important;
+
+        justify-content: flex-start !important;
+
+        gap: 10px !important;
+
+        border-radius: 0 !important;
+
+        background: transparent !important;
+
+        color: #ffffff !important;
+    }
+
+    body.mobile-nav-open
+    .floating-profile
+    .profile-toggle > span:nth-child(2) {
+        display: block !important;
+
+        min-width: 0;
+
+        flex: 1;
+    }
+
+    body.mobile-nav-open
+    .floating-profile
+    .profile-toggle strong {
+        display: block !important;
+
+        color: #ffffff !important;
+
+        font-size: 14px !important;
+        font-weight: 700 !important;
+
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body.mobile-nav-open
+    .floating-profile
+    .profile-toggle small {
+        display: block !important;
+
+        margin-top: 2px !important;
+
+        color: #8fb3e6 !important;
+
+        font-size: 11px !important;
+    }
+
+    body.mobile-nav-open
+    .floating-profile
+    .profile-chevron {
+        display: none !important;
+    }
+
+
+    /* =========================================
+       PROFILE DROPDOWN
+    ========================================= */
+
+    .floating-profile .profile-dropdown {
+        position: absolute !important;
+
+        top: 50px !important;
+        right: 0 !important;
+        left: auto !important;
+
+        width: 212px !important;
+    }
+
+    body.mobile-nav-open
+    .floating-profile .profile-dropdown {
+        top: 56px !important;
+
+        left: 0 !important;
+        right: auto !important;
+    }
+
+
+    /* =========================================
+       DARK BACKDROP
+    ========================================= */
+
+    .mobile-nav-backdrop {
+        position: fixed;
+
+        inset: 0;
+
+        display: none;
+
+        width: 100%;
+        height: 100%;
+
+        padding: 0;
+
+        border: 0;
+
+        background: rgba(0, 0, 0, 0.48);
+
+        z-index: 1200;
+    }
+
+    body.mobile-nav-open .mobile-nav-backdrop {
+        display: block;
+    }
+
+    body.mobile-nav-open {
+        overflow: hidden;
+    }
+
+
+    /* =========================================
+       ADMIN HEADER
+    ========================================= */
+
+    .admin-page-head {
+        width: 100%;
+
+        margin: 0 0 18px !important;
+
+        padding: 0 !important;
+
+        background: transparent !important;
+        background-image: none !important;
+
+        box-sizing: border-box;
+    }
+
+
+    /* =========================================
+       TABLES
+    ========================================= */
+
+    .admin-table-wrap {
+        width: 100%;
+        max-width: 100%;
+
+        overflow-x: auto !important;
+
+        box-sizing: border-box;
+
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-table-wrap table {
+        min-width: 720px;
+    }
+
+
+    /* =========================================
+       BUTTON SIZE
+    ========================================= */
+
+    button,
+    .btn {
+        min-height: 44px;
+    }
+
+
+    /* =========================================
+   FINAL SIDEBAR FIX
+========================================= */
+
+:root {
+    --mobile-drawer-width: min(76vw, 280px);
+}
+
+
+/* Drawer */
+.app-sidebar,
+body.has-app-sidebar > .app-sidebar {
+    width: var(--mobile-drawer-width) !important;
+    max-width: none !important;
+
+    min-height: 100dvh !important;
+    height: 100dvh !important;
+
+    padding: 88px 10px 45px !important;
+
+    background: #0b315c !important;
+    background-image: none !important;
+
+    border-radius: 0 !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+
+/* REMOVE THE OLD MOBILE FLEX BEHAVIOR */
+.app-sidebar .sidebar-nav {
+    display: flex !important;
+
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+
+    padding: 8px 0 0 !important;
+    margin: 0 !important;
+
+    gap: 4px !important;
+
+    overflow: visible !important;
+}
+
+
+/* This is the IMPORTANT fix */
+.app-sidebar .sidebar-link {
+    flex: 0 0 44px !important;
+
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+
+    margin: 0 !important;
+    padding: 0 10px !important;
+
+    display: grid !important;
+    grid-template-columns: 32px minmax(0, 1fr) !important;
+    align-items: center !important;
+
+    border-radius: 8px !important;
+
+    background: transparent !important;
+
+    color: #b9c5d2 !important;
+
+    font-size: 13px !important;
+    font-weight: 600 !important;
+
+    box-sizing: border-box;
+
+    transform: none !important;
+}
+
+
+/* Icons */
+.app-sidebar .sidebar-link .sidebar-icon {
+    width: 32px !important;
+    height: 44px !important;
+
+    display: grid !important;
+    place-items: center !important;
+}
+
+
+.app-sidebar .sidebar-link .sidebar-icon svg {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+
+/* Text */
+.app-sidebar .sidebar-link .sidebar-label {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+
+/* Active menu item like Figma */
+.app-sidebar .sidebar-link.active {
+    flex: 0 0 44px !important;
+
+    height: 44px !important;
+    min-height: 44px !important;
+
+    background: #2468f2 !important;
+    color: #ffffff !important;
+
+    border-radius: 8px !important;
+
+    animation: none !important;
+}
+
+
+.app-sidebar .sidebar-link.active::before,
+.app-sidebar .sidebar-link.active::after {
+    display: none !important;
+}
+
+
+/* Hover */
+.app-sidebar .sidebar-link:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #ffffff !important;
+
+    transform: none !important;
+}
+
+/* ========================================
+   MOBILE ANNOUNCEMENTS
+======================================== */
+
+.admin-announcements {
+    width: 100% !important;
+    max-width: 100% !important;
+
+    padding: 14px !important;
+
+    overflow: hidden !important;
+
+    border-radius: 14px !important;
+
+    box-sizing: border-box;
+}
+
+
+/* Announcement title + Add button */
+
+.admin-announcements
+.admin-section-title {
+
+    display: flex !important;
+
+    flex-direction: row !important;
+
+    align-items: center !important;
+
+    justify-content: space-between !important;
+
+    gap: 10px !important;
+
+    margin-bottom: 12px !important;
+}
+
+
+.admin-announcements
+.admin-section-title h3 {
+
+    margin: 0 !important;
+
+    font-size: 16px !important;
+}
+
+
+.admin-announcements
+#add-announcement {
+
+    width: auto !important;
+
+    min-height: 36px !important;
+
+    padding: 7px 13px !important;
+
+    border-radius: 9px !important;
+
+    font-size: 12px !important;
+
+    white-space: nowrap;
+}
+
+
+/* ========================================
+   SCROLLABLE TABLE AREA
+======================================== */
+
+.ann-table-scroll {
+
+    width: 100%;
+
+    overflow-x: auto !important;
+
+    overflow-y: hidden;
+
+    -webkit-overflow-scrolling: touch;
+
+    border-radius: 9px;
+}
+
+
+/* Override generic mobile table size */
+
+.admin-announcements
+.ann-table {
+
+    width: 660px !important;
+
+    min-width: 660px !important;
+
+    table-layout: fixed !important;
+
+    border-collapse: collapse;
+}
+
+
+/* ========================================
+   MOBILE TABLE HEADER
+======================================== */
+
+.admin-announcements
+.ann-table th {
+
+    padding: 9px 8px !important;
+
+    background: #08264b !important;
+
+    color: #ffffff !important;
+
+    font-size: 10px !important;
+
+    font-weight: 700 !important;
+
+    text-align: left;
+
+    white-space: nowrap !important;
+}
+
+
+/* Change "Title" to "Title / Message" */
+
+.ann-mobile-header {
+    display: inline !important;
+}
+
+
+/* Hide separate desktop Message column */
+
+.ann-message-head,
+.ann-msg {
+
+    display: none !important;
+}
+
+
+/* Hide separate Type column */
+
+.ann-type-head,
+.ann-type-cell {
+
+    display: none !important;
+}
+
+
+/* ========================================
+   COLUMN WIDTHS
+======================================== */
+
+.admin-announcements
+.ann-table th:nth-child(1),
+
+.admin-announcements
+.ann-table td:nth-child(1) {
+
+    width: 220px !important;
+}
+
+
+.admin-announcements
+.ann-table th:nth-child(4),
+
+.admin-announcements
+.ann-table td:nth-child(4) {
+
+    width: 85px !important;
+}
+
+
+.admin-announcements
+.ann-table th:nth-child(5),
+
+.admin-announcements
+.ann-table td:nth-child(5) {
+
+    width: 95px !important;
+}
+
+
+.admin-announcements
+.ann-table th:nth-child(6),
+
+.admin-announcements
+.ann-table td:nth-child(6) {
+
+    width: 90px !important;
+}
+
+
+.admin-announcements
+.ann-table th:nth-child(7),
+
+.admin-announcements
+.ann-table td:nth-child(7) {
+
+    width: 170px !important;
+}
+
+
+/* ========================================
+   TABLE CELLS
+======================================== */
+
+.admin-announcements
+.ann-table td {
+
+    padding: 10px 8px !important;
+
+    font-size: 10px !important;
+
+    vertical-align: middle;
+
+    box-sizing: border-box;
+}
+
+
+/* ========================================
+   TITLE + MESSAGE
+======================================== */
+
+.ann-title-cell {
+
+    white-space: normal !important;
+
+    overflow: hidden;
+}
+
+
+.ann-title-text {
+
+    display: block;
+
+    margin-top: 3px;
+
+    color: #08264b;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    line-height: 1.25;
+
+    white-space: normal !important;
+}
+
+
+/* Message goes underneath title */
+
+.ann-mobile-message {
+
+    display: -webkit-box !important;
+
+    margin-top: 4px;
+
+    color: #637286;
+
+    font-size: 10px;
+
+    line-height: 1.35;
+
+    white-space: normal !important;
+
+    overflow: hidden;
+
+    line-clamp: 2;
+
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+
+/* ========================================
+   TYPE BADGE ABOVE TITLE
+======================================== */
+
+.ann-mobile-kind {
+
+    display: block !important;
+
+    margin-bottom: 4px;
+}
+
+
+.ann-mobile-kind .badge,
+.ann-mobile-kind .urgent-badge {
+
+    display: inline-block;
+
+    padding: 2px 6px;
+
+    border-radius: 5px;
+
+    font-size: 8px !important;
+
+    font-weight: 700;
+
+    text-transform: uppercase;
+}
+
+
+.ann-notice-label {
+
+    display: inline-block;
+
+    padding: 2px 6px;
+
+    border-radius: 5px;
+
+    background: #dff2ff;
+
+    color: #1674a5;
+
+    font-size: 8px;
+
+    font-weight: 700;
+
+    text-transform: uppercase;
+}
+
+
+/* ========================================
+   ACTION BUTTONS
+======================================== */
+
+.ann-actions {
+
+    white-space: nowrap !important;
+}
+
+
+.ann-actions button {
+
+    width: auto !important;
+
+    min-height: 32px !important;
+
+    margin-right: 3px !important;
+
+    padding: 5px 7px !important;
+
+    border-radius: 7px !important;
+
+    font-size: 9px !important;
+}
+
+/* =========================================
+   MOBILE ADMIN PAGES
+   Manage Faculty / Manage Accounts / similar
+========================================= */
+
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+body {
+    margin: 0;
+    background: #f4f7fb !important;
+    background-image: none !important;
+}
+
+/* Remove desktop role gradient on mobile */
+body[data-role]::before,
+body[data-role]::after {
+    display: none !important;
+    content: none !important;
+    background: none !important;
+    background-image: none !important;
+}
+
+/* Main page area */
+body.has-app-sidebar > main {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding: 84px 12px 24px !important;
+    box-sizing: border-box;
+}
+
+/* =========================================
+   MOBILE TOP BAR
+========================================= */
+
+.mobile-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+
+    height: 68px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 0 64px;
+
+    background: #0b2f59 !important;
+    color: #ffffff;
+
+    z-index: 1000;
+    box-sizing: border-box;
+}
+
+.mobile-topbar-title {
+    width: 100%;
+    text-align: center;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mobile-menu-toggle {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+
+    width: 44px;
+    height: 44px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 0;
+    background: transparent !important;
+    color: #ffffff;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+
+    z-index: 1305;
+}
+
+body.mobile-nav-open .mobile-menu-toggle {
+    left: 230px;
+}
+
+/* =========================================
+   SLIDE-OUT SIDEBAR
+========================================= */
+
+.app-sidebar,
+body.has-app-sidebar > .app-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+
+    width: min(78vw, 280px) !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+
+    padding: 86px 12px 20px !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+
+    background: #0b2f59 !important;
+    background-image: none !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    transform: translateX(-105%);
+    transition: transform 0.25s ease;
+
+    z-index: 1300;
+    box-sizing: border-box;
+}
+
+body.mobile-nav-open .app-sidebar {
+    transform: translateX(0);
+}
+
+/* hide big desktop branding inside drawer */
+.app-sidebar .sidebar-logo,
+.app-sidebar .sidebar-brand {
+    display: none !important;
+}
+
+/* compact nav list */
+.app-sidebar .sidebar-nav {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+
+    width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 6px !important;
+}
+
+/* important: stop giant menu items */
+.app-sidebar .sidebar-link {
+    flex: 0 0 44px !important;
+
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+
+    margin: 0 !important;
+    padding: 0 12px !important;
+
+    display: grid !important;
+    grid-template-columns: 30px minmax(0, 1fr) !important;
+    align-items: center !important;
+
+    border-radius: 10px !important;
+
+    background: transparent !important;
+    color: #c1cada !important;
+
+    font-size: 14px !important;
+    font-weight: 600 !important;
+
+    box-sizing: border-box;
+    transform: none !important;
+}
+
+.app-sidebar .sidebar-link:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #ffffff !important;
+}
+
+.app-sidebar .sidebar-link.active {
+    background: #2f6fed !important;
+    color: #ffffff !important;
+}
+
+.app-sidebar .sidebar-link.active::before,
+.app-sidebar .sidebar-link.active::after {
+    display: none !important;
+}
+
+.app-sidebar .sidebar-link .sidebar-icon {
+    width: 30px !important;
+    height: 44px !important;
+    display: grid !important;
+    place-items: center !important;
+}
+
+.app-sidebar .sidebar-link .sidebar-label {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* dark backdrop */
+.mobile-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    display: none;
+    border: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1200;
+}
+
+body.mobile-nav-open .mobile-nav-backdrop {
+    display: block;
+}
+
+body.mobile-nav-open {
+    overflow: hidden;
+}
+
+/* =========================================
+   PROFILE
+========================================= */
+
+.floating-profile {
+    position: fixed !important;
+    top: 12px !important;
+    right: 14px !important;
+    left: auto !important;
+    width: 44px !important;
+    z-index: 1100 !important;
+}
+
+.floating-profile .profile-toggle {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.floating-profile .profile-avatar {
+    width: 38px !important;
+    height: 38px !important;
+    flex: 0 0 38px !important;
+}
+
+.floating-profile .profile-toggle > span:nth-child(2),
+.floating-profile .profile-chevron {
+    display: none !important;
+}
+
+/* =========================================
+   PAGE HEADER / FILTERS
+========================================= */
+
+.admin-page-head {
+    width: 100%;
+    margin: 0 0 14px !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+.admin-page-head h2 {
+    margin: 0 0 6px !important;
+    font-size: 18px !important;
+    line-height: 1.25;
+}
+
+.admin-page-head p {
+    margin: 0 0 12px !important;
+    font-size: 13px !important;
+    line-height: 1.45;
+    color: #637286;
+}
+
+/* search / filters */
+input,
+select,
+textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 16px;
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea,
+button,
+.btn,
+.admin-primary,
+.admin-secondary,
+.admin-view,
+.admin-remove {
+    min-height: 44px;
+}
+
+.admin-page-head input,
+.admin-page-head select {
+    width: 100% !important;
+    margin-bottom: 10px;
+}
+
+/* =========================================
+   TABLE WRAPPER
+========================================= */
+
+.admin-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    padding: 12px !important;
+    border-radius: 14px !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+}
+
+/* wide tables scroll sideways */
+.admin-table-wrap table {
+    width: max-content !important;
+    min-width: 980px !important;
+    border-collapse: collapse;
+}
+
+.admin-table-wrap th,
+.admin-table-wrap td {
+    white-space: nowrap;
+}
+
+.admin-table-wrap th {
+    font-size: 12px !important;
+}
+
+.admin-table-wrap td {
+    font-size: 12px !important;
+    vertical-align: middle;
+}
+
+/* buttons inside tables */
+.admin-table-wrap td button,
+.admin-table-wrap td .btn,
+.admin-table-wrap td .admin-view,
+.admin-table-wrap td .admin-remove,
+.admin-table-wrap td .admin-primary {
+    min-height: 36px !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    border-radius: 8px !important;
+}
+
+/* =========================================
+   MODALS / POPUPS
+========================================= */
+
+.admin-modal {
+    padding: 12px !important;
+    overflow-y: auto !important;
+    box-sizing: border-box;
+}
+
+.admin-modal-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - 24px) !important;
+
+    padding: 16px !important;
+    overflow-y: auto !important;
+
+    box-sizing: border-box;
+}
+
+.admin-modal-box form {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+}
+
+.admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+}
+
+.admin-actions button {
+    flex: 1 1 120px;
+}
+
+/* =========================================
+   REGISTRAR MOBILE SIDEBAR SCROLL FIX
+========================================= */
+
+.app-sidebar,
+body.has-app-sidebar > .app-sidebar {
+    position: fixed !important;
+
+    top: 0 !important;
+    left: 0 !important;
+
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+
+    overflow: hidden !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    box-sizing: border-box;
+}
+
+
+/* The menu itself is the scrollable part */
+.app-sidebar .sidebar-nav {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+
+    flex: 1 1 auto !important;
+
+    width: 100% !important;
+    min-height: 0 !important;
+
+    margin: 0 !important;
+    padding: 8px 0 20px !important;
+
+    gap: 5px !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+
+    scroll-behavior: auto;
+}
+
+
+/* Do not let links stretch vertically */
+.app-sidebar .sidebar-link {
+    flex: 0 0 44px !important;
+
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+
+    margin: 0 !important;
+
+    box-sizing: border-box;
+}
+
+/* =========================================
+   SIDEBAR SCROLL FIX
+========================================= */
+
+.app-sidebar,
+body.has-app-sidebar > .app-sidebar {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    overflow: hidden !important;
+}
+
+
+/* Make only the navigation area scroll */
+.app-sidebar .sidebar-nav {
+    flex: 1 1 auto !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+
+    justify-content: flex-start !important;
+
+    width: 100% !important;
+    min-height: 0 !important;
+
+    margin: 0 !important;
+    padding: 8px 0 20px !important;
+
+    gap: 5px !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    -webkit-overflow-scrolling: touch;
+}
+
+
+/* Prevent each menu item from becoming huge */
+.app-sidebar .sidebar-link {
+    flex: 0 0 44px !important;
+
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+
+    margin: 0 !important;
+}
+
+/* FINAL SIDEBAR SCROLL OVERRIDE */
+
+.app-sidebar,
+body.has-app-sidebar > .app-sidebar {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+.app-sidebar .sidebar-nav {
+    flex: 1 1 auto !important;
+
+    min-height: 0 !important;
+    max-height: calc(100dvh - 110px) !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+
+    justify-content: flex-start !important;
+
+    margin: 0 !important;
+    padding: 8px 0 20px !important;
+
+    gap: 5px !important;
+
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+
+    -webkit-overflow-scrolling: touch;
+}
+
+.app-sidebar .sidebar-link {
+    flex: 0 0 44px !important;
+
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+
+    margin: 0 !important;
+}
+
+/* FORCE OPEN MOBILE SIDEBAR */
+
+.app-sidebar {
+    transform: translateX(-105%) !important;
+}
+
+body.mobile-nav-open .app-sidebar {
+    transform: translateX(0) !important;
+    left: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* =========================================
+   FINAL MOBILE SIDEBAR OVERRIDE
+   Keep this as the LAST sidebar rule
+========================================= */
+
+.app-sidebar,
+body.has-app-sidebar > .app-sidebar {
+    position: fixed !important;
+
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+
+    width: min(78vw, 280px) !important;
+
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+
+    margin: 0 !important;
+    padding: 86px 12px 16px !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    overflow: hidden !important;
+
+    background: #0b2f59 !important;
+    background-image: none !important;
+
+    box-sizing: border-box;
+
+    transform: translate3d(-105%, 0, 0) !important;
+
+    transition: transform 0.25s ease !important;
+
+    z-index: 1300 !important;
+}
+
+body.mobile-nav-open .app-sidebar,
+body.mobile-nav-open.has-app-sidebar > .app-sidebar {
+    transform: translate3d(0, 0, 0) !important;
+}
+
+
+/* Navigation begins at the top of its available area */
+
+.app-sidebar .sidebar-nav {
+    position: relative !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+
+    flex: 0 0 auto !important;
+
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    gap: 5px !important;
+
+    overflow: visible !important;
+
+    transform: none !important;
+}
+
+
+/* Every menu item has a fixed normal height */
+
+.app-sidebar .sidebar-link {
+    position: relative !important;
+
+    flex: 0 0 44px !important;
+
+    width: 100% !important;
+    height: 44px !important;
+
+    min-height: 44px !important;
+    max-height: 44px !important;
+
+    margin: 0 !important;
+
+    transform: none !important;
+
+    box-sizing: border-box;
+}
+
+/* =========================================
+   REGISTRAR ALL PAGES - TOP BAR FIX
+========================================= */
+
+/* Push ALL registrar content below fixed top bar */
+body[data-role="registrar"].has-app-sidebar .layout > main.main {
+    width: 100% !important;
+    max-width: 100% !important;
+
+    margin-left: 0 !important;
+
+    /* Mobile top bar is around 68px tall */
+    padding-top: 92px !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    padding-bottom: 30px !important;
+
+    box-sizing: border-box !important;
+}
+
+
+/* Every registrar panel starts below the top bar */
+body[data-role="registrar"] main.main > section[data-panel] {
+    position: relative !important;
+
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+
+    scroll-margin-top: 92px;
+
+    visibility: visible;
+}
+
+
+/* Keep hidden pages hidden */
+body[data-role="registrar"] main.main > section[data-panel].hidden {
+    display: none !important;
+}
+
+
+/* Make the heading of every visible panel show properly */
+body[data-role="registrar"]
+main.main > section[data-panel]:not(.hidden) > h1:first-child,
+
+body[data-role="registrar"]
+main.main > section[data-panel]:not(.hidden) > h2:first-child,
+
+body[data-role="registrar"]
+main.main > section[data-panel]:not(.hidden) > .page-title:first-child {
+
+    display: block !important;
+
+    position: relative !important;
+
+    margin-top: 0 !important;
+    margin-bottom: 16px !important;
+
+    visibility: visible !important;
+    opacity: 1 !important;
+
+    z-index: 1 !important;
+}
+
 }

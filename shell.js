@@ -49,9 +49,144 @@ export function mountSidebar(items, brand, role) {
     link.style.setProperty('--sidebar-index', index);
   });
   const layout = document.querySelector('.layout');
-  if (layout) layout.prepend(sidebar);
-  else document.body.prepend(sidebar);
-  return sidebar;
+  if (layout) {
+    layout.prepend(sidebar);
+} else {
+    document.body.prepend(sidebar);
+}
+
+
+/* =========================================
+   SHARED MOBILE / TABLET SIDEBAR CONTROLS
+========================================= */
+
+document.querySelector('.mobile-topbar')?.remove();
+document.querySelector('.mobile-nav-backdrop')?.remove();
+
+const mobileTopbar = document.createElement('div');
+mobileTopbar.className = 'mobile-topbar';
+
+const menuButton = document.createElement('button');
+menuButton.className = 'mobile-menu-toggle';
+menuButton.type = 'button';
+menuButton.setAttribute('aria-label', 'Open menu');
+menuButton.setAttribute('aria-expanded', 'false');
+menuButton.textContent = '☰';
+
+const mobileTitle = document.createElement('div');
+mobileTitle.className = 'mobile-topbar-title';
+mobileTitle.textContent = String(brand).replace(/<br\s*\/?>/gi, ' ');
+
+mobileTopbar.append(menuButton, mobileTitle);
+
+
+const backdrop = document.createElement('button');
+backdrop.className = 'mobile-nav-backdrop';
+backdrop.type = 'button';
+backdrop.setAttribute('aria-label', 'Close menu');
+
+document.body.append(mobileTopbar, backdrop);
+
+
+function openMobileMenu() {
+    document.body.classList.add('mobile-nav-open')
+
+    menuButton.textContent = '×'
+
+    menuButton.setAttribute(
+        'aria-label',
+        'Close menu'
+    )
+
+    menuButton.setAttribute(
+        'aria-expanded',
+        'true'
+    );
+
+    /* Always open sidebar at the first menu item */
+    sidebar.scrollTop = 0
+
+    const sidebarNav =
+        sidebar.querySelector('.sidebar-nav')
+
+    if (sidebarNav) {
+        sidebarNav.scrollTop = 0
+    }
+
+    /* Run once more after layout finishes */
+    requestAnimationFrame(() => {
+        sidebar.scrollTop = 0;
+
+        if (sidebarNav) {
+            sidebarNav.scrollTop = 0;
+        }
+    });
+}
+
+
+function closeMobileMenu() {
+    document.body.classList.remove('mobile-nav-open');
+
+    menuButton.textContent = '☰';
+
+    menuButton.setAttribute(
+        'aria-label',
+        'Open menu'
+    );
+
+    menuButton.setAttribute(
+        'aria-expanded',
+        'false'
+    );
+}
+
+
+menuButton.addEventListener('click', () => {
+
+    if (
+        document.body.classList.contains(
+            'mobile-nav-open'
+        )
+    ) {
+        closeMobileMenu();
+    } else {
+        openMobileMenu();
+    }
+
+});
+
+
+backdrop.addEventListener(
+    'click',
+    closeMobileMenu
+);
+
+
+/* Close drawer after selecting menu item */
+
+sidebar.addEventListener('click', event => {
+
+    if (
+        event.target.closest('.sidebar-link')
+    ) {
+        closeMobileMenu();
+    }
+
+});
+
+
+/* Reset when returning to desktop */
+
+window.addEventListener('resize', () => {
+
+    if (window.innerWidth > 1024) {
+        closeMobileMenu();
+    }
+
+});
+
+
+return sidebar;
 }
 
 export function mountProfile(user, roleLabel, onSignOut) {
