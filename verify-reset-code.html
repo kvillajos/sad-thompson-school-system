@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <title>Enter Reset Code · Thompson Christian School Management System</title>
+  </head>
+  <body>
+    <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#102a43"></div>
+
+    <div class="login-layout">
+      <section class="login-panel" aria-label="TCSMS verify reset code">
+        <div id="verify-code-container" class="card">
+          <div class="brand-lockup">
+            <div class="brand-copy">
+              <p class="brand-name">Thompson <span>Christian</span></p>
+              <p class="brand-tagline">School Management System</p>
+            </div>
+            <img class="brand-logo" src="/assets/logo.png" alt="Thompson Christian School seal" />
+          </div>
+          <h2>Enter Reset Code</h2>
+          <p class="app-version" style="margin:-4px 0 14px">We emailed a code to the address you entered. Enter it below.</p>
+          <form id="verify-code-form">
+            <div class="form-group">
+              <label for="code">Reset Code</label>
+              <input type="text" id="code" placeholder="Reset Code" required autocomplete="one-time-code" inputmode="numeric" />
+            </div>
+            <button type="submit">Verify Code</button>
+          </form>
+          <div id="message" role="alert"></div>
+          <p class="app-version"><a href="/forgot-password.html" style="color:#93a7c4">Didn't get a code? Start over</a></p>
+        </div>
+      </section>
+      <aside class="login-photo" aria-label="Thompson Christian School campus"></aside>
+    </div>
+
+    <script type="module" src="/verify-reset-code-page.js"></script>
+  </body>
+</html>
