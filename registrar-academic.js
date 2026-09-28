@@ -43,7 +43,7 @@ export function renderAcademicStudents() {
   }).join('') || '<tr><td colspan="7" class="empty-state">No students found.</td></tr>'
   document.querySelectorAll('[data-view-academic]').forEach(button => { button.onclick = () => openAcademicHistory(button.dataset.viewAcademic) })
   document.querySelectorAll('[data-transcript-academic]').forEach(button => { button.onclick = () => generateTranscript(button.dataset.transcriptAcademic) })
-  document.querySelectorAll('[data-print-academic]').forEach(button => { button.onclick = () => printReportCard(button.dataset.printAcademic) })
+  document.querySelectorAll('[data-print-academic]').forEach(button => { button.onclick = () => printAcademicCard(button.dataset.printAcademic) })
 }
 let academicLoadSequence = 0
 export async function loadAcademic() {
@@ -118,7 +118,7 @@ async function printReportCard(studentId) {
 $('print-report-card').onclick = () => printReportCard(state.academicStudentId)
 // The card prints from the page itself instead of a pop-up: the theme hides every other
 // body child while body carries the printing-card class.
-async function printReportCard(studentId) {
+async function printAcademicCard(studentId) {
   const student = state.students.find(item => `${item.student_id}` === `${studentId}`)
   if (!student) return toast('Open a student record first.', 'error')
   const rows = academicRowsFor(studentId)
