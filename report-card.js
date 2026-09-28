@@ -1,11 +1,18 @@
 // report-card.js
 import { escapeHtml } from './html.js'
-import { ACADEMIC_LABELS, SCORE_FIELDS, generalAverage, letterGrade } from './grades.js'
+import { generalAverage } from './grades.js'
 
 export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, academicRows = [], attendance, remarks }) {
-  const average = generalAverage(academicRows)
+  // Filter out any row where the subject is "General Average"
+  const filteredRows = (academicRows || []).filter(r => {
+    const sub = (r.subject || '').trim().toLowerCase()
+    return sub !== 'general average' && sub !== 'general_average'
+  })
+
+  const average = generalAverage(filteredRows)
   const name = `${student?.first_name || ''} ${student?.last_name || ''}`.trim()
 
+  // Official DepEd Form 138 subject order
   const depedSubjects = [
     'Filipino',
     'English',
@@ -13,18 +20,32 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
     'Science',
     'Araling Panlipunan (AP)',
     'Edukasyong Pantahanan at Pangkabuhayan (EPP)',
+    'Edukasyon sa Pagpapakatao (EsP)',
     'MAPEH',
     'Music',
     'Arts',
     'Physical Education',
-    'Health',
-    'Edukasyon sa Pagpapakatao (EsP)'
+    'Health'
   ]
 
-  const gradeMap = new Map((academicRows || []).map(r => [r.subject?.trim().toLowerCase(), r]))
+  // Build lookup dictionary by matching normalized subject titles
+  const gradeMap = new Map()
+  filteredRows.forEach(r => {
+    if (r.subject) {
+      gradeMap.set(r.subject.trim().toLowerCase(), r)
+    }
+  })
 
+  // Render fixed list of DepEd subjects in exact array order
   const tableRowsHtml = depedSubjects.map(subject => {
-    const record = gradeMap.get(subject.toLowerCase()) || {}
+    // Flexible matching for subject names
+    let record = gradeMap.get(subject.toLowerCase())
+    if (!record) {
+      const key = [...gradeMap.keys()].find(k => k.includes(subject.toLowerCase().split(' ')[0]))
+      if (key) record = gradeMap.get(key)
+    }
+    record = record || {}
+
     const isMapehSub = ['Music', 'Arts', 'Physical Education', 'Health'].includes(subject)
     const indentClass = isMapehSub ? 'indent-sub' : 'text-left'
 
@@ -82,8 +103,8 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
           </thead>
           <tbody>
             ${tableRowsHtml}
-            <tr>
-              <td class="text-left" style="font-weight:bold; text-align:right; padding-right:15px;">General Average</td>
+            <tr style="font-weight: bold; background-color: #f5f5f5;">
+              <td class="text-left" style="text-align: right; padding-right: 15px;">General Average</td>
               <td></td><td></td><td></td><td></td>
               <td><strong>${average ?? ''}</strong></td>
               <td>${average ? (average >= 75 ? 'Passed' : 'Failed') : ''}</td>
