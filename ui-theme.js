@@ -767,8 +767,9 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .rte-body:empty::before { content:attr(data-placeholder); color:#94a3b8; }
 .pw-wrap { position:relative; }
 .pw-wrap input { padding-right:44px !important; }
-.pw-toggle { position:absolute; right:6px; top:50%; transform:translateY(-50%); margin:0; padding:6px; width:32px; height:32px; display:grid; place-items:center; border:0; border-radius:8px; background:transparent; color:#64748b; cursor:pointer; box-shadow:none; }
-.pw-toggle:hover { background:#eef3fb; color:#17345f; }
+/* Two classes so this beats page-specific rules like ".login-panel button { width:100%; ... }". */
+.pw-wrap .pw-toggle { position:absolute !important; right:6px; top:50%; transform:translateY(-50%); margin:0; padding:6px; width:32px !important; height:32px; display:grid !important; place-items:center; border:0; border-radius:8px; background:transparent !important; color:#64748b; cursor:pointer; box-shadow:none !important; }
+.pw-wrap .pw-toggle:hover { background:#eef3fb !important; color:#17345f; }
 .account-hero { display:flex; align-items:center; gap:16px; padding:14px 16px; margin:0 0 16px; border:1px solid #e5ebf4; border-radius:14px; background:#f8faff; }
 .account-avatar { flex:none; width:64px; height:64px; border-radius:50%; display:grid; place-items:center; overflow:hidden; background:linear-gradient(160deg,#2f5fa8,#17345f); color:#fff; font-size:22px; font-weight:700; letter-spacing:.02em; }
 .account-avatar img { width:100%; height:100%; object-fit:cover; }
