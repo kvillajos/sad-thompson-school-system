@@ -118,15 +118,25 @@ async function printReportCard(studentId) {
 $('print-report-card').onclick = () => printReportCard(state.academicStudentId)
 // The card prints from the page itself instead of a pop-up: the theme hides every other
 // body child while body carries the printing-card class.
-function printAcademicCard(studentId) {
+async function printAcademicCard(studentId) {
   const student = state.students.find(item => `${item.student_id}` === `${studentId}`)
   if (!student) return toast('Open a student record first.', 'error')
   const rows = academicRowsFor(studentId)
   if (!rows.length) return toast('No academic records to print for this student.', 'error')
-  const name = `${student.first_name || ''} ${student.last_name || ''}`.trim()
-  $('academic-print-card').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--ui-navy);padding-bottom:8px"><div><b>THOMPSON CHRISTIAN SCHOOL</b><div style="font-size:10px;letter-spacing:.18em;color:var(--ui-muted)">STUDENT ACADEMIC RECORD CARD</div></div><img src="/assets/logo.png" alt="" style="width:54px;height:54px;object-fit:contain"></div><div style="text-align:center;font-weight:700;letter-spacing:.14em;color:var(--ui-blue);margin:10px 0 8px">ACADEMIC RECORD — ${escapeHtml(gradeLabel(student.grade_level))}</div><div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:10px"><div><small>Student</small><p>${escapeHtml(name)}</p></div><div><small>Student No.</small><p>${escapeHtml(student.lrn_number || student.student_id || '')}</p></div><div><small>Records</small><p>${rows.length}</p></div></div>${academicTableHtml(rows)}<div style="display:flex;justify-content:space-between;gap:24px;margin-top:28px;font-size:11px"><div style="flex:1;border-top:1px solid #111;padding-top:4px;text-align:center">Registrar</div><div style="flex:1;border-top:1px solid #111;padding-top:4px;text-align:center">School Seal / Signature</div></div>`
+  const schoolYear = rows[rows.length - 1].school_year
+  const yearRows = rows.filter(row => row.school_year === schoolYear)
+  const enrollment = await supabase.from('enrollments').select('sections(section_name)').eq('student_id', studentId).eq('school_year', schoolYear).maybeSingle()
+  const totals = await supabase.rpc('attendance_totals', { p_student_id: studentId, p_school_year: schoolYear })
+  
+  $('academic-print-card').innerHTML = buildReportCard({
+    student,
+    gradeLevel: gradeLabel(student.grade_level),
+    schoolYear,
+    sectionName: enrollment.data?.sections?.section_name || state.studentSections.get(String(studentId)) || '',
+    academicRows: yearRows,
+    attendance: totals.data,
+    remarks: yearRows.map(row => row.remarks).filter(Boolean).join('; ')
+  })
+  
   previewPdf($('academic-print-card'), { title: 'Academic Record Card', filename: pdfName('Academic Record', student), printClass: 'printing-card' })
 }
-
-
-async function generateTranscript(studentId){const {data:s,error:se}=await supabase.from('students').select('*').eq('student_id',studentId).single();if(se)return toast(se.message,'error');const {data:g,error:ge}=await supabase.from('academic_history').select('*').eq('student_id',studentId).order('school_year');if(ge)return toast(ge.message,'error');const enrollment=await supabase.from('enrollments').select('sections(section_name)').eq('student_id',studentId).eq('status','active').maybeSingle();$('transcript-print-card').innerHTML=buildTranscript({student:s,rows:g||[],mode:'official',sectionName:enrollment.data?.sections?.section_name||''});previewPdf($('transcript-print-card'),{title:'Official Transcript',filename:pdfName('Transcript',s),printClass:'printing-transcript'})}
