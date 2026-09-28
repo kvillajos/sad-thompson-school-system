@@ -676,6 +676,7 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
   body.printing-transcript .transcript-print-card { display: block !important; padding: 18px; border: 2px solid var(--ui-navy); border-radius: 10px; background: #fff; }
 }
 .modalbox th { background:var(--ui-navy); color:#fff; }
+.login-panel .app-version { margin:14px 0 0; text-align:center; color:#93a7c4; font-size:11px; letter-spacing:.03em; }
 /* Searchable type filter (input + custom list; the native datalist popup can't be styled). */
 .combo { position:relative; width:260px; max-width:100%; }
 .combo input { box-sizing:border-box; width:100%; margin:0; padding:9px 34px 9px 12px; border:1px solid #d3dbe8; border-radius:10px; background:#fff; color:var(--ui-navy); font:inherit; font-size:14px; }
