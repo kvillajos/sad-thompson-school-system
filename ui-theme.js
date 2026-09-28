@@ -3,6 +3,8 @@ import { installTablePages } from './table-pages.js';
 import { installTableCopy } from './table-copy.js';
 import { describeError } from './errors.js';
 
+const UI_THEME_STORAGE_KEY = 'tcsms_theme';
+
 const sharedTheme = /* css */ `
 :root {
   --ui-bg: #f3f6fb;
@@ -674,7 +676,6 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
   body.printing-transcript .transcript-print-card { display: block !important; padding: 18px; border: 2px solid var(--ui-navy); border-radius: 10px; background: #fff; }
 }
 .modalbox th { background:var(--ui-navy); color:#fff; }
-.login-panel .app-version { margin:14px 0 0; text-align:center; color:#93a7c4; font-size:11px; letter-spacing:.03em; }
 /* Searchable type filter (input + custom list; the native datalist popup can't be styled). */
 .combo { position:relative; width:260px; max-width:100%; }
 .combo input { box-sizing:border-box; width:100%; margin:0; padding:9px 34px 9px 12px; border:1px solid #d3dbe8; border-radius:10px; background:#fff; color:var(--ui-navy); font:inherit; font-size:14px; }
@@ -812,6 +813,8 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .notif { position:relative; }
 .notif-toggle { position:relative; width:53px; height:53px; display:grid; place-items:center; padding:0; border:1px solid var(--ui-border); border-radius:16px; background:#fff; color:var(--ui-blue-dark); cursor:pointer; box-shadow:0 3px 12px rgba(7,27,58,.1); }
 .notif-toggle:hover { background:#f3f7fd; }
+.theme-toggle { flex:none; width:53px; height:53px; display:grid; place-items:center; padding:0; border:1px solid var(--ui-border); border-radius:16px; background:#fff; color:var(--ui-blue-dark); cursor:pointer; box-shadow:0 3px 12px rgba(7,27,58,.1); }
+.theme-toggle:hover { background:#f3f7fd; }
 .notif-count { position:absolute; top:7px; right:7px; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; display:grid; place-items:center; border-radius:9px; background:#c0392b; color:#fff; font-size:11px; font-weight:700; }
 .notif-panel { position:absolute; right:0; top:60px; width:340px; max-height:420px; overflow:auto; padding:8px; background:#fff; border:1px solid #dbe3ef; border-radius:14px; box-shadow:0 12px 28px rgba(7,27,58,.16); z-index:120; }
 .notif-item { display:flex; flex-direction:column; gap:2px; width:100%; margin:0; padding:10px 12px; border:0; border-radius:10px; background:none; text-align:left; cursor:pointer; color:var(--ui-text); font:inherit; }
@@ -877,7 +880,7 @@ function installSpamGuard() {
     const target = event.target.closest('button, [type="submit"], .admin-view, .admin-remove, .sidebar-link');
     // Menu toggles open/close instantly and can't double-submit anything, so they don't
     // need the cooldown that guards real actions (saves, deletes) from a double-click.
-    if (!target || target.closest('.profile-toggle, .pw-toggle, .notif-toggle, .notif-item, .subtab, .pager-btn')) return;
+    if (!target || target.closest('.profile-toggle, .pw-toggle, .notif-toggle, .theme-toggle, .notif-item, .subtab, .pager-btn')) return;
     const now = Date.now();
     const last = Number(target.dataset.tcsmsLastClick || 0);
     if (now - last < SPAM_GUARD_MS) {
@@ -913,6 +916,12 @@ export function toast(message, type = 'success', duration = 3500) {
 }
 
 export function applyUiTheme() {
+  const isLoginPage = document.body.classList.contains('login-page');
+  try {
+    const savedTheme = localStorage.getItem(UI_THEME_STORAGE_KEY);
+    if (!isLoginPage && (savedTheme === 'dark' || savedTheme === 'light')) document.documentElement.dataset.theme = savedTheme;
+    else delete document.documentElement.dataset.theme;
+  } catch {}
   if (!document.getElementById('shared-ui-theme')) {
     const style = document.createElement('style');
     style.id = 'shared-ui-theme';
