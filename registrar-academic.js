@@ -43,7 +43,7 @@ export function renderAcademicStudents() {
   }).join('') || '<tr><td colspan="7" class="empty-state">No students found.</td></tr>'
   document.querySelectorAll('[data-view-academic]').forEach(button => { button.onclick = () => openAcademicHistory(button.dataset.viewAcademic) })
   document.querySelectorAll('[data-transcript-academic]').forEach(button => { button.onclick = () => generateTranscript(button.dataset.transcriptAcademic) })
-  document.querySelectorAll('[data-print-academic]').forEach(button => { button.onclick = () => printAcademicCard(button.dataset.printAcademic) })
+  document.querySelectorAll('[data-print-academic]').forEach(button => { button.onclick = () => printReportCard(button.dataset.printAcademic) })
 }
 let academicLoadSequence = 0
 export async function loadAcademic() {
@@ -118,7 +118,7 @@ async function printReportCard(studentId) {
 $('print-report-card').onclick = () => printReportCard(state.academicStudentId)
 // The card prints from the page itself instead of a pop-up: the theme hides every other
 // body child while body carries the printing-card class.
-async function printAcademicCard(studentId) {
+async function printReportCard(studentId) {
   const student = state.students.find(item => `${item.student_id}` === `${studentId}`)
   if (!student) return toast('Open a student record first.', 'error')
   const rows = academicRowsFor(studentId)
@@ -138,5 +138,19 @@ async function printAcademicCard(studentId) {
     remarks: yearRows.map(row => row.remarks).filter(Boolean).join('; ')
   })
   
-  previewPdf($('academic-print-card'), { title: 'Academic Record Card', filename: pdfName('Academic Record', student), printClass: 'printing-card' })
+  previewPdf($('academic-print-card'), { title: 'Report Card', filename: pdfName('Report Card', student), printClass: 'printing-report-card' })
+}
+async function generateTranscript(studentId) {
+  const { data: s, error: se } = await supabase.from('students').select('*').eq('student_id', studentId).single()
+  if (se) return toast(se.message, 'error')
+  const { data: g, error: ge } = await supabase.from('academic_history').select('*').eq('student_id', studentId).order('school_year')
+  if (ge) return toast(ge.message, 'error')
+  const enrollment = await supabase.from('enrollments').select('sections(section_name)').eq('student_id', studentId).eq('status', 'active').maybeSingle()
+  $('transcript-print-card').innerHTML = buildTranscript({
+    student: s,
+    rows: g || [],
+    mode: 'official',
+    sectionName: enrollment.data?.sections?.section_name || ''
+  })
+  previewPdf($('transcript-print-card'), { title: 'Official Transcript', filename: pdfName('Transcript', s), printClass: 'printing-transcript' })
 }
