@@ -2,6 +2,8 @@ import { supabase } from './auth-client.js'
 import { toast } from './ui-theme.js'
 import { withBusy } from './shell.js'
 import { escapeHtml, gradeLabel } from './html.js'
+import { describeError } from './errors.js'
+import { fetchAll } from './fetch-all.js'
 
 // Capacity-override form shared by the registrar (files a request) and the admin (places directly).
 // The database refuses to bypass grade-level eligibility; it only lifts the seat limit.
@@ -13,10 +15,12 @@ export async function mountOverrideForm(root, { rpc, button, done }) {
     <div class="admin-actions actions"><button type="submit" class="admin-primary btn">${button}</button></div>`
   const $ = selector => root.querySelector(selector)
   const [students, sections, enrollments] = await Promise.all([
-    supabase.from('students').select('student_id,lrn_number,first_name,last_name,grade_level').order('last_name'),
+    fetchAll(() => supabase.from('students').select('student_id,lrn_number,first_name,last_name,grade_level').order('last_name').order('student_id')),
     supabase.from('sections').select('section_id,section_name,grade_level,capacity').order('section_name'),
-    supabase.from('enrollments').select('section_id').eq('status', 'active')
+    fetchAll(() => supabase.from('enrollments').select('section_id').eq('status', 'active').order('id'))
   ])
+  const loadError = students.error || sections.error || enrollments.error
+  if (loadError) toast(describeError(loadError, 'Load the override form'), 'error')
   const filled = new Map()
   ;(enrollments.data || []).forEach(row => filled.set(row.section_id, (filled.get(row.section_id) || 0) + 1))
   const label = student => `${student.lrn_number || student.student_id} — ${student.first_name} ${student.last_name}`
@@ -36,7 +40,7 @@ export async function mountOverrideForm(root, { rpc, button, done }) {
     if (!student || !sectionId) return toast('Choose a student and a full section.', 'error')
     await withBusy($('button'), 'Sending…', async () => {
       const { error } = await supabase.rpc(rpc, { p_student_id: student.student_id, p_section_id: sectionId, p_reason: $('.override-reason').value })
-      if (error) return toast(error.message, 'error')
+      if (error) return toast(describeError(error, 'Override'), 'error')
       toast(done)
       root.reset()
       $('.override-student').oninput()

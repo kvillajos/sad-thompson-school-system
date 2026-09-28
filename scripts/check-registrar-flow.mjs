@@ -139,6 +139,8 @@ try {
   writeFileSync(join(folder, 'override-form.js'), read('override-form.js'))
   writeFileSync(join(folder, 'announcements.js'), read('announcements.js'))
   writeFileSync(join(folder, 'html.js'), read('html.js'))
+  writeFileSync(join(folder, 'errors.js'), read('errors.js'))
+  writeFileSync(join(folder, 'dialog.js'), read('dialog.js'))
   writeFileSync(join(folder, 'sectioning.js'), read('sectioning.js'))
   writeFileSync(join(folder, 'grades.js'), read('grades.js'))
   writeFileSync(join(folder, 'attendance.js'), read('attendance.js'))

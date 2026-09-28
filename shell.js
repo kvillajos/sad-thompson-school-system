@@ -1,16 +1,20 @@
 import { supabase } from './auth-client.js'
+import { toast } from './ui-theme.js'
+import { describeError } from './errors.js'
 
-// Disables a button and swaps its label while an async action runs, restoring it after.
+// Disables a button and swaps its label (with a spinner) while an async action runs, restoring it after.
 export async function withBusy(button, busyLabel, action) {
   const originalLabel = button.textContent;
   const originalDisabled = button.disabled;
   button.disabled = true;
   button.textContent = busyLabel;
+  button.setAttribute('aria-busy', 'true');
   try {
     return await action();
   } finally {
     button.disabled = originalDisabled;
     button.textContent = originalLabel;
+    button.removeAttribute('aria-busy');
   }
 }
 
@@ -352,8 +356,8 @@ function openProfileModal(user, roleLabel, profile) {
       profileQuery,
       supabase.from('users').select('profile_picture_url').eq('user_id', user.user_id).maybeSingle()
     ]);
-    if (profileResult.error) return window.alert(`Could not load your profile details: ${profileResult.error.message}`);
-    if (pictureResult.error) return window.alert(`Could not load your profile picture: ${pictureResult.error.message}`);
+    if (profileResult.error) return toast(describeError(profileResult.error, 'Load your profile'), 'error');
+    if (pictureResult.error) return toast(describeError(pictureResult.error, 'Load your profile picture'), 'error');
     const data = profileResult.data || {};
     [['#tcsms-profile-first-name', data.first_name], ['#tcsms-profile-middle-name', data.middle_name], ['#tcsms-profile-last-name', data.last_name]].forEach(([selector, value]) => {
       const input = modal.querySelector(selector);
@@ -383,23 +387,30 @@ function openProfileModal(user, roleLabel, profile) {
     const middleName = valueFor('#tcsms-profile-middle-name');
     const lastName = valueFor('#tcsms-profile-last-name');
     const email = valueFor('#tcsms-profile-email');
-    if (!firstName || !lastName || !email) return window.alert('Enter your name and email.');
+    if (!firstName || !lastName || !email) return toast('Enter your first name, last name and email.', 'error');
+    const emailInput = modal.querySelector('#tcsms-profile-email');
+    if (emailInput.value.trim() && !emailInput.checkValidity()) return emailInput.reportValidity();
+    const submitButton = modal.querySelector('#tcsms-profile-form [type="submit"]');
     const changed = ['first-name', 'middle-name', 'last-name', 'email'].some(id => { const input = modal.querySelector(`#tcsms-profile-${id}`); return input.value.trim() !== (input.dataset.current || ''); });
     if (!changed && !modal.profilePictureBlob) return close();
     const result = await confirmProfileChange(user.email, async () => changed ? supabase.rpc('submit_profile_change', { p_first_name: firstName, p_middle_name: middleName || null, p_last_name: lastName, p_email: email }) : {});
     if (!result) return;
     if (modal.profilePictureBlob) {
-      const picture = modal.profilePictureBlob;
-      const path = `users/${user.user_id}/${crypto.randomUUID()}-${picture.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      const upload = await supabase.storage.from('profile-pictures').upload(path, picture, { upsert: false });
-      if (upload.error) return window.alert(upload.error.message);
-      const publicUrl = supabase.storage.from('profile-pictures').getPublicUrl(path).data.publicUrl;
-      const pictureResult = await supabase.rpc('update_own_profile_picture', { p_url: publicUrl });
-      if (pictureResult.error) return window.alert(pictureResult.error.message);
-      setProfilePicture(publicUrl);
+      const saved = await withBusy(submitButton, 'Uploading…', async () => {
+        const picture = modal.profilePictureBlob;
+        const path = `users/${user.user_id}/${crypto.randomUUID()}-${picture.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const upload = await supabase.storage.from('profile-pictures').upload(path, picture, { upsert: false });
+        if (upload.error) return toast(describeError(upload.error, 'Upload picture'), 'error');
+        const publicUrl = supabase.storage.from('profile-pictures').getPublicUrl(path).data.publicUrl;
+        const pictureResult = await supabase.rpc('update_own_profile_picture', { p_url: publicUrl });
+        if (pictureResult.error) return toast(describeError(pictureResult.error, 'Save picture'), 'error');
+        setProfilePicture(publicUrl);
+        return true;
+      });
+      if (!saved) return;
     }
     close();
-    window.alert(changed ? 'Profile changes submitted for administrator approval.' : 'Profile picture updated.');
+    toast(changed ? 'Profile changes sent. An administrator will review them.' : 'Profile picture updated.');
   });
   const previewPicture = blob => { modal.profilePictureBlob = blob; const preview = modal.querySelector('#tcsms-profile-preview'); preview.classList.remove('profile-picture-placeholder'); preview.alt = 'Selected profile picture'; preview.src = URL.createObjectURL(blob); };
   const cropImage = (source, name = 'profile.png') => new Promise(resolve => {
@@ -414,21 +425,21 @@ function openProfileModal(user, roleLabel, profile) {
     crop.querySelector('[data-crop-close]').onclick = crop.querySelector('[data-crop-cancel]').onclick = close;
     crop.querySelector('[data-crop-save]').onclick = () => canvas.toBlob(blob => { crop.remove(); resolve(new File([blob], name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' })); }, 'image/png');
   });
-  const chooseImage = file => { if (!file || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return window.alert('Use PNG, JPG, or WEBP for the profile picture.'); const image = new Image(); image.onload = async () => { const blob = await cropImage(image, file.name); if (blob) previewPicture(blob); }; image.src = URL.createObjectURL(file); };
+  const chooseImage = file => { if (!file || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return toast('Use a PNG, JPG, or WEBP image for the profile picture.', 'error'); const image = new Image(); image.onload = async () => { const blob = await cropImage(image, file.name); if (blob) previewPicture(blob); }; image.src = URL.createObjectURL(file); };
   const menu = modal.querySelector('#tcsms-profile-menu');
   modal.querySelector('#tcsms-profile-edit-pic').onclick = event => { event.stopPropagation(); menu.classList.toggle('hidden'); };
   modal.addEventListener('click', () => menu.classList.add('hidden'));
   modal.querySelector('#tcsms-profile-upload').onclick = () => modal.querySelector('#tcsms-profile-picture').click();
   modal.querySelector('#tcsms-profile-picture').onchange = event => chooseImage(event.target.files?.[0]);
-  modal.querySelector('#tcsms-profile-camera').onclick = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ video: true }); const camera = document.createElement('div'); camera.className = 'admin-modal'; camera.innerHTML = `<div class="admin-modal-box camera-box"><div class="admin-modal-head"><h3>Take Profile Picture</h3><button type="button" data-camera-close>x</button></div><video autoplay playsinline style="width:100%"></video><div class="admin-actions"><button type="button" class="admin-cancel" data-camera-cancel>Cancel</button><button type="button" class="admin-primary" data-camera-capture>Capture</button></div></div>`; document.body.appendChild(camera); const video = camera.querySelector('video'); video.srcObject = stream; const stop = () => { stream.getTracks().forEach(track => track.stop()); camera.remove(); }; camera.querySelector('[data-camera-close]').onclick = camera.querySelector('[data-camera-cancel]').onclick = stop; camera.querySelector('[data-camera-capture]').onclick = async () => { const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.getContext('2d').drawImage(video, 0, 0); const image = new Image(); image.onload = async () => { stop(); const blob = await cropImage(image); if (blob) previewPicture(blob); }; image.src = canvas.toDataURL('image/png'); }; } catch { window.alert('Camera access was not available.'); } };
-  modal.querySelector('#tcsms-profile-remove').onclick = async () => { const result = await confirmProfileChange(user.email, () => supabase.rpc('remove_own_profile_picture')); if (result) { setProfilePicture(null); window.alert('Profile picture removed.'); } };
+  modal.querySelector('#tcsms-profile-camera').onclick = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ video: true }); const camera = document.createElement('div'); camera.className = 'admin-modal'; camera.innerHTML = `<div class="admin-modal-box camera-box"><div class="admin-modal-head"><h3>Take Profile Picture</h3><button type="button" data-camera-close>x</button></div><video autoplay playsinline style="width:100%"></video><div class="admin-actions"><button type="button" class="admin-cancel" data-camera-cancel>Cancel</button><button type="button" class="admin-primary" data-camera-capture>Capture</button></div></div>`; document.body.appendChild(camera); const video = camera.querySelector('video'); video.srcObject = stream; const stop = () => { stream.getTracks().forEach(track => track.stop()); camera.remove(); }; camera.querySelector('[data-camera-close]').onclick = camera.querySelector('[data-camera-cancel]').onclick = stop; camera.querySelector('[data-camera-capture]').onclick = async () => { const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.getContext('2d').drawImage(video, 0, 0); const image = new Image(); image.onload = async () => { stop(); const blob = await cropImage(image); if (blob) previewPicture(blob); }; image.src = canvas.toDataURL('image/png'); }; } catch { toast('The camera is not available. Check that this site is allowed to use it, or upload an image instead.', 'error'); } };
+  modal.querySelector('#tcsms-profile-remove').onclick = async () => { const result = await confirmProfileChange(user.email, () => supabase.rpc('remove_own_profile_picture')); if (result) { setProfilePicture(null); toast('Profile picture removed.'); } };
 }
 
 // Resolves true only after the signed-in user re-enters their own password correctly.
 // Wraps a password input with an eye button so people can check what they typed.
 const EYE_OPEN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.9 10.9 0 0 1 12 19C5 19 1 12 1 12a19.8 19.8 0 0 1 5.06-5.94"/><path d="M9.9 4.24A10.4 10.4 0 0 1 12 5c7 0 11 7 11 7a19.7 19.7 0 0 1-3.17 4.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-function withPasswordToggle(input) {
+export function withPasswordToggle(input) {
   const wrap = document.createElement('div');
   wrap.className = 'pw-wrap';
   input.replaceWith(wrap);
@@ -450,32 +461,31 @@ function withPasswordToggle(input) {
 export function confirmPassword(email, message = 'Enter your password to continue.') {
   return new Promise(resolve => {
     const prompt = document.createElement('div'); prompt.className = 'admin-modal stack-above';
-    prompt.innerHTML = `<div class="admin-modal-box" style="width:min(100%,400px)"><div class="admin-modal-head"><h3>Confirm Password</h3><button type="button" data-password-close>x</button></div><form data-password-form style="grid-template-columns:1fr;gap:8px"><input type="password" data-profile-password placeholder="Password" autocomplete="current-password" required style="margin:0;align-self:start"><small style="color:#64748b;line-height:1.4">${message}</small><p class="login-hint" data-password-error style="color:#c0392b;margin:0;font-size:13px" role="alert"></p><div class="admin-actions" style="margin-top:4px"><button type="button" class="admin-cancel" data-password-cancel>Cancel</button><button type="submit" class="admin-primary">Confirm</button></div></form></div>`;
+    prompt.innerHTML = `<div class="admin-modal-box" style="width:min(100%,400px)"><div class="admin-modal-head"><h3>Confirm Password</h3><button type="button" data-password-close>x</button></div><form data-password-form style="grid-template-columns:1fr;gap:8px"><input type="password" data-profile-password placeholder="Password" autocomplete="current-password" required style="margin:0;align-self:start"><small data-password-message style="color:var(--ui-muted);line-height:1.4"></small><p class="login-hint" data-password-error style="color:#c0392b;margin:0;font-size:13px" role="alert"></p><div class="admin-actions" style="margin-top:4px"><button type="button" class="admin-cancel" data-password-cancel>Cancel</button><button type="submit" class="admin-primary">Confirm</button></div></form></div>`;
+    prompt.querySelector('[data-password-message]').textContent = message;
     document.body.appendChild(prompt);
     withPasswordToggle(prompt.querySelector('[data-profile-password]'));
     const finish = value => { prompt.remove(); resolve(value); };
     prompt.querySelector('[data-password-close]').onclick = prompt.querySelector('[data-password-cancel]').onclick = () => finish(false);
     prompt.querySelector('[data-password-form]').onsubmit = async event => {
       event.preventDefault();
-      const { error } = await supabase.auth.signInWithPassword({ email, password: prompt.querySelector('[data-profile-password]').value });
-      if (error) { prompt.querySelector('[data-password-error]').textContent = 'Password is incorrect.'; return; }
+      const { error } = await withBusy(prompt.querySelector('[type="submit"]'), 'Checking…', () => supabase.auth.signInWithPassword({ email, password: prompt.querySelector('[data-profile-password]').value }));
+      if (error) {
+        prompt.querySelector('[data-password-error]').textContent = /fetch|network/i.test(error.message) ? 'Could not reach the server. Check your connection and try again.' : 'Password is incorrect.';
+        prompt.querySelector('[data-profile-password]').select();
+        return;
+      }
       finish(true);
     };
     prompt.querySelector('[data-profile-password]').focus();
   });
 }
 
-function confirmProfileChange(email, action) {
-  return new Promise(resolve => {
-    const prompt = document.createElement('div'); prompt.className = 'admin-modal';
-    prompt.innerHTML = `<div class="admin-modal-box" style="width:min(100%,420px)"><div class="admin-modal-head"><h3>Confirm Changes</h3><button type="button" data-password-close>x</button></div><p>Enter your password to confirm this change.</p><input type="password" data-profile-password autocomplete="current-password"><div class="admin-actions"><button type="button" class="admin-cancel" data-password-cancel>Cancel</button><button type="button" class="admin-primary" data-password-confirm>Confirm</button></div></div>`;
-    document.body.appendChild(prompt);
-    withPasswordToggle(prompt.querySelector('[data-profile-password]'));
-    const close = () => { prompt.remove(); resolve(null); };
-    prompt.querySelector('[data-password-close]').onclick = prompt.querySelector('[data-password-cancel]').onclick = close;
-    prompt.querySelector('[data-password-confirm]').onclick = async () => { const password = prompt.querySelector('[data-profile-password]').value; if (!password) return window.alert('Enter your password.'); const confirmation = await supabase.auth.signInWithPassword({ email, password }); if (confirmation.error) return window.alert('Password verification failed.'); const result = await action(); prompt.remove(); resolve(result.error ? (window.alert(result.error.message), null) : result); };
-    prompt.querySelector('[data-profile-password]').focus();
-  });
+async function confirmProfileChange(email, action) {
+  if (!await confirmPassword(email, 'Enter your password to confirm this change.')) return null;
+  const result = await action();
+  if (result?.error) { toast(describeError(result.error, 'Save profile'), 'error'); return null; }
+  return result;
 }
 
 // Rules for a new password: 8+ characters with an uppercase letter, a lowercase letter and a digit.
@@ -498,6 +508,7 @@ function openPasswordModal() {
       <label class="admin-full">New Password<input type="password" id="tcsms-new-password" minlength="8" autocomplete="new-password"></label>
       <div class="pw-meter" aria-live="polite"><div class="pw-bar"><span id="tcsms-pw-fill"></span></div><small id="tcsms-pw-label">Enter a password</small><ul id="tcsms-pw-rules">${passwordRules.map(([label]) => `<li>${label}</li>`).join('')}</ul></div>
       <label class="admin-full">Confirm Password<input type="password" id="tcsms-confirm-password" minlength="8" autocomplete="new-password"></label>
+      <p class="admin-full login-hint" id="tcsms-password-error" role="alert" style="color:var(--ui-danger);margin:0;font-size:13px"></p>
       <div class="admin-actions"><button type="button" id="tcsms-password-cancel" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Update Password</button></div>
     </form>
   </div>`;
@@ -524,12 +535,14 @@ function openPasswordModal() {
     event.preventDefault();
     const newPassword = document.getElementById('tcsms-new-password').value;
     const confirmPassword = document.getElementById('tcsms-confirm-password').value;
-    if (!passwordIsValid(newPassword)) return window.alert('Password must be at least 8 characters with an uppercase letter, a lowercase letter and a number.');
-    if (newPassword !== confirmPassword) return window.alert('Passwords do not match.');
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) return window.alert(error.message);
+    const errorLine = modal.querySelector('#tcsms-password-error');
+    if (!passwordIsValid(newPassword)) return void (errorLine.textContent = 'The new password does not meet every rule above.');
+    if (newPassword !== confirmPassword) return void (errorLine.textContent = 'The two passwords do not match.');
+    errorLine.textContent = '';
+    const { error } = await withBusy(modal.querySelector('[type="submit"]'), 'Updating…', () => supabase.auth.updateUser({ password: newPassword }));
+    if (error) return void (errorLine.textContent = describeError(error, 'Update password'));
     close();
-    window.alert('Password updated successfully.');
+    toast('Password updated.');
   });
 }
 

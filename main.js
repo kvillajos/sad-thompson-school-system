@@ -2,7 +2,8 @@ import { supabase, isSupabaseConfigured, showConfigurationError } from './auth-c
 import { hideLoadingScreen, showLoadingScreen } from './loading-screen.js'
 import { applyUiTheme } from './ui-theme.js'
 import { loadMaintenanceNotices, renderLoginNotices } from './announcements.js'
-import { escapeHtml } from './html.js'
+import { withPasswordToggle } from './shell.js'
+import { describeError } from './errors.js'
 
 applyUiTheme()
 
@@ -31,7 +32,19 @@ loadMaintenanceNotices().then(notices => {
 
 if (!isSupabaseConfigured) showConfigurationError()
 
+const passwordInput = document.getElementById('password')
+withPasswordToggle(passwordInput)
+const capsWarning = Object.assign(document.createElement('p'), { className: 'caps-warning', textContent: 'Caps Lock is on.', hidden: true })
+capsWarning.setAttribute('aria-live', 'polite')
+passwordInput.closest('.form-group').append(capsWarning)
+const checkCaps = event => { if (event.getModifierState) capsWarning.hidden = !event.getModifierState('CapsLock') }
+passwordInput.addEventListener('keydown', checkCaps)
+passwordInput.addEventListener('keyup', checkCaps)
+passwordInput.addEventListener('blur', () => { capsWarning.hidden = true })
+
 const LOGIN_FAILURE_MESSAGE = 'Your password is incorrect or this account does not exist.'
+// A dropped connection is not a wrong password; saying so stops people from retyping a correct one.
+const isNetworkError = error => /fetch|network|load failed/i.test(String(error?.message || error || ''))
 function failLogin(message, username, password) {
   messageDiv.style.color = 'red'
   messageDiv.textContent = message
@@ -67,6 +80,10 @@ loginForm.addEventListener('submit', async (e) => {
   const { data: email, error: lookupError } = await supabase
     .rpc('find_login_email', { login_username: username })
 
+  if (isNetworkError(lookupError)) {
+    failLogin(describeError(lookupError, 'Sign in'), username, password)
+    return
+  }
   if (lookupError || !email) {
     failLogin(LOGIN_FAILURE_MESSAGE, username, password)
     return
@@ -76,6 +93,10 @@ loginForm.addEventListener('submit', async (e) => {
     email,
     password
   })
+  if (authError) {
+    failLogin(isNetworkError(authError) ? describeError(authError, 'Sign in') : LOGIN_FAILURE_MESSAGE, username, password)
+    return
+  }
 
   const { data: user, error: profileError } = await supabase
     .from('users')
@@ -84,7 +105,13 @@ loginForm.addEventListener('submit', async (e) => {
     .eq('is_active', true)
     .single()
 
-  if (authError || profileError || !user || !dashboardPages[user.role_id]) {
+  if (isNetworkError(profileError)) {
+    await supabase.auth.signOut()
+    failLogin(describeError(profileError, 'Sign in'), username, password)
+    return
+  }
+  if (profileError || !user || !dashboardPages[user.role_id]) {
+    await supabase.auth.signOut()
     failLogin(LOGIN_FAILURE_MESSAGE, username, password)
     return
   }

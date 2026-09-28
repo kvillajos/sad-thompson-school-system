@@ -2,6 +2,7 @@ import { requireRole, signOut } from './auth-client.js'
 import { applyUiTheme, toast } from './ui-theme.js'
 import { mountProfile, mountSidebar } from './shell.js'
 import { hideLoadingScreen } from './loading-screen.js'
+import { describeError } from './errors.js'
 import { $, state } from './registrar-state.js'
 import { loadApplications } from './registrar-admissions.js'
 import { loadSections, loadEnrollments } from './registrar-sectioning.js'
@@ -31,20 +32,27 @@ mountSidebar([
 
 const tabs = [...document.querySelectorAll('[data-tab]')]
 const panels = [...document.querySelectorAll('[data-panel]')]
-tabs.forEach((tab) => tab.addEventListener('click', () => {
-  tabs.forEach(t => t.classList.remove('active'))
+// The open tab lives in the URL hash so refresh and the browser Back button keep your place.
+function showTab(name) {
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name))
   panels.forEach(p => p.classList.add('hidden'))
-  tab.classList.add('active')
-  $(tab.dataset.tab).classList.remove('hidden')
-  if (tab.dataset.tab === 'sectioning') loadSections()
-  if (tab.dataset.tab === 'requests') loadMyRequests()
+  $(name).classList.remove('hidden')
+  if (name === 'sectioning') loadSections()
+  if (name === 'requests') loadMyRequests()
+}
+const tabFromHash = () => { const name = location.hash.slice(1); return tabs.some(t => t.dataset.tab === name) && $(name) ? name : null }
+tabs.forEach((tab) => tab.addEventListener('click', () => {
+  if (location.hash.slice(1) !== tab.dataset.tab) history.pushState(null, '', `#${tab.dataset.tab}`)
+  showTab(tab.dataset.tab)
 }))
+window.addEventListener('popstate', () => showTab(tabFromHash() || tabs[0].dataset.tab))
+if (tabFromHash()) showTab(tabFromHash())
 
 mountAnnouncements($('announcements-host'), 'registrar')
 
 async function init(){
   const results = await Promise.allSettled([loadApplications(), loadSections(), loadStudents(), loadEnrollments()])
-  results.filter(result => result.status === 'rejected').forEach(result => toast(`Some records could not be loaded: ${result.reason?.message || result.reason}`, 'error'))
+  results.filter(result => result.status === 'rejected').forEach(result => toast(describeError(result.reason, 'Loading some records'), 'error'))
   await loadAcademic()
   renderPromotionExclusions()
   await refreshShiftSections()

@@ -3,6 +3,7 @@ import { toast } from './ui-theme.js'
 import { withBusy } from './shell.js'
 import { $, state } from './registrar-state.js'
 import { escapeHtml, gradeLabel, gradeToNumber } from './html.js'
+import { describeError } from './errors.js'
 import { loadSections, loadEnrollments, renderStudentDirectory } from './registrar-sectioning.js'
 import { renderAcademicStudents } from './registrar-academic.js'
 import { fetchAll } from './fetch-all.js'
@@ -21,7 +22,7 @@ export async function loadStudents(){
     fetchAll(() => supabase.from('students').select('*').order('last_name').order('student_id')),
     fetchAll(() => supabase.from('enrollments').select('student_id,section_id,sections(section_name)').eq('status','active').order('id'))
   ])
-  if(error)return toast(`Could not load students: ${error.message}`,'error')
+  if(error)return toast(describeError(error,'Load students'),'error')
   state.students=data||[]
   state.studentSections=new Map((enrollments||[]).map(row=>[String(row.student_id),row.sections?.section_name||'No Section']))
   const shiftSections = [...new Set([...state.studentSections.values()].filter(Boolean))].sort()
@@ -36,7 +37,17 @@ function renderShiftStudents(){const search=($('shift-student-search')?.value||'
 $('shift-student-search').oninput=renderShiftStudents
 $('shift-student-filter').onchange=renderShiftStudents
 
- $('promotion-form').addEventListener('submit',async e=>{e.preventDefault();const grade=gradeToNumber($('promotion-grade').value);const excluded=[...document.querySelectorAll('#promotion-exclude-list input:checked')].map(input=>Number(input.value));const {data,error}=await supabase.rpc('request_promotion',{p_grade_level:grade,p_school_year:$('promotion-year').value,p_excluded:excluded});if(error)return toast(error.message,'error');toast(`Promotion request for ${data?.students||0} students sent to the admin for approval.`);renderPromotionExclusions()})
+$('promotion-form').addEventListener('submit', e => {
+  e.preventDefault()
+  const grade = gradeToNumber($('promotion-grade').value)
+  const excluded = [...document.querySelectorAll('#promotion-exclude-list input:checked')].map(input => Number(input.value))
+  return withBusy(e.submitter || e.target.querySelector('button'), 'Sending…', async () => {
+    const { data, error } = await supabase.rpc('request_promotion', { p_grade_level: grade, p_school_year: $('promotion-year').value, p_excluded: excluded })
+    if (error) return toast(describeError(error, 'Request promotion'), 'error')
+    toast(`Promotion request for ${data?.students || 0} students sent to the admin for approval.`)
+    renderPromotionExclusions()
+  })
+})
 
 export async function refreshShiftSections() {
   const select = $('shift-section')
@@ -44,7 +55,7 @@ export async function refreshShiftSections() {
   if (!studentId) { select.innerHTML = '<option value="">No student selected</option>'; return }
   const student = state.students.find(item => String(item.student_id) === String(studentId))
   const { data, error } = await supabase.from('enrollments').select('section_id').eq('student_id', studentId).eq('status', 'active')
-  if (error) return toast(`Could not load the current section: ${error.message}`, 'error')
+  if (error) return toast(describeError(error, 'Load the current section'), 'error')
   const currentSections = new Set((data || []).map(row => row.section_id))
   const candidates = state.sections.filter(section => Number(section.grade_level) === Number(student?.grade_level) && !currentSections.has(section.section_id))
   select.innerHTML = candidates.length
@@ -69,7 +80,7 @@ $('shift-form').addEventListener('submit', async e => {
   if (!targetSectionId) return toast('Select an eligible target section first.', 'error')
   await withBusy(e.target.querySelector('button.btn'), 'Processing…', async () => {
     const { error } = await supabase.rpc('shift_student', { p_student_id: studentId, p_target_section_id: targetSectionId, p_reason: reason })
-    if (error) return toast(error.message, 'error')
+    if (error) return toast(describeError(error, 'Shift student'), 'error')
     toast('Student shift completed successfully.')
     $('shift-reason').value = ''
     await Promise.all([loadSections(), loadEnrollments()])
@@ -106,10 +117,19 @@ $('cancel-transfer').addEventListener('click', closeTransferModal)
 async function transferStudentOut(studentId, reason) {
   const kind = $('shift-mode').value === 'withdraw' ? 'Withdrawn' : 'Transferred'
   const { error } = await supabase.rpc('request_withdrawal', { p_student_id: studentId, p_kind: kind, p_reason: reason })
-  if (error) return toast(error.code === 'PGRST202' ? 'Requests need database/backupsqlmigration.sql applied first (request_withdrawal is missing).' : error.message, 'error')
+  if (error) return toast(describeError(error, 'Send request'), 'error')
   closeTransferModal()
   toast('Request sent to the admin. The student record stays unchanged until it is approved.')
   $('shift-reason').value = ''
 }
 
-$('feedback-form').addEventListener('submit',async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target).entries());const {error}=await supabase.from('registrar_feedback').insert({...d,submitted_by:state.user.username});if(error)return toast(error.message,'error');toast('Feedback logged.');e.target.reset()})
+$('feedback-form').addEventListener('submit', e => {
+  e.preventDefault()
+  const d = Object.fromEntries(new FormData(e.target).entries())
+  return withBusy(e.submitter || e.target.querySelector('button'), 'Saving…', async () => {
+    const { error } = await supabase.from('registrar_feedback').insert({ ...d, submitted_by: state.user.username })
+    if (error) return toast(describeError(error, 'Log feedback'), 'error')
+    toast('Feedback logged.')
+    e.target.reset()
+  })
+})

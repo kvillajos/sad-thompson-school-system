@@ -1,5 +1,6 @@
 import { supabase } from './auth-client.js'
 import { escapeHtml, formatDate, richText } from './html.js'
+import { describeError } from './errors.js'
 
 export const pinIcon = '<svg class="pin-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Pinned" role="img"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>'
 
@@ -14,7 +15,7 @@ export async function mountAnnouncements(host, role, { list = true } = {}) {
   const badge = item => item.kind === 'maintenance' ? '<span class="badge urgent-badge">Urgent</span> ' : ''
   const preview = html => { const box = document.createElement('div'); box.innerHTML = richText(html).replace(/<\/(p|div|li|h3|blockquote)>|<br>/gi, ' '); const text = (box.textContent || '').replace(/\s+/g, ' ').trim(); return text.length > 220 ? text.slice(0, 220) + '...' : text }
   const inbox = notices.map((item, index) => `<button type="button" class="mail-row${item.kind === 'maintenance' ? ' urgent' : ''}" data-mail="${index}"><span class="mail-main"><span class="mail-top"><span class="mail-subject">${item.pinned ? pinIcon : ''}${badge(item)}${escapeHtml(item.title)}${item.author_name ? `<span class="mail-author">&middot; ${escapeHtml(item.author_name)}</span>` : ''}</span><span class="mail-date">${formatDate(item.posted_at)}</span></span><span class="mail-preview">${escapeHtml(preview(item.message || '')) || 'No message.'}</span></span></button>`).join('')
-  host.innerHTML = list ? `<section class="admin-table-wrap" style="margin-bottom:18px"><div class="admin-section-title"><h3>Announcements</h3></div>${error ? `<p>${escapeHtml(error.message)}</p>` : inbox || '<p style="color:#64748b">No announcements posted.</p>'}</section>` : ''
+  host.innerHTML = list ? `<section class="admin-table-wrap" style="margin-bottom:18px"><div class="admin-section-title"><h3>Announcements</h3></div>${error ? `<p class="note" role="alert">${escapeHtml(describeError(error, 'Load announcements'))}</p>` : inbox || '<p style="color:#64748b">No announcements posted.</p>'}</section>` : ''
   host.querySelectorAll('[data-mail]').forEach(button => button.onclick = () => openAnnouncement(notices[Number(button.dataset.mail)]))
 }
 

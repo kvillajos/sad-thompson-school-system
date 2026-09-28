@@ -1,9 +1,10 @@
   import { supabase } from './auth-client.js'
   import { toast } from './ui-theme.js'
   import { hideLoadingScreen } from './loading-screen.js'
-  import { escapeHtml as escape } from './html.js'
+  import { escapeHtml as escape, errorRow } from './html.js'
   import { describeError } from './errors.js'
   import { mountAdminShell } from './admin-page.js'
+  import { confirmPassword, withBusy } from './shell.js'
   const user = await mountAdminShell('faculty')
   let faculty = []
   let subjects = []
@@ -16,7 +17,8 @@
       supabase.from('faculty_subjects').select('profile_id,subject_id,subjects(subject_code,subject_name)')
     ])
     const table = document.getElementById('faculty-table')
-    if (facultyResult.error) return table.innerHTML = `<tr><td colspan="8">${escape(facultyResult.error.message)}</td></tr>`
+    const loadError = facultyResult.error || subjectResult.error || assignmentResult.error
+    if (loadError) return table.innerHTML = errorRow(8, loadError, 'Load faculty')
     faculty = facultyResult.data || []
     subjects = subjectResult.data || []
     assignments = assignmentResult.data || []
@@ -24,17 +26,16 @@
   }
   function renderFaculty() {
     const search = document.getElementById('faculty-search').value.trim().toLowerCase()
-    const rows = faculty.filter(item => `${item.first_name} ${item.last_name} ${item.department} ${item.specialization}`.toLowerCase().includes(search))
+    const rows = faculty.filter(item => `${item.first_name} ${item.last_name} ${item.department} ${item.specialization} ${item.employee_no}`.toLowerCase().includes(search))
     document.getElementById('faculty-table').innerHTML = rows.map(item => {
       const assigned = assignments.filter(a => a.profile_id === item.profile_id).map(a => escape(a.subjects?.subject_code || '')).join(', ')
       return `<tr><td>${escape(item.employee_no)}</td><td>${escape(`${item.first_name} ${item.middle_name || ''} ${item.last_name}`)}</td><td>${escape(item.department)}</td><td>${escape(item.specialization)}</td><td>${escape(item.phone || '-')}</td><td>${item.users?.is_active ? 'Active' : 'Inactive'}</td><td>${assigned || '-'}</td><td><button class="admin-view" data-details="${item.profile_id}">Details</button><button class="admin-view" data-assign="${item.profile_id}">Assign Subjects</button></td></tr>`
-    }).join('') || '<tr><td colspan="8">No faculty found.</td></tr>'
+    }).join('') || `<tr><td colspan="8">${search ? 'No faculty match your search.' : 'No faculty found.'}</td></tr>`
     document.querySelectorAll('[data-assign]').forEach(button => button.onclick = () => openAssign(button.dataset.assign))
-    document.querySelectorAll('[data-details]').forEach(button => button.onclick = () => openPasswordPrompt(button.dataset.details))
+    document.querySelectorAll('[data-details]').forEach(button => button.onclick = async () => {
+      if (await confirmPassword(user.email, 'Enter your password to view faculty contact details.')) openFacultyDetails(button.dataset.details)
+    })
   }
-  let detailsProfileId = null
-  function closePasswordPrompt() { document.getElementById('faculty-password-modal').classList.add('hidden'); document.getElementById('faculty-password-form').reset(); detailsProfileId = null }
-  function openPasswordPrompt(profileId) { detailsProfileId = profileId; document.getElementById('faculty-password-modal').classList.remove('hidden'); document.getElementById('faculty-password').focus() }
   function openFacultyDetails(profileId) {
     const item = faculty.find(f => String(f.profile_id) === String(profileId))
     if (!item) return
@@ -48,36 +49,35 @@
     const item = faculty.find(f => String(f.profile_id) === String(profileId))
     document.getElementById('assign-modal-title').textContent = `Assign Subjects — ${item?.first_name || ''} ${item?.last_name || ''}`
     const assignedIds = new Set(assignments.filter(a => String(a.profile_id) === String(profileId)).map(a => a.subject_id))
-    document.getElementById('assign-subject-list').innerHTML = subjects.map(s => `<label class="admin-check"><input type="checkbox" value="${s.subject_id}" ${assignedIds.has(s.subject_id) ? 'checked' : ''}> ${escape(s.subject_code)} - ${escape(s.subject_name)}</label>`).join('') || '<p>No active subjects to assign.</p>'
+    document.getElementById('assign-subject-list').innerHTML = subjects.map(s => `<label class="admin-check"><input type="checkbox" value="${s.subject_id}" ${assignedIds.has(s.subject_id) ? 'checked' : ''}> ${escape(s.subject_code)} - ${escape(s.subject_name)}</label>`).join('') || '<p>No active subjects to assign. Add subjects on the Subjects page first.</p>'
     document.getElementById('assign-modal').classList.remove('hidden')
   }
   function closeAssign() { document.getElementById('assign-modal').classList.add('hidden'); assigningProfileId = null }
-  document.getElementById('assign-form').onsubmit = async event => {
+  // Only the difference is written, so a failed request never leaves a teacher with no subjects at all.
+  document.getElementById('assign-form').onsubmit = event => {
     event.preventDefault()
-    const checked = [...document.querySelectorAll('#assign-subject-list input[type=checkbox]:checked')].map(input => Number(input.value))
-    const { error: deleteError } = await supabase.from('faculty_subjects').delete().eq('profile_id', assigningProfileId)
-    if (deleteError) return toast(describeError(deleteError, 'Assign subjects'), 'error')
-    if (checked.length) {
-      const { error: insertError } = await supabase.from('faculty_subjects').insert(checked.map(subject_id => ({ profile_id: assigningProfileId, subject_id })))
-      if (insertError) return toast(describeError(insertError, 'Assign subjects'), 'error')
-    }
-    closeAssign()
-    await loadFaculty()
+    return withBusy(event.submitter || event.target.querySelector('[type="submit"]'), 'Saving…', async () => {
+      const profileId = Number(assigningProfileId)
+      const checked = new Set([...document.querySelectorAll('#assign-subject-list input[type=checkbox]:checked')].map(input => Number(input.value)))
+      const current = new Set(assignments.filter(a => Number(a.profile_id) === profileId).map(a => Number(a.subject_id)))
+      const removed = [...current].filter(id => !checked.has(id))
+      const added = [...checked].filter(id => !current.has(id))
+      if (added.length) {
+        const { error } = await supabase.from('faculty_subjects').insert(added.map(subject_id => ({ profile_id: profileId, subject_id })))
+        if (error) return toast(describeError(error, 'Assign subjects'), 'error')
+      }
+      if (removed.length) {
+        const { error } = await supabase.from('faculty_subjects').delete().eq('profile_id', profileId).in('subject_id', removed)
+        if (error) return toast(describeError(error, 'Unassign subjects'), 'error')
+      }
+      closeAssign()
+      toast(added.length || removed.length ? 'Subject assignments saved.' : 'No changes to save.')
+      await loadFaculty()
+    })
   }
   document.getElementById('close-assign').onclick = closeAssign
   document.getElementById('cancel-assign').onclick = closeAssign
-  document.getElementById('close-faculty-password').onclick = document.getElementById('cancel-faculty-password').onclick = closePasswordPrompt
   document.getElementById('close-faculty-details').onclick = () => document.getElementById('faculty-details-modal').classList.add('hidden')
-  document.getElementById('faculty-password-form').onsubmit = async event => {
-    event.preventDefault()
-    const password = document.getElementById('faculty-password').value
-    const { error } = await supabase.auth.signInWithPassword({ email: user.email, password })
-    if (error) return window.alert('Password verification failed.')
-    const profileId = detailsProfileId
-    closePasswordPrompt()
-    openFacultyDetails(profileId)
-  }
   document.getElementById('faculty-search').oninput = renderFaculty
   await loadFaculty()
   hideLoadingScreen()
-

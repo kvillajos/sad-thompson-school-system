@@ -221,7 +221,7 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .admin-modal-box input,.admin-modal-box select,.admin-modal-box textarea { width:100%; box-sizing:border-box; margin-top:6px; padding:10px 12px; border:1px solid #b9c8dc; border-radius:11px; color:var(--ui-text); background:#fff }
 .admin-full,.admin-actions { grid-column:1/-1 }
 .admin-actions { display:flex; justify-content:flex-end; gap:8px }
-.admin-cancel { border:0; border-radius:11px; padding:10px 14px; background:#fee2e2; color:var(--ui-danger); cursor:pointer }
+.admin-cancel { border:1px solid var(--ui-border); border-radius:11px; padding:10px 14px; background:var(--ui-surface); color:var(--ui-text); cursor:pointer }
 .profile-picture-actions { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 5px; }
 .profile-crop-box { width:min(100%,420px) !important; }
 .profile-crop-box canvas { display:block; width:240px; height:240px; margin:0 auto 14px; background:#102a43; border-radius:6px; }
@@ -868,6 +868,28 @@ body[data-role="student"] { --role-bar: #091c3c; } /* solid, no gradient: same n
   body[data-role]::after { content:''; position:fixed; top:12px; left:244px; width:28px; height:28px; z-index:200; pointer-events:none; background:radial-gradient(circle at 100% 100%, transparent 27.5px, #091c3c 28px); }
 }
 @media print { body[data-role]::before, body[data-role]::after { display:none; } }
+
+/* dialog.js: in-page confirm / form / notice dialogs */
+.dialog-box { width:min(100%,440px) !important; }
+.dialog-message { margin:0 0 10px; color:var(--ui-text); line-height:1.5; overflow-wrap:anywhere; }
+.dialog-warning { margin:0 0 12px; padding:10px 12px; border-radius:10px; background:#fff4d6; color:#7a5200; font-weight:600; line-height:1.45; }
+.dialog-fields { display:grid; gap:12px; margin-bottom:16px; }
+.dialog-hint { display:block; margin-top:4px; color:var(--ui-muted); font-weight:400; }
+.dialog-copy { display:flex; align-items:center; gap:8px; margin:4px 0 16px; }
+.dialog-copy code { flex:1; padding:10px 12px; border:1px dashed var(--ui-border); border-radius:10px; background:var(--ui-surface); color:var(--ui-text); font-size:16px; letter-spacing:.04em; overflow-wrap:anywhere; user-select:all; }
+.admin-danger { background:#b91c1c; color:#fff; border:1px solid #b91c1c; border-radius:11px; padding:9px 14px; font-size:14px; line-height:1.3; cursor:pointer; font-weight:700 }
+html[data-theme="dark"] .dialog-warning { background:#3a2e12; color:#f2c66d; }
+
+/* A lone full-width row is a table state ("No X found.", "Loading...", or a load error), not data. */
+tbody > tr:only-child:not(.table-state-error) > td[colspan]:only-child { text-align:center; padding:28px 16px !important; color:var(--ui-muted) !important; font-style:italic; }
+tbody > tr.table-state-error > td { text-align:center; padding:20px 16px !important; color:var(--ui-danger) !important; font-style:normal; font-weight:600; }
+.table-retry { margin-left:10px; border:1px solid currentColor; border-radius:9px; padding:5px 12px; background:transparent; color:inherit; cursor:pointer; font-weight:700; }
+
+/* withBusy() marks the running button; the spinner shows work is happening on slow connections. */
+button[aria-busy="true"]::before { content:''; display:inline-block; width:12px; height:12px; margin-right:7px; vertical-align:-2px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:tcsms-spin .7s linear infinite; }
+@keyframes tcsms-spin { to { transform:rotate(360deg); } }
+.toast { cursor:pointer; }
+.caps-warning { margin:6px 0 0; color:var(--ui-warning); font-size:12px; font-weight:700; }
 `;
 
 const SPAM_GUARD_MS = 600;
@@ -908,12 +930,44 @@ function installGlobalErrorHandler() {
   });
 }
 
-export function toast(message, type = 'success', duration = 3500) {
+let toastTimer;
+// Errors stay up longer than confirmations (there is more to read); a click dismisses either.
+export function toast(message, type = 'success', duration = type === 'error' ? 7000 : 3500) {
   const element = document.getElementById('toast') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'toast' });
+  element.setAttribute('role', type === 'error' ? 'alert' : 'status');
   element.textContent = message;
   element.className = `toast ${type}`;
-  element.classList.remove('hidden');
-  setTimeout(() => element.classList.add('hidden'), duration);
+  element.onclick = () => element.classList.add('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => element.classList.add('hidden'), duration);
+}
+
+const OPEN_MODALS = '.admin-modal:not(.hidden), .modal:not(.hidden)';
+const MODAL_CLOSE = '.admin-modal-head button, .modalhead button';
+
+// Every modal (static or built in JS) gets dialog semantics, a labelled close button, and closes on Escape.
+function installModalBehaviour() {
+  if (window.__tcsmsModalsInstalled) return;
+  window.__tcsmsModalsInstalled = true;
+  const label = root => root.querySelectorAll?.('.admin-modal, .modal').forEach(modal => {
+    const box = modal.querySelector('.admin-modal-box, .modalbox');
+    if (box && !box.hasAttribute('role')) { box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); }
+    const close = modal.querySelector(MODAL_CLOSE);
+    if (close && !close.hasAttribute('aria-label') && /^[x×✕]$/i.test(close.textContent.trim())) close.setAttribute('aria-label', 'Close');
+  });
+  label(document);
+  new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(node => {
+    if (node.nodeType !== 1) return;
+    if (node.matches('.admin-modal, .modal')) label(node.parentNode); else label(node);
+  }))).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || event.defaultPrevented) return;
+    const open = [...document.querySelectorAll(OPEN_MODALS)];
+    const top = open.sort((a, b) => (Number(getComputedStyle(a).zIndex) || 0) - (Number(getComputedStyle(b).zIndex) || 0)).at(-1);
+    const close = top?.querySelector(`${MODAL_CLOSE}, [data-dialog-cancel]`);
+    if (close) { event.preventDefault(); close.click(); }
+  });
+  document.addEventListener('click', event => { if (event.target.closest('.table-retry')) window.location.reload(); });
 }
 
 export function applyUiTheme() {
@@ -941,4 +995,5 @@ export function applyUiTheme() {
   installTablePages();
   installTableCopy();
   installGlobalErrorHandler();
+  installModalBehaviour();
 }

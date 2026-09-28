@@ -1,7 +1,9 @@
 import { supabase } from './auth-client.js'
 import { toast } from './ui-theme.js'
 import { $, state } from './registrar-state.js'
-import { escapeHtml, gradeLabel, gradeLevelOptions } from './html.js'
+import { escapeHtml, gradeLabel, gradeLevelOptions, errorRow } from './html.js'
+import { describeError } from './errors.js'
+import { confirmDialog } from './dialog.js'
 import { buildReportCard } from './report-card.js'
 import { buildSemesterTable } from './semester-grades.js'
 import { buildTranscript } from './transcript.js'
@@ -56,8 +58,8 @@ export async function loadAcademic() {
     const { data: page, error } = await supabase.from('academic_history').select('*').order('school_year').order('subject').order('id').range(start, start + 499)
     if (sequence !== academicLoadSequence) return
     if (error) {
-      $('academic-table').innerHTML = '<tr><td colspan="7">History could not be loaded.</td></tr>'
-      return toast(error.message, 'error')
+      $('academic-table').innerHTML = errorRow(7, error, 'Load academic history')
+      return
     }
     data.push(...(page || []))
     if (!page || page.length < 500) break
@@ -82,10 +84,11 @@ async function openAcademicHistory(studentId) {
     : '<div class="academic-profile-photo photo-preview-empty" aria-hidden="true">No photo</div>'
   $('academic-history-body').innerHTML = `<div class="academic-profile-summary">${photo}<div class="review-grid"><div><small>Student No.</small><p>${escapeHtml(student.lrn_number || student.student_id || '')}</p></div><div><small>Grade Level</small><p>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</p></div><div><small>Section</small><p>${escapeHtml(enrollment?.sections?.section_name || 'No Section')}</p></div><div><small>School Year</small><p>${escapeHtml(enrollment?.school_year || '-')}</p></div><div><small>Academic Records</small><p>${rows.length}</p></div></div></div><label>School Year<select id="academic-term-filter"><option value="">All school years</option>${years.map(year => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join('')}</select></label><div id="academic-history-table" class="academic-scroll">${buildSemesterTable(rows)}</div>${lockedYears.map(year => `<p class="note">&#128274; ${escapeHtml(year)} grades are locked by faculty. <button type="button" class="admin-view" data-unlock-year="${escapeHtml(year)}">Unlock</button></p>`).join('')}`
   document.querySelectorAll('[data-unlock-year]').forEach(button => button.onclick = async () => {
-    if (!window.confirm(`Unlock ${button.dataset.unlockYear} grades so faculty can edit them again?`)) return
+    const who = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'this student'
+    if (!await confirmDialog(`Unlock ${button.dataset.unlockYear} grades for ${who}? Faculty will be able to change them again until they re-submit.`, { title: 'Unlock submitted grades', confirmText: 'Unlock grades', danger: true, warning: 'Final grades that were already shared (report cards, transcripts) may no longer match if they are edited.' })) return
     const { error } = await supabase.rpc('set_academic_lock', { p_student_id: Number(studentId), p_school_year: button.dataset.unlockYear, p_locked: false })
-    if (error) return toast(error.message, 'error')
-    toast('Grades unlocked.')
+    if (error) return toast(describeError(error, 'Unlock grades'), 'error')
+    toast(`${button.dataset.unlockYear} grades unlocked.`)
     await loadAcademic()
     openAcademicHistory(studentId)
   })
@@ -142,9 +145,9 @@ async function printAcademicCard(studentId) {
 }
 async function generateTranscript(studentId) {
   const { data: s, error: se } = await supabase.from('students').select('*').eq('student_id', studentId).single()
-  if (se) return toast(se.message, 'error')
+  if (se) return toast(describeError(se, 'Load student'), 'error')
   const { data: g, error: ge } = await supabase.from('academic_history').select('*').eq('student_id', studentId).order('school_year')
-  if (ge) return toast(ge.message, 'error')
+  if (ge) return toast(describeError(ge, 'Load grades'), 'error')
   const enrollment = await supabase.from('enrollments').select('sections(section_name)').eq('student_id', studentId).eq('status', 'active').maybeSingle()
   $('transcript-print-card').innerHTML = buildTranscript({
     student: s,

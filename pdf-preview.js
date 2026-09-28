@@ -1,4 +1,5 @@
 import { printElement } from './print.js'
+import { toast } from './ui-theme.js'
 
 // Shows a print-ready element as a page in a window first. Nothing is saved until "Download PDF" is clicked;
 // "Print" still opens the browser print dialog. html2pdf.js is loaded only when a PDF is actually made.
@@ -20,14 +21,16 @@ export function previewPdf(element, { title, filename, printClass }) {
   download.onclick = async () => {
     download.disabled = true
     download.textContent = 'Preparing...'
+    download.setAttribute('aria-busy', 'true')
     try {
       const { default: html2pdf } = await import('html2pdf.js')
       await html2pdf().set({ margin: 10, filename, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(sheet).save()
-    } catch (error) {
-      window.alert(`Could not make the PDF: ${error.message}`)
+    } catch {
+      toast('Could not make the PDF. Use Print and choose "Save as PDF" as the printer instead.', 'error')
     } finally {
       download.disabled = false
       download.textContent = 'Download PDF'
+      download.removeAttribute('aria-busy')
     }
   }
 }

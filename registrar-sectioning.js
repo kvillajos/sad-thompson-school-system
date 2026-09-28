@@ -2,7 +2,8 @@ import { supabase } from './auth-client.js'
 import { toast } from './ui-theme.js'
 import { withBusy } from './shell.js'
 import { $, state } from './registrar-state.js'
-import { escapeHtml, formatDate, gradeLabel } from './html.js'
+import { escapeHtml, formatDate, gradeLabel, errorRow } from './html.js'
+import { describeError } from './errors.js'
 import { planBalancedAssignments, studentsForSection } from './sectioning.js'
 import { statusBadge, bindViewStudentButtons } from './registrar-admissions.js'
 import { fetchAll } from './fetch-all.js'
@@ -11,24 +12,34 @@ $('new-enrollment').onclick = () => document.querySelector('[data-tab="admission
 
 $('close-section-students').addEventListener('click', () => $('section-students-modal').classList.add('hidden'))
 
+let sectionCounts = {}
+// Rebuilding a <select> resets it, so the current choice is put back afterwards.
+const refill = (select, html) => { const keep = select.value; select.innerHTML = html; if ([...select.options].some(option => option.value === keep)) select.value = keep }
 export async function loadSections() {
   const { data, error } = await supabase.from('sections').select('section_id,section_name,grade_level,capacity,faculty_assigned').order('grade_level').order('section_name')
-  if (error) return toast(error.message,'error'); state.sections = data || []
-  const { data: enrollmentRows } = await fetchAll(() => supabase.from('enrollments').select('section_id').eq('status','active').order('id'))
-  const counts = (enrollmentRows || []).reduce((result, row) => { result[row.section_id] = (result[row.section_id] || 0) + 1; return result }, {})
+  if (error) { $('section-table').innerHTML = errorRow(5, error, 'Load sections'); return }
+  state.sections = data || []
+  const { data: enrollmentRows, error: countError } = await fetchAll(() => supabase.from('enrollments').select('section_id').eq('status','active').order('id'))
+  if (countError) toast(describeError(countError, 'Load section counts'), 'error')
+  sectionCounts = (enrollmentRows || []).reduce((result, row) => { result[row.section_id] = (result[row.section_id] || 0) + 1; return result }, {})
+  const grades=[...new Set(state.sections.map(s=>s.grade_level))]
+  refill($('placement-grade'), grades.map(g=>`<option value="${g}">${escapeHtml(gradeLabel(g))}</option>`).join(''))
+  refill($('section-grade-filter'), '<option value="">All Grades</option>'+grades.map(g=>`<option value="${g}">${escapeHtml(gradeLabel(g))}</option>`).join(''))
+  refill($('enrollment-section-filter'), '<option value="">All Sections</option>' + state.sections.map(s=>`<option value="${s.section_id}">${escapeHtml(s.section_name)}</option>`).join(''))
+  const shiftSections = [...new Set([...state.studentSections.values()].filter(Boolean))].sort()
+  refill($('shift-student-filter'), '<option value="">All sections</option>' + shiftSections.map(section => `<option>${escapeHtml(section)}</option>`).join(''))
+  renderSections()
+}
+function renderSections() {
   const sectionSearch = ($('section-search')?.value || '').trim().toLowerCase()
   const sectionGrade = $('section-grade-filter')?.value || ''
   const visibleSections = state.sections.filter(section => (!sectionGrade || String(section.grade_level) === sectionGrade) && (!sectionSearch || section.section_name.toLowerCase().includes(sectionSearch)))
-  $('section-table').innerHTML = visibleSections.map(s => `<tr><td>${escapeHtml(s.section_name)}</td><td>${escapeHtml(gradeLabel(s.grade_level))}</td><td>${escapeHtml(s.faculty_assigned || '-')}</td><td>${counts[s.section_id] || 0}</td><td><button class="admin-view" data-view-section="${s.section_id}">View Students</button></td></tr>`).join('') || '<tr><td colspan="5">No sections configured.</td></tr>'
+  $('section-table').innerHTML = visibleSections.map(s => `<tr><td>${escapeHtml(s.section_name)}</td><td>${escapeHtml(gradeLabel(s.grade_level))}</td><td>${escapeHtml(s.faculty_assigned || '-')}</td><td>${sectionCounts[s.section_id] || 0}</td><td><button class="admin-view" data-view-section="${s.section_id}">View Students</button></td></tr>`).join('') || `<tr><td colspan="5">${state.sections.length ? 'No sections match this filter.' : 'No sections configured. Ask the administrator to add sections.'}</td></tr>`
   document.querySelectorAll('[data-place]').forEach(b => b.onclick=()=>openPlacement(Number(b.dataset.place)))
   document.querySelectorAll('[data-view-section]').forEach(b => b.onclick=()=>viewSectionStudents(Number(b.dataset.viewSection)))
-  const grades=[...new Set(state.sections.map(s=>s.grade_level))]; $('placement-grade').innerHTML=grades.map(g=>`<option value="${g}">${escapeHtml(gradeLabel(g))}</option>`).join(''); $('section-grade-filter').innerHTML='<option value="">All Grades</option>'+grades.map(g=>`<option value="${g}">${escapeHtml(gradeLabel(g))}</option>`).join('')
-  $('enrollment-section-filter').innerHTML = '<option value="">All Sections</option>' + state.sections.map(s=>`<option value="${s.section_id}">${escapeHtml(s.section_name)}</option>`).join('')
-  const shiftSections = [...new Set([...state.studentSections.values()].filter(Boolean))].sort()
-  $('shift-student-filter').innerHTML = '<option value="">All sections</option>' + shiftSections.map(section => `<option>${escapeHtml(section)}</option>`).join('')
 }
-document.querySelector('#section-search').oninput = loadSections
-document.querySelector('#section-grade-filter').onchange = loadSections
+document.querySelector('#section-search').oninput = renderSections
+document.querySelector('#section-grade-filter').onchange = renderSections
 async function viewSectionStudents(sectionId) {
   const section = state.sections.find(item => Number(item.section_id) === sectionId)
   if (!section) return
@@ -36,7 +47,7 @@ async function viewSectionStudents(sectionId) {
   $('section-students-body').innerHTML = '<p>Loading section students…</p>'
   $('section-students-modal').classList.remove('hidden')
   const { data, error } = await supabase.from('enrollments').select('student_id,students(lrn_number,first_name,last_name,grade_level,enrollment_status)').eq('section_id', sectionId).eq('status', 'active')
-  if (error) return $('section-students-body').innerHTML = `<p class="empty-state">${escapeHtml(error.message)}</p>`
+  if (error) return $('section-students-body').innerHTML = `<p class="empty-state" role="alert">${escapeHtml(describeError(error, 'Load section students'))}</p>`
   const rows = data || []
   $('section-students-body').innerHTML = `<table><thead><tr><th>Student ID</th><th>Name</th><th>Grade</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows.map(row => { const student = row.students || {}; return `<tr><td>${escapeHtml(student.lrn_number || row.student_id)}</td><td>${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`)}</td><td>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</td><td>${statusBadge(student.enrollment_status || 'Enrolled')}</td><td><button class="admin-view" data-view-student="${row.student_id}">View</button></td></tr>` }).join('') || '<tr><td colspan="5" class="empty-state">No active students in this section.</td></tr>'}</tbody></table>`
   bindViewStudentButtons($('section-students-body'))
@@ -46,14 +57,20 @@ export async function loadEnrollments() {
     fetchAll(() => supabase.from('students').select('*').order('last_name').order('student_id')),
     fetchAll(() => supabase.from('enrollments').select('id,student_id,school_year,enrolled_at,status,section_id,sections(section_name)').eq('status', 'active').order('school_year', { ascending: false }).order('id'))
   ])
-  if (studentResult.error || enrollmentResult.error) return toast((studentResult.error || enrollmentResult.error).message, 'error')
-  const data = (studentResult.data || []).map(student => ({
-    ...(enrollmentResult.data || []).find(row => String(row.student_id) === String(student.student_id)),
+  const loadError = studentResult.error || enrollmentResult.error
+  if (loadError) { $('enrollment-table').innerHTML = errorRow(7, loadError, 'Load enrollments'); return }
+  const enrollmentByStudent = new Map((enrollmentResult.data || []).map(row => [String(row.student_id), row]))
+  enrollmentData = (studentResult.data || []).map(student => ({
+    ...enrollmentByStudent.get(String(student.student_id)),
     student_id: student.student_id, students: student
   }))
+  renderEnrollments()
+}
+let enrollmentData = []
+function renderEnrollments() {
   const search = $('enrollment-search').value.trim().toLowerCase()
   const section = $('enrollment-section-filter').value
-  const rows = (data || []).filter(row => {
+  const rows = enrollmentData.filter(row => {
     const student = row.students || {}
     return (!section || String(row.section_id) === section) && (!search || `${student.lrn_number} ${student.first_name} ${student.last_name}`.toLowerCase().includes(search))
   })
@@ -94,19 +111,20 @@ $('close-remove-enrollment').addEventListener('click', closeRemoveEnrollmentModa
 $('cancel-remove-enrollment').addEventListener('click', closeRemoveEnrollmentModal)
 async function removeEnrollment(id) {
   const { error } = await supabase.from('enrollments').update({ status: 'inactive' }).eq('id', id)
-  if (error) return toast(error.message, 'error')
+  if (error) return toast(describeError(error, 'Remove enrollment'), 'error')
   closeRemoveEnrollmentModal()
   toast('Enrollment removed.'); loadEnrollments()
 }
-$('enrollment-search').oninput = loadEnrollments
-$('enrollment-section-filter').onchange = loadEnrollments
+$('enrollment-search').oninput = renderEnrollments
+$('enrollment-section-filter').onchange = renderEnrollments
 
 async function openPlacement(sectionId='') {
   const [studentResult, enrollmentResult] = await Promise.all([
     fetchAll(() => supabase.from('students').select('*').order('last_name').order('student_id')),
     fetchAll(() => supabase.from('enrollments').select('student_id,section_id,sections(section_name)').eq('status','active').order('id'))
   ])
-  if (studentResult.error) return toast(`Could not load placement students: ${studentResult.error.message}`,'error')
+  const placementError = studentResult.error || enrollmentResult.error
+  if (placementError) return toast(describeError(placementError, 'Load placement students'),'error')
   state.students = studentResult.data || []
   state.enrolledByStudent = new Map((enrollmentResult.data || []).map(row => [row.student_id, row.section_id]))
   state.enrolledSections = new Map((enrollmentResult.data || []).map(row => [String(row.student_id), row.sections?.section_name || 'Another section']))
@@ -163,7 +181,7 @@ $('place-selected').onclick=async()=>{
   if(!sectionId||!studentIds.length)return toast('Select a section and at least one student.','error')
   withBusy($('place-selected'),'Placing…',async()=>{
     const { data, error }=await supabase.rpc('apply_section_assignments',{p_assignments:studentIds.map(id=>({student_id:id,section_id:Number(sectionId)}))})
-    if(error)return toast(error.message,'error')
+    if(error)return toast(describeError(error,'Place students'),'error')
     $('placement-modal').classList.add('hidden')
     toast(`Placed ${data?.placed??studentIds.length} student(s).`); await Promise.all([loadSections(), loadEnrollments()])
   })
@@ -217,7 +235,7 @@ function previewAutoAssign() {
 $('auto-assign-sections').onclick=async()=>{
   if(!state.students.length||!state.sections.length)return toast('Load students and sections first.','error')
   const { data: enrollments, error } = await fetchAll(() => supabase.from('enrollments').select('student_id,section_id').eq('status','active').order('id'))
-  if (error) return toast(error.message, 'error')
+  if (error) return toast(describeError(error, 'Load enrollments'), 'error')
   state.enrolledByStudent = new Map((enrollments || []).map(row => [row.student_id, row.section_id]))
   $('auto-assign-exclude-search').value = ''
   renderAutoAssignGrades()
@@ -242,7 +260,7 @@ $('confirm-auto-assign').onclick=()=>{
   if (!plan || !plan.assignments.length) return toast('Nothing to assign with the current grade levels and exclusions.', 'error')
   withBusy($('confirm-auto-assign'),'Assigning…',async()=>{
     const { data, error }=await supabase.rpc('apply_section_assignments',{p_assignments:plan.assignments})
-    if(error)return toast(error.message,'error')
+    if(error)return toast(describeError(error,'Auto-assign'),'error')
     $('auto-assign-modal').classList.add('hidden')
     toast(`Auto-assigned ${data?.placed??plan.assignments.length} student(s).`); await Promise.all([loadSections(), loadEnrollments()])
   })

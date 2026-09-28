@@ -1,11 +1,12 @@
   import { supabase } from './auth-client.js'
   import { toast } from './ui-theme.js'
   import { hideLoadingScreen } from './loading-screen.js'
-  import { escapeHtml as escape, gradeLevelOptions } from './html.js'
+  import { escapeHtml as escape, gradeLevelOptions, errorRow } from './html.js'
   import { formatDays, groupScheduleRows, planDayChanges } from './schedule-days.js'
   import { describeError } from './errors.js'
   import { mountAdminShell } from './admin-page.js'
-  import { confirmPassword } from './shell.js'
+  import { confirmPassword, withBusy } from './shell.js'
+  import { confirmDialog } from './dialog.js'
   import { overlapsLunch } from './day-tabs.js'
   import { fetchAll } from './fetch-all.js'
   const admin = await mountAdminShell('schedules')
@@ -75,7 +76,7 @@
   }
   async function loadLunch() {
     const { data, error } = await supabase.from('school_year_settings').select('*').order('school_year', { ascending: false })
-    if (error) { lunchNote.textContent = error.message; return }
+    if (error) { lunchNote.textContent = describeError(error, 'Load lunch times'); return }
     yearSettings = data || []
     const years = [...new Set([...yearSettings.map(row => row.school_year), ...sections.map(section => section.academic_year)].filter(Boolean))].sort().reverse()
     const keep = lunchInputs.year.value
@@ -87,11 +88,13 @@
   document.getElementById('lunch-form').onsubmit = async event => {
     event.preventDefault()
     const row = { school_year: lunchInputs.year.value, lunch_start: lunchInputs.ls.value, lunch_end: lunchInputs.le.value, break_start: lunchInputs.bs.value || null, break_end: lunchInputs.be.value || null }
-    if (!row.school_year) return window.alert('Choose a school year.')
-    if (row.lunch_end <= row.lunch_start) return window.alert('Lunch must end after it starts.')
-    if (Boolean(row.break_start) !== Boolean(row.break_end) || (row.break_end && row.break_end <= row.break_start)) return window.alert('Give both break times (end after start), or leave both empty.')
+    const invalid = (input, message) => { input.setCustomValidity(message); input.reportValidity(); input.addEventListener('input', () => input.setCustomValidity(''), { once: true }) }
+    if (!row.school_year) return invalid(lunchInputs.year, 'Choose a school year.')
+    if (row.lunch_end <= row.lunch_start) return invalid(lunchInputs.le, 'Lunch must end after it starts.')
+    if (Boolean(row.break_start) !== Boolean(row.break_end)) return invalid(row.break_start ? lunchInputs.be : lunchInputs.bs, 'Give both break times, or leave both empty.')
+    if (row.break_end && row.break_end <= row.break_start) return invalid(lunchInputs.be, 'The break must end after it starts.')
     if (!await confirmPassword(admin.email, 'Enter your password to change lunch and break times.')) return
-    const { error } = await supabase.from('school_year_settings').upsert({ ...row, updated_at: new Date().toISOString(), updated_by: admin.username }, { onConflict: 'school_year' })
+    const { error } = await withBusy(event.submitter || event.target.querySelector('[type="submit"], button:not([type])'), 'Saving…', () => supabase.from('school_year_settings').upsert({ ...row, updated_at: new Date().toISOString(), updated_by: admin.username }, { onConflict: 'school_year' }))
     if (error) return toast(describeError(error, 'Save lunch times'), 'error')
     toast('Lunch and break times saved.', 'success')
     await loadLunch()
@@ -105,9 +108,8 @@
       supabase.from('subjects').select('subject_id,subject_code,subject_name,grade_level').eq('is_active', true).order('subject_code'),
       fetchAll(() => supabase.from('subject_schedules').select('schedule_id,subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_code,subject_name)').order('day_of_week').order('start_time').order('schedule_id'))
     ])
-    if (sectionResult.error) return document.getElementById('sections-table').innerHTML = `<tr><td colspan="5">${escape(sectionResult.error.message)}</td></tr>`
-    if (subjectResult.error) return document.getElementById('sections-table').innerHTML = `<tr><td colspan="5">${escape(subjectResult.error.message)}</td></tr>`
-    if (scheduleResult.error) return document.getElementById('sections-table').innerHTML = `<tr><td colspan="5">${escape(scheduleResult.error.message)}</td></tr>`
+    const loadError = sectionResult.error || subjectResult.error || scheduleResult.error
+    if (loadError) return document.getElementById('sections-table').innerHTML = errorRow(5, loadError, 'Load schedules')
     sections = sectionResult.data || []
     subjects = subjectResult.data || []
     schedules = scheduleResult.data || []
@@ -115,19 +117,30 @@
     if (selectedSection) renderSchedules()
   }
   async function removeSchedule(ids) {
-    if (!window.confirm('Remove this subject schedule?')) return
+    const item = schedules.find(row => ids.includes(String(row.schedule_id)))
+    const label = item ? `${item.subjects?.subject_code || ''} ${item.subjects?.subject_name || ''}`.trim() : 'this subject'
+    if (!await confirmDialog(`Remove ${label} from ${selectedSection?.section_name || 'this section'}'s schedule? Every day it meets is removed.`, { title: 'Remove subject schedule', confirmText: 'Remove', danger: true })) return
     const result = await supabase.from('subject_schedules').delete().in('schedule_id', ids)
     if (result.error) return toast(describeError(result.error, 'Remove schedule'), 'error')
+    toast('Subject removed from the schedule.')
     await loadData()
   }
   scheduleForm.onsubmit = async event => {
     event.preventDefault()
     const values = Object.fromEntries(new FormData(scheduleForm).entries())
     const selectedDays = [...document.querySelectorAll('#schedule-form input[name="day_of_week"]:checked')].map(input => Number(input.value))
-    if (!selectedDays.length) return window.alert('Choose at least one day.')
-    if (!values.start_time || !values.end_time || values.end_time <= values.start_time) return window.alert('End time must be later than start time.')
+    if (!values.subject_id) return toast('Choose a subject first.', 'error')
+    if (!selectedDays.length) return toast('Choose at least one day.', 'error')
+    if (!values.start_time || !values.end_time || values.end_time <= values.start_time) {
+      const end = scheduleForm.elements.end_time
+      end.setCustomValidity('End time must be later than start time.'); end.reportValidity()
+      return end.addEventListener('input', () => end.setCustomValidity(''), { once: true })
+    }
     const lunch = lunchFor(selectedSection.academic_year)
-    if (overlapsLunch(lunch, values.start_time, values.end_time) && !window.confirm(`This class overlaps lunch (${String(lunch.lunch_start).slice(0, 5)} - ${String(lunch.lunch_end).slice(0, 5)}). Save it anyway?`)) return
+    if (overlapsLunch(lunch, values.start_time, values.end_time) && !await confirmDialog(`This class overlaps lunch (${String(lunch.lunch_start).slice(0, 5)} - ${String(lunch.lunch_end).slice(0, 5)}). Save it anyway?`, { title: 'Overlaps lunch', confirmText: 'Save anyway' })) return
+    return withBusy(scheduleForm.querySelector('[type="submit"], button:not([type])'), 'Saving…', () => saveSchedule(values, selectedDays))
+  }
+  async function saveSchedule(values, selectedDays) {
     const payload = { subject_id: Number(values.subject_id), section_id: Number(selectedSection.section_id), faculty_name: values.faculty_name.trim() || null, room: values.room.trim() || null, start_time: values.start_time, end_time: values.end_time }
     const ids = values.schedule_id ? values.schedule_id.split(',').map(Number) : []
     const existing = schedules.filter(item => ids.includes(item.schedule_id))
@@ -146,6 +159,7 @@
       if (result.error) return toast(describeError(result.error, 'Save schedule'), 'error')
     }
     closeModal(scheduleModal, scheduleForm)
+    toast('Schedule saved.')
     await loadData()
   }
   function renderSubjectPicker() {
@@ -169,7 +183,7 @@
   document.getElementById('choose-subject').onclick = () => { document.getElementById('subject-picker-modal').classList.remove('hidden'); renderSubjectPicker() }
   document.getElementById('close-subject-picker').onclick = () => document.getElementById('subject-picker-modal').classList.add('hidden')
   document.getElementById('subject-picker-search').oninput = renderSubjectPicker
-  document.getElementById('choose-faculty').onclick = async () => { if (!faculty.length) { const result = await supabase.from('staff_profiles').select('profile_id,employee_no,first_name,last_name,department').order('last_name'); faculty = result.data || [] }; document.getElementById('faculty-picker-modal').classList.remove('hidden'); renderFacultyPicker() }
+  document.getElementById('choose-faculty').onclick = async () => { if (!faculty.length) { const result = await supabase.from('staff_profiles').select('profile_id,employee_no,first_name,last_name,department').order('last_name'); if (result.error) return toast(describeError(result.error, 'Load faculty'), 'error'); faculty = result.data || [] }; document.getElementById('faculty-picker-modal').classList.remove('hidden'); renderFacultyPicker() }
   document.getElementById('close-faculty-picker').onclick = () => document.getElementById('faculty-picker-modal').classList.add('hidden')
   document.getElementById('faculty-picker-search').oninput = renderFacultyPicker
   document.querySelectorAll('.schedule-preset').forEach(button => button.onclick = () => { const days = button.dataset.days.split(',').filter(Boolean); document.querySelectorAll('#schedule-form input[name="day_of_week"]').forEach(input => { input.checked = days.includes(input.value) }) })

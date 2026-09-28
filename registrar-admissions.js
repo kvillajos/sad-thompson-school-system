@@ -2,10 +2,12 @@ import { supabase } from './auth-client.js'
 import { toast } from './ui-theme.js'
 import { withBusy } from './shell.js'
 import { $, state } from './registrar-state.js'
-import { escapeHtml, formatDate, gradeLabel, gradeToNumber } from './html.js'
+import { escapeHtml, formatDate, gradeLabel, gradeToNumber, errorRow } from './html.js'
 import { attendanceSummaryLine } from './attendance.js'
 import { generalAverage, letterGrade } from './grades.js'
 import { fetchAll } from './fetch-all.js'
+import { describeError } from './errors.js'
+import { confirmDialog } from './dialog.js'
 
 // Grade is stored as a number but the select options are labels, so map back on resume.
 const gradeSelectLabel = (value) => value == null || value === '' ? '' : (Number.isFinite(Number(value)) ? gradeLabel(Number(value)) : String(value))
@@ -56,7 +58,7 @@ function openCamera() {
     cameraStream = stream
     cameraModal.querySelector('#profile-camera-video').srcObject = stream
     cameraModal.classList.remove('hidden')
-  }).catch(error => toast(`Camera could not be opened: ${error.message}`, 'error'))
+  }).catch(() => toast('The camera could not be opened. Check that this site may use the camera, or upload a photo file instead.', 'error'))
 }
 if ($('application-photo')) {
   const cameraButton = document.createElement('button')
@@ -107,11 +109,11 @@ function validateApplication(form) {
 $('application-form').addEventListener('submit', async (e) => {
   e.preventDefault(); const { data, errors } = validateApplication(e.target)
   if (errors.length) return toast(errors.join(' '), 'error')
-  await saveApplication(data, 'submitted')
+  await withBusy(e.submitter || e.target.querySelector('[type="submit"]'), 'Submitting…', () => saveApplication(data, 'submitted'))
 })
 $('save-draft').addEventListener('click', async () => {
   const { data } = validateApplication($('application-form'))
-  await saveApplication(data, 'draft')
+  await withBusy($('save-draft'), 'Saving…', () => saveApplication(data, 'draft'))
 })
 
 async function saveApplication(data, status) {
@@ -129,11 +131,12 @@ async function saveApplication(data, status) {
   const result = id
     ? await supabase.from('admission_applications').update(payload).eq('id', id).select().single()
     : await supabase.from('admission_applications').insert(payload).select().single()
-  if (result.error) return toast(result.error.message, 'error')
+  if (result.error) return toast(describeError(result.error, status === 'draft' ? 'Save draft' : 'Submit application'), 'error')
   $('application-id').value = result.data.id
   await saveProfilePicture(result.data.id)
   if (status === 'submitted') {
-    await uploadDocuments(result.data.id)
+    const failed = await uploadDocuments(result.data.id)
+    if (failed.length) { toast(`Application saved, but these documents did not upload: ${failed.join(', ')}. The form is kept: fix or re-choose those files and press Submit again.`, 'error'); loadApplications(); return }
     toast('Application submitted successfully. The registrar can now review it.')
     $('application-form').reset(); $('application-id').value = ''; setApplicationPhoto(null)
   } else {
@@ -154,28 +157,33 @@ async function saveProfilePicture(applicationId) {
   }
   const path = `applications/${applicationId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
   const { error: uploadError } = await supabase.storage.from('profile-pictures').upload(path, file, { upsert: false })
-  if (uploadError) return toast(`Profile picture upload failed: ${uploadError.message}`, 'error')
+  if (uploadError) return toast(describeError(uploadError, 'Profile picture upload'), 'error')
   const publicUrl = supabase.storage.from('profile-pictures').getPublicUrl(path).data.publicUrl
   const { error } = await supabase.from('admission_applications').update({ profile_picture_url: publicUrl }).eq('id', applicationId)
-  if (error) toast(`Profile picture saved to storage, but it could not be linked to the application. Run database/backupsqlmigration.sql and try again (${error.message})`, 'error')
+  if (error) toast(describeError(error, 'Linking the profile picture to the application'), 'error')
 }
 
+// Returns the labels of documents that did not make it, so the caller can say so instead of "success".
 async function uploadDocuments(applicationId) {
+  const failed = []
   const files = [...document.querySelectorAll('#application-documents input[type=file]')]
   for (const input of files) {
     const file = input.files?.[0]; if (!file) continue
     const allowed = ['application/pdf','image/jpeg','image/png']
-    if (!allowed.includes(file.type) || file.size > 5 * 1024 * 1024) { toast(`${input.dataset.label}: PDF/JPG/PNG up to 5MB only.`, 'error'); continue }
+    if (!allowed.includes(file.type) || file.size > 5 * 1024 * 1024) { failed.push(`${input.dataset.label} (PDF/JPG/PNG up to 5MB only)`); continue }
     const path = `${applicationId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`
     const { error: uploadError } = await supabase.storage.from('admission-documents').upload(path, file, { upsert:false })
-    if (uploadError) { toast(`Document upload failed: ${uploadError.message}`, 'error'); continue }
-    await supabase.from('application_documents').insert({ application_id: applicationId, document_type: input.dataset.type, file_path:path, original_name:file.name })
+    if (uploadError) { failed.push(input.dataset.label); continue }
+    const { error } = await supabase.from('application_documents').insert({ application_id: applicationId, document_type: input.dataset.type, file_path:path, original_name:file.name })
+    if (error) { failed.push(input.dataset.label); continue }
+    input.value = '' // uploaded: a retry must not attach it twice
   }
+  return failed
 }
 
 export async function loadApplications() {
   const { data, error } = await fetchAll(() => supabase.from('admission_applications').select('*').order('created_at',{ascending:false}).order('id'))
-  if (error) return toast(error.message,'error')
+  if (error) { $('applications-table').innerHTML = errorRow(5, error, 'Load applications'); return }
   state.applications = data || []
   $('applications-table').innerHTML = state.applications.map(a => `<tr>
     <td>${escapeHtml(`${a.first_name} ${a.last_name}`)}</td><td>${escapeHtml(gradeLabel(a.grade_level))}</td><td>${statusBadge(a.status)}</td>
@@ -207,7 +215,7 @@ async function openDrafts() {
   $('drafts-modal').classList.remove('hidden')
   $('drafts-list').innerHTML = '<p>Loading drafts…</p>'
   const { data, error } = await supabase.from('admission_applications').select('*').eq('status', 'draft').order('updated_at', { ascending: false })
-  if (error) return $('drafts-list').innerHTML = `<p class="empty-state">${escapeHtml(error.message)}</p>`
+  if (error) return $('drafts-list').innerHTML = `<p class="empty-state" role="alert">${escapeHtml(describeError(error, 'Load drafts'))}</p>`
   state.drafts = data || []
   state.applications = [...state.drafts, ...state.applications.filter(application => !state.drafts.some(draft => draft.id === application.id))]
   $('drafts-list').innerHTML = state.drafts.length
@@ -218,8 +226,11 @@ async function openDrafts() {
 }
 
 async function deleteDraft(id) {
+  const draft = state.drafts.find(item => String(item.id) === String(id))
+  const name = `${draft?.first_name || ''} ${draft?.last_name || ''}`.trim() || 'this draft'
+  if (!await confirmDialog(`Delete the saved draft for ${name}? This cannot be undone.`, { title: 'Delete draft', confirmText: 'Delete', danger: true })) return
   const { error } = await supabase.from('admission_applications').delete().eq('id', id).eq('status', 'draft')
-  if (error) return toast(error.message, 'error')
+  if (error) return toast(describeError(error, 'Delete draft'), 'error')
   toast('Draft deleted.')
   if ($('application-id').value === id) { $('application-form').reset(); $('application-id').value = ''; setApplicationPhoto(null) }
   openDrafts()
@@ -246,7 +257,7 @@ export async function openStudentDetails(studentId) {
   const active = enrollmentRows.find(row => row.status === 'active')
   const currentYearAverage = generalAverage(academicRows.filter(row => row.school_year === active?.school_year))
   const attendanceTotals = await supabase.rpc('attendance_totals', { p_student_id: studentId, p_school_year: active?.school_year || null })
-  const attendanceLine = attendanceTotals.error ? attendanceTotals.error.message : attendanceSummaryLine(attendanceTotals.data)
+  const attendanceLine = attendanceTotals.error ? describeError(attendanceTotals.error, 'Load attendance') : attendanceSummaryLine(attendanceTotals.data)
   const photo = student.profile_picture_url
     ? `<img class="photo-preview" src="${escapeHtml(student.profile_picture_url)}" alt="Profile picture">`
     : '<div class="photo-preview photo-preview-empty" aria-hidden="true">No photo</div>'
@@ -275,7 +286,7 @@ export async function openStudentDetails(studentId) {
 async function openReview(id) {
   if (state.selectedApplication) return toast('Close the current review first.', 'error')
   const { data, error } = await supabase.rpc('begin_application_edit', { p_application_id: Number(id) })
-  if (error) return toast(error.message, 'error')
+  if (error) return toast(describeError(error, 'Open application'), 'error')
   state.selectedApplication = data
   const field = (label, name, type = 'text') => `<label>${label}<input name="${name}" type="${type}" value="${escapeHtml(data[name] ?? '')}"></label>`
   $('review-content').innerHTML = `<div class="note">Editing as <b>${escapeHtml(data.editing_by || 'registrar')}</b>. The administrator cannot approve or decline this file while it is open here. Closing the form releases it.</div>
@@ -291,7 +302,7 @@ async function openReview(id) {
       clearInterval(data.heartbeat)
       if (state.selectedApplication === data) {
         $('review-content').querySelector('button').disabled = true
-        toast(`Edit lock lost. Copy your corrections, close and reopen: ${error.message}`, 'error')
+        toast(`Edit lock lost (${describeError(error, 'Renew lock')}). Copy your corrections, then close and reopen the application.`, 'error')
       }
     }
   }, 60000)
@@ -306,7 +317,7 @@ $('close-review').addEventListener('click', async () => {
 async function saveReviewEdits() {
   const payload = Object.fromEntries(new FormData($('review-form')).entries())
   const { error } = await supabase.rpc('save_application_edit', { p_application_id: state.selectedApplication.id, p_token: state.selectedApplication.editing_token, p_payload: payload })
-  if (error) return toast(error.message, 'error')
+  if (error) return toast(describeError(error, 'Save review'), 'error')
   $('review-modal').classList.add('hidden')
   clearInterval(state.selectedApplication?.heartbeat)
   state.selectedApplication = null

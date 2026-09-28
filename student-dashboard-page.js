@@ -2,9 +2,10 @@
       import { hideLoadingScreen } from './loading-screen.js'
       import { mountDayTabs, gapsFrom, timeRange12 } from './day-tabs.js'
       import { loadSchoolYearSettings } from './school-settings.js'
-      import { dayNames, escapeHtml as escape, formatDate, gradeLabel } from './html.js'
-      import { applyUiTheme } from './ui-theme.js'
-      import { mountProfile, mountSidebar, confirmPassword } from './shell.js'
+      import { dayNames, escapeHtml as escape, formatDate, gradeLabel, errorRow } from './html.js'
+      import { applyUiTheme, toast } from './ui-theme.js'
+      import { mountProfile, mountSidebar, confirmPassword, withBusy } from './shell.js'
+      import { describeError } from './errors.js'
       import { attendanceSummaryLine } from './attendance.js'
       import { changedFields } from './edit-request.js'
       import { generalAverage, letterGrade } from './grades.js'
@@ -28,12 +29,18 @@
 
       const tabs = [...document.querySelectorAll('[data-tab]')]
       const panels = [...document.querySelectorAll('[data-panel]')]
+      // The open tab lives in the URL hash so refresh and the browser Back button keep your place.
+      const showTab = name => {
+        if (!document.querySelector(`[data-panel="${name}"]`)) name = 'dashboard'
+        tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name))
+        panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== name))
+      }
       tabs.forEach(tab => tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'))
-        panels.forEach(p => p.classList.add('hidden'))
-        tab.classList.add('active')
-        document.querySelector(`[data-panel="${tab.dataset.tab}"]`).classList.remove('hidden')
+        if (location.hash.slice(1) !== tab.dataset.tab) history.pushState(null, '', `#${tab.dataset.tab}`)
+        showTab(tab.dataset.tab)
       }))
+      window.addEventListener('popstate', () => showTab(location.hash.slice(1) || 'dashboard'))
+      showTab(location.hash.slice(1) || 'dashboard')
 
       let student = null
       let sectionId = null
@@ -112,12 +119,12 @@
       editForm.onsubmit = async event => {
         event.preventDefault()
         const changes = changedFields(student, Object.fromEntries([...editForm.querySelectorAll('[name]:not([name="reason"])')].map(input => [input.name, input.value])))
-        if (!Object.keys(changes).length) return window.alert('You have not changed anything.')
+        if (!Object.keys(changes).length) return toast('Change at least one field before sending the request.', 'error')
         if (!await confirmPassword(user.email, 'Enter your password to send this request.')) return
-        const { error } = await supabase.rpc('request_student_profile', { p_changes: changes, p_reason: editForm.elements.reason.value })
-        if (error) return window.alert(error.message)
+        const { error } = await withBusy(event.submitter || editForm.querySelector('[type="submit"]'), 'Sending…', () => supabase.rpc('request_student_profile', { p_changes: changes, p_reason: editForm.elements.reason.value }))
+        if (error) return toast(describeError(error, 'Send request'), 'error')
         closeEditRequest()
-        window.alert('Request sent. An administrator will review it, and you will get a notification.')
+        toast('Request sent. An administrator will review it, and you will get a notification.')
         showEditRequestStatus()
       }
       // Shows "waiting for approval" on the card while a request is pending (needs migration v26; without it the card just stays as it was).
@@ -139,7 +146,7 @@
         document.getElementById('schedule-caption').textContent = `Class Schedule — ${schoolYear || 'Current Term'}`
         if (!sectionId) { host.innerHTML = '<p>No active section enrollment found.</p>'; return }
         const { data, error } = await supabase.from('subject_schedules').select('subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_name),sections(section_name)').eq('section_id', sectionId).order('day_of_week').order('start_time')
-        if (error) return host.innerHTML = `<p>${escape(error.message)}</p>`
+        if (error) return host.innerHTML = `<p class="note" role="alert">${escape(describeError(error, 'Load schedule'))}</p>`
         const settings = await loadSchoolYearSettings(schoolYear)
         mountDayTabs(host, data || [], {
           gaps: gapsFrom(settings),
@@ -153,7 +160,7 @@
         const table = document.getElementById('grades-table')
         if (!user.student_id) return table.innerHTML = '<tr><td colspan="10">No student record linked.</td></tr>'
         const { data, error } = await supabase.from('academic_history').select('school_year,subject,grade,letter_grade,remarks,first_sem_q1,first_sem_q2,second_sem_q1,second_sem_q2').eq('student_id', user.student_id).order('school_year', { ascending: false })
-        if (error) return table.innerHTML = `<tr><td colspan="10">${escape(error.message)}</td></tr>`
+        if (error) return table.innerHTML = errorRow(10, error, 'Load grades')
         gradeRows = data || []
         const years = [...new Set(gradeRows.map(row => row.school_year).filter(Boolean))].sort().reverse()
         document.getElementById('grade-year-filter').innerHTML = '<option value="">All school years</option>' + years.map(year => `<option>${escape(year)}</option>`).join('')
@@ -185,8 +192,8 @@
           supabase.rpc('attendance_totals', { p_student_id: user.student_id, p_school_year: schoolYear || null }),
           supabase.from('attendance').select('attendance_date,status').eq('student_id', user.student_id).order('attendance_date', { ascending: false }).limit(20)
         ])
-        document.getElementById('attendance-summary').textContent = totals.error ? totals.error.message : attendanceSummaryLine(totals.data)
-        if (history.error) return table.innerHTML = `<tr><td colspan="2">${escape(history.error.message)}</td></tr>`
+        document.getElementById('attendance-summary').textContent = totals.error ? describeError(totals.error, 'Load attendance totals') : attendanceSummaryLine(totals.data)
+        if (history.error) return table.innerHTML = errorRow(2, history.error, 'Load attendance')
         table.innerHTML = (history.data || []).map(a => `<tr><td>${formatDate(a.attendance_date)}</td><td>${escape(a.status)}</td></tr>`).join('') || '<tr><td colspan="2">No attendance recorded yet.</td></tr>'
       }
 
@@ -240,7 +247,7 @@
           resetPicture()
           pictureHint.textContent = 'Profile picture updated.'
         } catch (error) {
-          pictureHint.textContent = error.message || 'Could not save the picture.'
+          pictureHint.textContent = describeError(error, 'Save photo')
           pictureHint.style.color = '#c0392b'
         } finally {
           button.disabled = false

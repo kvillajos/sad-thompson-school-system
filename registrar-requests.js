@@ -2,7 +2,8 @@ import { supabase } from './auth-client.js'
 import { toast } from './ui-theme.js'
 import { withBusy } from './shell.js'
 import { $ } from './registrar-state.js'
-import { escapeHtml, formatDate } from './html.js'
+import { escapeHtml, formatDate, errorRow } from './html.js'
+import { describeError } from './errors.js'
 import { mountOverrideForm } from './override-form.js'
 
 mountOverrideForm($('override-form'), { rpc: 'request_capacity_override', button: 'Send for Approval', done: 'Override request sent to the admin.' })
@@ -10,7 +11,7 @@ mountOverrideForm($('override-form'), { rpc: 'request_capacity_override', button
 export async function loadMyRequests() {
   const { data, error } = await supabase.from('approval_requests').select('summary,status,remarks,created_at').order('created_at', { ascending: false }).limit(30)
   $('my-requests-table').innerHTML = error
-    ? `<tr><td colspan="4">${escapeHtml(error.message)}</td></tr>`
+    ? errorRow(4, error, 'Load your requests')
     : (data || []).map(item => `<tr><td>${escapeHtml(item.summary)}</td><td>${escapeHtml(item.status)}</td><td>${formatDate(item.created_at, true)}</td><td>${escapeHtml(item.remarks || '-')}</td></tr>`).join('') || '<tr><td colspan="4">No requests yet.</td></tr>'
 }
 
@@ -24,7 +25,7 @@ $('account-request-form').addEventListener('submit', async event => {
       p_new_role: $('account-request-action').value === 'role_change' ? Number($('account-request-role').value) : null,
       p_reason: $('account-request-reason').value
     })
-    if (error) return toast(error.message, 'error')
+    if (error) return toast(describeError(error, 'Send request'), 'error')
     toast('Request sent to the admin.')
     event.target.reset()
     await loadMyRequests()

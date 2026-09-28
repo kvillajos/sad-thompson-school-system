@@ -1,6 +1,7 @@
       import { supabase } from './auth-client.js'
       import { hideLoadingScreen } from './loading-screen.js'
-      import { escapeHtml as escape, formatDate, richText } from './html.js'
+      import { escapeHtml as escape, formatDate, richText, errorRow } from './html.js'
+      import { confirmDialog, formDialog, noticeDialog } from './dialog.js'
       import { toast } from './ui-theme.js'
       import { staleFields } from './edit-request.js'
       import { withBusy, confirmPassword } from './shell.js'
@@ -28,7 +29,7 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
           ...profileRequests.map(request => ({ type: 'profile', at: request.created_at, html: `<td>Profile change</td><td>${escape(`${request.before_data.first_name} ${request.before_data.last_name} / ${request.before_data.email}`)} → ${escape(`${request.after_data.first_name} ${request.after_data.last_name} / ${request.after_data.email}`)}</td><td>${escape(request.requester)}</td><td>${formatDate(request.created_at, true)}</td><td><button class="admin-approve" data-profile-action="approve" data-request="${request.request_id}" data-user="${request.user_id}">Approve</button> <button class="admin-remove" data-profile-action="reject" data-request="${request.request_id}" data-user="${request.user_id}">Reject</button></td>` })),
           ...approvalRequests.map(request => ({ type: request.request_type, at: request.created_at, html: `<td>${requestLabels[request.request_type]}</td><td>${escape(request.summary)}<br><small>Reason: ${escape(request.reason)}</small></td><td>${escape(request.requester_name || '-')}</td><td>${formatDate(request.created_at, true)}</td><td><button class="admin-approve" data-request-action="approve" data-approval="${request.id}">Approve</button> <button class="admin-remove" data-request-action="reject" data-approval="${request.id}">Reject</button></td>` }))
         ].filter(row => requestLabels[row.type].toLowerCase().includes(query)).sort((x, y) => new Date(y.at) - new Date(x.at))
-        approvalsTable.innerHTML = approvalErrors.map(message => `<tr><td colspan="5">${escape(message)}</td></tr>`).join('') + (rows.map(row => `<tr>${row.html}</tr>`).join('') || '<tr><td colspan="5">No pending approvals.</td></tr>')
+        approvalsTable.innerHTML = approvalErrors.map(message => `<tr class="table-state-error"><td colspan="5" role="alert">${escape(message)}</td></tr>`).join('') + (rows.map(row => `<tr>${row.html}</tr>`).join('') || `<tr><td colspan="5">${query ? 'No pending approvals of that type.' : 'No pending approvals. You are all caught up.'}</td></tr>`)
         approvalsTable.querySelectorAll('[data-review]').forEach(button => button.onclick = () => openReview(button.dataset.review))
         approvalsTable.querySelectorAll('[data-request-action]').forEach(button => button.onclick = () => reviewRequest(button.dataset.approval, button.dataset.requestAction === 'approve', button))
         approvalsTable.querySelectorAll('[data-profile-action]').forEach(button => button.onclick = () => reviewProfileChange(button.dataset.request, button.dataset.user, button.dataset.profileAction, button))
@@ -68,8 +69,8 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
       async function loadApplications() {
         const { data, error } = await supabase.from('admission_applications').select('id,first_name,last_name,grade_level,status,created_at,editing_by,editing_since').in('status', ['submitted', 'under_review']).order('created_at', { ascending: false })
         applications = error ? [] : data || []
-        approvalErrors = approvalErrors.filter(message => !message.startsWith('Admissions: '))
-        if (error) approvalErrors.push(`Admissions: ${error.message}`)
+        approvalErrors = approvalErrors.filter(message => !message.startsWith('Load admissions '))
+        if (error) approvalErrors.push(describeError(error, 'Load admissions'))
         renderApprovals()
       }
 
@@ -81,16 +82,16 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
         const users = new Map((userResult.data || []).map(account => [account.user_id, account]))
         const error = requestResult.error || userResult.error
         profileRequests = error ? [] : requests.map(request => ({ ...request, requester: users.get(request.user_id)?.username || users.get(request.user_id)?.email || String(request.user_id) }))
-        approvalErrors = approvalErrors.filter(message => !message.startsWith('Profile changes: '))
-        if (error) approvalErrors.push(`Profile changes: ${error.message}`)
+        approvalErrors = approvalErrors.filter(message => !message.startsWith('Load profile changes '))
+        if (error) approvalErrors.push(describeError(error, 'Load profile changes'))
         renderApprovals()
       }
 
       async function loadApprovalRequests() {
         const { data, error } = await supabase.from('approval_requests').select('id,request_type,payload,summary,reason,requester_name,created_at').eq('status', 'pending').order('created_at', { ascending: false })
         approvalRequests = error ? [] : data || []
-        approvalErrors = approvalErrors.filter(message => !message.startsWith('Requests: '))
-        if (error) approvalErrors.push(`Requests: ${error.message}`)
+        approvalErrors = approvalErrors.filter(message => !message.startsWith('Load requests '))
+        if (error) approvalErrors.push(describeError(error, 'Load requests'))
         renderApprovals()
       }
 
@@ -99,21 +100,18 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
         if (!request) return
         let remarks = null
         if (!approve) {
-          remarks = window.prompt('Reason for rejecting (optional):')
-          if (remarks === null) return
+          const answer = await formDialog({ title: `Reject ${requestLabels[request.request_type].toLowerCase()}`, message: request.summary, fields: [{ name: 'remarks', label: 'Reason (optional, the requester sees this)', multiline: true, maxlength: 500 }], confirmText: 'Reject', danger: true })
+          if (!answer) return
+          remarks = answer.remarks || null
         } else {
           // A profile edit is based on the values the student saw; warn if the record was changed by someone else since.
           let warning = ''
           if (request.request_type === 'student_profile' && request.payload?.before) {
             const { data: record } = await supabase.from('students').select('*').eq('student_id', request.payload.student_id).maybeSingle()
             const stale = staleFields(request.payload.before, record)
-            if (stale.length) warning = `
-
-WARNING: ${stale.join(', ')} changed after this request was made. Approving overwrites the newer value.`
+            if (stale.length) warning = `${stale.join(', ')} changed after this request was made. Approving overwrites the newer value.`
           }
-          if (!window.confirm(`Approve this request?
-
-${request.summary}${warning}`)) return
+          if (!await confirmDialog(request.summary, { title: `Approve ${requestLabels[request.request_type].toLowerCase()}?`, confirmText: 'Approve', warning })) return
         }
         await withBusy(button, approve ? 'Approving…' : 'Rejecting…', async () => {
           const action = request.payload
@@ -121,9 +119,7 @@ ${request.summary}${warning}`)) return
           if (approve && request.request_type === 'account_action' && action.action !== 'role_change') {
             const { data, error } = await supabase.functions.invoke('provision-account', { body: { user_id: Number(action.target_user_id), action: action.action } })
             if (error) return toast(describeError(error, 'Account action'), 'error')
-            if (data?.temporary_password) window.alert(`Temporary password for ${data.username}: ${data.temporary_password}
-
-Shown once. Give it to the account owner.`)
+            if (data?.temporary_password) await noticeDialog(`Temporary password for ${data.username}. It is shown only once; give it to the account owner securely.`, { title: 'Temporary password', copyText: data.temporary_password })
           }
           const { error } = await supabase.rpc('review_approval', { p_id: Number(id), p_approve: approve, p_remarks: remarks })
           if (error) return toast(describeError(error, 'Review request'), 'error')
@@ -188,7 +184,7 @@ Shown once. Give it to the account owner.`)
           const documents = documentsResult.data || []
           const documentLinks = await Promise.all(documents.map(async document => {
             const result = await supabase.storage.from('admission-documents').createSignedUrl(document.file_path, 600)
-            return `<li>${escape(document.document_type)}: ${result.error ? escape(result.error.message) : `<a href="${escape(result.data.signedUrl)}" target="_blank" rel="noopener">${escape(document.original_name)}</a>`}</li>`
+            return `<li>${escape(document.document_type)}: ${result.error ? `<span class="note">${escape(document.original_name)} (link unavailable: ${escape(describeError(result.error, 'Open file'))})</span>` : `<a href="${escape(result.data.signedUrl)}" target="_blank" rel="noopener">${escape(document.original_name)}</a>`}</li>`
           }))
           document.getElementById('review-details').innerHTML = `<div class="review-grid enrollee-details-grid">
             <div><small>Student</small><p>${escape(`${a.first_name || ''} ${a.middle_name || ''} ${a.last_name || ''}`)}</p></div><div><small>Grade Level</small><p>${escape(a.grade_level || '-')}</p></div>
@@ -243,10 +239,10 @@ Shown once. Give it to the account owner.`)
           closeReview()
           if (status === 'approved' && data?.new_user_id) {
             const { data: provision, error: provisionError } = await supabase.functions.invoke('provision-account', { body: { user_id: data.new_user_id } })
-            if (provisionError) window.alert(`Application approved, but the login could not be auto-provisioned: ${provisionError.message}. Run "npm run provision:accounts" to fix this.`)
-            else window.alert(`Application approved. Student login "${provision.username}" is ready to use.`)
-          } else if (status === 'approved') {
-            window.alert('Application approved.')
+            if (provisionError) await noticeDialog(`The application was approved, but the student's login could not be created automatically (${describeError(provisionError, 'Create login')}).\nOpen Manage Accounts and use "Provision Login" on the new student account to finish.`, { title: 'Approved, login still needed' })
+            else toast(`Application approved. Student login "${provision.username}" is ready to use.`)
+          } else {
+            toast(status === 'approved' ? 'Application approved.' : 'Application declined.')
           }
           await loadApplications()
         })
@@ -273,7 +269,7 @@ Shown once. Give it to the account owner.`)
       async function loadAnnouncements() {
         const table = document.getElementById('announcements-table')
         const { data, error } = await supabase.from('announcements').select('id,title,message,kind,audience,pinned,posted_at,expires_at,author_name').order('pinned', { ascending: false }).order('posted_at', { ascending: false }).limit(30)
-        if (error) return table.innerHTML = `<tr><td colspan="7">${escape(error.message)}</td></tr>`
+        if (error) return table.innerHTML = errorRow(7, error, 'Load announcements')
         announcementRows = data || []
         const audienceLabels = { all: 'Everyone', admin: 'Admins', registrar: 'Registrars', faculty: 'Faculty', student: 'Students' }
         table.innerHTML = (data || []).map(a => { const message = plainText(a.message) || '-'; const kindHtml = a.kind === 'maintenance' ? '<span class="badge urgent-badge">Urgent</span>' : '<span class="ann-notice-label">Notice</span>'; const expiryHtml = a.expires_at ? (new Date(a.expires_at) < new Date() ? ' <small>(expired)</small>' : `<br><small>hides ${formatDate(a.expires_at, true)}</small>`) : ''; return `<tr><td class="ann-title-cell"><span class="ann-mobile-kind" style="display:none">${kindHtml}</span><span class="ann-title-text">${a.pinned ? pinIcon : ''}${escape(a.title)}</span><span class="ann-mobile-message" style="display:none">${escape(message)}</span></td><td class="ann-msg" title="${escape(message)}">${escape(message)}</td><td class="ann-type-cell">${kindHtml}${expiryHtml}</td><td>${audienceLabels[a.audience] || escape(a.audience)}</td><td>${escape(a.author_name || '-')}</td><td>${formatDate(a.posted_at)}</td><td class="ann-actions"><button class="admin-view" data-edit-announcement="${a.id}">Edit</button><button class="admin-view" data-pin-announcement="${a.id}" data-pinned="${a.pinned}">${a.pinned ? 'Unpin' : 'Pin'}</button><button class="admin-remove" data-remove-announcement="${a.id}">Remove</button></td></tr>`; }).join('') || `<tr><td colspan="7">No announcements posted.</td></tr>`
@@ -285,7 +281,8 @@ Shown once. Give it to the account owner.`)
           mountAnnouncements(document.getElementById('announcements-host'), 'admin', { list: false })
         })
         table.querySelectorAll('[data-remove-announcement]').forEach(button => button.onclick = async () => {
-          if (!window.confirm('Remove this announcement?')) return
+          const row = announcementRows.find(item => item.id === Number(button.dataset.removeAnnouncement))
+          if (!await confirmDialog(`Remove "${row?.title || 'this announcement'}"? It disappears for everyone.`, { title: 'Remove announcement', confirmText: 'Remove', danger: true })) return
           const { error: removeError } = await supabase.from('announcements').delete().eq('id', Number(button.dataset.removeAnnouncement))
           if (removeError) return toast(describeError(removeError, 'Remove announcement'), 'error')
           await loadAnnouncements()
@@ -343,8 +340,9 @@ Shown once. Give it to the account owner.`)
       document.getElementById('close-announcement').onclick = document.getElementById('cancel-announcement').onclick = () => document.getElementById('announcement-modal').classList.add('hidden')
       document.getElementById('announcement-form').addEventListener('submit', async (event) => {
         event.preventDefault()
-        const title = document.getElementById('announcement-title').value.trim()
-        if (!title) return
+        const titleInput = document.getElementById('announcement-title')
+        const title = titleInput.value.trim()
+        if (!title) { titleInput.value = ''; titleInput.setAttribute('required', ''); return titleInput.reportValidity() }
         const messageBox = document.getElementById('announcement-message')
         const message = messageBox.textContent.trim() ? messageBox.innerHTML.trim() : ''
         if (message.length > 4000) return toast('Message is too long.', 'error')
@@ -355,10 +353,11 @@ Shown once. Give it to the account owner.`)
         const expiresAt = expires === 'date' ? new Date(picked).toISOString() : expires ? new Date(Date.now() + Number(expires) * 3600000).toISOString() : null
         const payload = { title, message: message || null, kind, audience: kind === 'maintenance' ? 'all' : document.getElementById('announcement-audience').value, expires_at: expiresAt, pinned: document.getElementById('announcement-pinned').checked }
         if (editingAnnouncement && !await confirmPassword(user.email, 'Enter your password to save changes to this announcement.')) return
-        const { error } = editingAnnouncement
-          ? await supabase.from('announcements').update(payload).eq('id', editingAnnouncement.id)
-          : await supabase.from('announcements').insert({ ...payload, created_by: user.user_id, author_name: await currentAuthorName() })
+        const { error } = await withBusy(document.getElementById('announcement-submit'), editingAnnouncement ? 'Saving…' : 'Posting…', async () => editingAnnouncement
+          ? supabase.from('announcements').update(payload).eq('id', editingAnnouncement.id)
+          : supabase.from('announcements').insert({ ...payload, created_by: user.user_id, author_name: await currentAuthorName() }))
         if (error) return toast(describeError(error, editingAnnouncement ? 'Save announcement' : 'Post announcement'), 'error')
+        toast(editingAnnouncement ? 'Announcement saved.' : 'Announcement posted.')
         document.getElementById('announcement-modal').classList.add('hidden')
         await loadAnnouncements()
         mountAnnouncements(document.getElementById('announcements-host'), 'admin', { list: false })

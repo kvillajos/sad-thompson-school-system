@@ -31,7 +31,7 @@ export async function loadFacultyContext(activePage = 'dashboard') {
     ? await supabase.from('enrollments').select('student_id,section_id,students(lrn_number,first_name,last_name,grade_level,gender)').in('section_id', sectionIds).eq('status', 'active')
     : { data: [], error: null }
   hideLoadingScreen()
-  return { user, schedules, enrollments: enrollmentResult.data || [], scheduleError: scheduleResult.error, enrollmentError: enrollmentResult.error, classes: classOptions(schedules), schoolYear: currentSchoolYear() }
+  return { user, facultyName, schedules, enrollments: enrollmentResult.data || [], scheduleError: scheduleResult.error, enrollmentError: enrollmentResult.error, classes: classOptions(schedules), schoolYear: currentSchoolYear() }
 }
 
 export function classSelect(select, classes) {

@@ -1,8 +1,9 @@
   import { supabase } from './auth-client.js'
   import { toast } from './ui-theme.js'
   import { hideLoadingScreen } from './loading-screen.js'
-  import { escapeHtml as escape, formatDate } from './html.js'
-  import { confirmPassword } from './shell.js'
+  import { escapeHtml as escape, formatDate, errorRow } from './html.js'
+  import { confirmPassword, withBusy } from './shell.js'
+  import { confirmDialog, noticeDialog } from './dialog.js'
   import { describeError } from './errors.js'
   import { mountAdminShell } from './admin-page.js'
   import { fetchAll } from './fetch-all.js'
@@ -13,7 +14,7 @@
   async function loadAccounts() {
     const result = await fetchAll(() => supabase.from('users').select('username,email,role_id,is_active,student_id,user_id,initial_password,profile_picture_url').order('role_id').order('username').order('user_id'))
     const table = document.getElementById('accounts-table')
-    if (result.error) return table.innerHTML = `<tr><td colspan="6">${escape(result.error.message)}</td></tr>`
+    if (result.error) return table.innerHTML = errorRow(6, result.error, 'Load accounts')
     accounts = result.data || []
     renderAccounts()
   }
@@ -61,7 +62,7 @@
       const changes = {}
       host.querySelectorAll('[data-student-field]').forEach(field => { changes[field.dataset.studentField] = field.value })
       if (!await verify('Enter your password to save changes to this student.')) return
-      const { error } = await supabase.rpc('admin_update_student', { p_student_id: item.student_id, p_changes: changes })
+      const { error } = await withBusy(event.submitter || event.target.querySelector('.admin-primary'), 'Saving…', () => supabase.rpc('admin_update_student', { p_student_id: item.student_id, p_changes: changes }))
       if (error) return toast(describeError(error, 'Save student info'), 'error')
       toast('Saved. The student has been notified.')
       await showAccountDetails(item.user_id, { verified: true })
@@ -73,7 +74,8 @@
     if (!verified && !await verify('Enter your password to view this account.')) return
     const relation = item.student_id ? 'students' : item.role_id === 1 ? 'admins' : 'staff_profiles'
     const key = item.student_id ? 'student_id' : 'user_id'
-    const { data: profile } = await supabase.from(relation).select('*').eq(key, item.student_id || item.user_id).maybeSingle()
+    const { data: profile, error: profileError } = await supabase.from(relation).select('*').eq(key, item.student_id || item.user_id).maybeSingle()
+    if (profileError) toast(describeError(profileError, 'Load profile details'), 'error')
     const account = { user_id: item.user_id, role: roleNames[item.role_id] || 'Unknown', status: item.is_active ? 'Active' : 'Inactive', linked_record: item.student_id ? 'Student #' + item.student_id : null }
     const skip = new Set(['profile_picture_url', 'initial_password', 'user_id'])
     const grid = rows => rows.map(([k, v]) => `<div><small>${escape(label(k))}</small><p>${escape(format(k, v))}</p></div>`).join('')
@@ -88,32 +90,39 @@
   }
   async function saveAccount(event, userId) {
     event.preventDefault()
-    const username = document.getElementById('account-edit-username').value.trim()
+    const usernameInput = document.getElementById('account-edit-username')
+    const username = usernameInput.value.trim()
     const roleId = Number(document.getElementById('account-edit-role').value)
-    if (!username) return window.alert('Username is required.')
-    const { error } = await supabase.from('users').update({ username, role_id: roleId }).eq('user_id', userId)
+    if (!username) { usernameInput.value = ''; return usernameInput.reportValidity() }
+    const item = accounts.find(account => String(account.user_id) === String(userId))
+    if (item && item.role_id !== roleId && !await confirmDialog(`Change ${item.username} from ${roleNames[item.role_id]} to ${roleNames[roleId]}? They will get the pages and permissions of the new role the next time they sign in.`, { title: 'Change role', confirmText: 'Change role', danger: roleId === 1 || item.role_id === 1 })) return
+    const { error } = await withBusy(event.submitter || event.target.querySelector('button'), 'Saving…', () => supabase.from('users').update({ username, role_id: roleId }).eq('user_id', userId))
     if (error) return toast(describeError(error, 'Save account'), 'error')
     document.getElementById('account-details-modal').classList.add('hidden')
+    toast('Account saved.')
     await loadAccounts()
   }
   async function revertPicture(userId) {
+    if (!await confirmDialog('Remove this profile picture? The account holder can upload a new one.', { title: 'Revert picture', confirmText: 'Remove picture', danger: true })) return
     const { error } = await supabase.from('users').update({ profile_picture_url: null }).eq('user_id', userId)
     if (error) return toast(describeError(error, 'Revert picture'), 'error')
     document.getElementById('account-details-modal').classList.add('hidden')
+    toast('Profile picture removed.')
     await loadAccounts()
   }
+  const actionText = { provision: ['provision a login for', 'Provisioning…'], deactivate: ['deactivate', 'Deactivating…'], activate: ['activate', 'Activating…'], reset: ['reset the password of', 'Resetting…'] }
   async function runAccountAction(userId, action, button) {
-    if (!await verify('Enter your password to confirm this action.')) return
-    button.disabled = true
-    try {
+    const item = accounts.find(account => String(account.user_id) === String(userId))
+    const [verb, busy] = actionText[action]
+    if (!await verify(`Enter your password to ${verb} ${item?.username || 'this account'}.${action === 'deactivate' ? ' They will not be able to sign in until the account is activated again.' : ''}`)) return
+    await withBusy(button, busy, async () => {
       const { data, error } = await supabase.functions.invoke('provision-account', { body: { user_id: Number(userId), action } })
       if (error) return toast(describeError(error, 'Account action'), 'error')
-      if (action === 'reset') window.alert(`New temporary password for ${data.username}: ${data.temporary_password}\nShare this with the account holder securely - it will not be shown again.`)
-      else if (action === 'provision') window.alert(`Login "${data.username}" is ready to use.`)
+      if (action === 'reset') await noticeDialog(`New temporary password for ${data.username}. Share it with the account holder securely; it will not be shown again.`, { title: 'Temporary password', copyText: data.temporary_password })
+      else if (action === 'provision') toast(`Login "${data.username}" is ready to use.`)
+      else toast(action === 'deactivate' ? `${item?.username || 'Account'} deactivated.` : `${item?.username || 'Account'} activated.`)
       await loadAccounts()
-    } finally {
-      button.disabled = false
-    }
+    })
   }
   document.getElementById('account-search').oninput = renderAccounts
   document.getElementById('account-role').onchange = renderAccounts

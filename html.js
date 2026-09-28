@@ -1,7 +1,14 @@
+import { describeError } from './errors.js'
+
 export const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 export function escapeHtml(value = '') {
   return String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+}
+
+// A table row for a failed load: readable message plus a Retry button (handled globally in ui-theme.js).
+export function errorRow(colspan, error, context = 'Load') {
+  return `<tr class="table-state-error"><td colspan="${colspan}" role="alert">${escapeHtml(describeError(error, context))}<button type="button" class="table-retry">Retry</button></td></tr>`
 }
 
 export function formatDate(value, includeTime = false) {

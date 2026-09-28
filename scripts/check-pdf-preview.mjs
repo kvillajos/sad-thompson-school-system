@@ -24,7 +24,7 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':
 let printedWith = null
 const printElement = (element, className) => { printedWith = className }
 const alerts = []
-window.alert = message => alerts.push(String(message))
+const toast = message => alerts.push(String(message))
 ${dayTabs}
 ${pdfPreview}
 const out = {}
