@@ -5,6 +5,7 @@
     import { describeError } from './errors.js'
     import { confirmDialog, noticeDialog } from './dialog.js'
     import { withBusy } from './shell.js'
+    import { currentSchoolYear } from './grades.js'
     import { mountAdminShell } from './admin-page.js'
     import { mountOverrideForm } from './override-form.js'
     import { fetchAll } from './fetch-all.js'
@@ -42,7 +43,7 @@
     async function loadSections() {
       const table = document.getElementById('sections-table')
       if (!moderators.length) { const moderatorResult = await supabase.from('staff_profiles').select('profile_id,employee_no,first_name,last_name,department,user_id,users(profile_picture_url)').order('last_name'); moderators = moderatorResult.data || [] }
-      const { data, error } = await supabase.from('sections').select('section_id,section_name,grade_level,capacity,academic_year,faculty_assigned,room').order('grade_level').order('section_name')
+      const { data, error } = await supabase.from('sections').select('section_id,section_name,grade_level,capacity,academic_year,faculty_assigned,room').gte('academic_year', currentSchoolYear()).order('grade_level').order('section_name')
       if (error) return table.innerHTML = errorRow(7, error, 'Load sections')
       sections = data || []
       const { data: enrollments, error: enrollmentError } = await fetchAll(() => supabase.from('enrollments').select('section_id').eq('status', 'active').order('id'))
@@ -77,7 +78,8 @@
         const payload = { section_name: values.section_name.trim(), grade_level: Number(values.grade_level), capacity: Number(values.capacity), academic_year: values.academic_year.trim(), room: values.room.trim() || null, faculty_assigned: values.faculty_assigned.trim() || null }
         const sectionId = values.section_id
         if (payload.faculty_assigned) {
-          const { data: currentSections, error: moderatorError } = await supabase.from('sections').select('section_id,faculty_assigned')
+          // Only this year's sections: advising a section last year must not block advising one now.
+          const { data: currentSections, error: moderatorError } = await supabase.from('sections').select('section_id,faculty_assigned').eq('academic_year', payload.academic_year)
           if (moderatorError) return toast(describeError(moderatorError, 'Save section'), 'error')
           const alreadyAssigned = (currentSections || []).some(section => String(section.section_id) !== String(sectionId) && moderatorName(section.faculty_assigned) === moderatorName(payload.faculty_assigned))
           if (alreadyAssigned) return toast(`${payload.faculty_assigned} is already the moderator of another section. Choose someone else.`, 'error')

@@ -33,17 +33,20 @@ const registrars = [
   ['REG-002', 'Leonardo Jose', 'Bautista', 'Registrar Office', 'Student Records', '09170000012'],
   ['REG-003', 'Monica Claire', 'Flores', 'Registrar Office', 'Sectioning and Scheduling', '09170000013']
 ]
+// DepEd titles and codes, matching migration v27 in database/backupsqlmigration.sql (upserted by code).
 const subjects = [
-  ['ENG-101', 'English Language', 'Communication and reading skills', null],
-  ['FIL-101', 'Filipino', 'Wika at panitikan', null],
-  ['MAT-101', 'Mathematics', 'Number sense and problem solving', null],
-  ['SCI-101', 'Science', 'Scientific inquiry and discovery', null],
-  ['SST-101', 'Social Studies', 'History, civics, and culture', null],
-  ['MAP-101', 'Mapeh', 'Music, arts, physical education, and health', null],
-  ['TLE-101', 'Technology and Livelihood Education', 'Practical skills and technology', null],
-  ['VAL-101', 'Values Education', 'Character and faith formation', null],
-  ['ICT-101', 'Information and Communications Technology', 'Digital literacy and computing', null],
-  ['RES-101', 'Research', 'Research methods and academic writing', 11]
+  ['ENG', 'English', 'Language, reading and literature', null],
+  ['FIL', 'Filipino', 'Wika at panitikan', null],
+  ['MATH', 'Mathematics', 'Number sense, algebra, geometry and statistics', null],
+  ['SCI', 'Science', 'Life, physical, earth and space science', null],
+  ['AP', 'Araling Panlipunan', 'Kasaysayan, heograpiya, ekonomiks at sibika', null],
+  ['MAPEH', 'MAPEH', 'Music, Arts, Physical Education and Health', null],
+  ['EPP', 'Edukasyong Pantahanan at Pangkabuhayan (EPP)', 'Grades 4-5 home economics and livelihood', null],
+  ['TLE', 'Technology and Livelihood Education', 'Grades 6-10 livelihood and technical skills', null],
+  ['GMRC', 'Good Manners and Right Conduct (GMRC)', 'Grades 1-6 (MATATAG; formerly EsP)', null],
+  ['VE', 'Values Education', 'Grades 7-10 (MATATAG; formerly EsP)', null],
+  ['ICT', 'Information and Communications Technology', 'Computer and digital literacy (TLE specialization)', null],
+  ['PR1', 'Practical Research 1', 'Senior High applied subject: qualitative research', 11]
 ]
 
 function usernameFor(firstName, lastName) {

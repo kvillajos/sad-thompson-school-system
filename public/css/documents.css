@@ -150,24 +150,3 @@ table.doc-table td.indent-sub {
   color: #333;
 }
 
-.print-btn-bar {
-  margin-bottom: 15px;
-  text-align: right;
-}
-
-.btn-print {
-  background: #0d6efd;
-  color: #fff;
-  border: none;
-  padding: 8px 18px;
-  border-radius: 4px;
-  font-weight: bold;
-  cursor: pointer;
-  font-family: Arial, sans-serif;
-}
-
-@media print {
-  .no-print {
-    display: none !important;
-  }
-}

@@ -9,6 +9,7 @@
   import { confirmDialog } from './dialog.js'
   import { overlapsLunch } from './day-tabs.js'
   import { fetchAll } from './fetch-all.js'
+  import { currentSchoolYear } from './grades.js'
   const admin = await mountAdminShell('schedules')
 
   document.getElementById('section-grade').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades' })
@@ -104,7 +105,7 @@
 
   async function loadData() {
     const [sectionResult, subjectResult, scheduleResult] = await Promise.all([
-      supabase.from('sections').select('section_id,section_name,grade_level,academic_year,room').order('grade_level').order('section_name'),
+      supabase.from('sections').select('section_id,section_name,grade_level,academic_year,room').gte('academic_year', currentSchoolYear()).order('grade_level').order('section_name'),
       supabase.from('subjects').select('subject_id,subject_code,subject_name,grade_level').eq('is_active', true).order('subject_code'),
       fetchAll(() => supabase.from('subject_schedules').select('schedule_id,subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_code,subject_name)').order('day_of_week').order('start_time').order('schedule_id'))
     ])

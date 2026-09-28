@@ -2608,3 +2608,233 @@ revoke all on function my_pending_profile_request() from public, anon;
 grant execute on function my_pending_profile_request() to authenticated;
 notify pgrst, 'reload schema';
 -- END migration-v26-student-edit-request-status.sql
+
+-- ============================================================
+-- BEGIN migration-v27-ph-curriculum-data.sql  (applied 2026-09-29)
+-- Replaces the placeholder academic data with DepEd-accurate subjects and grades.
+--  * Subjects renamed to DepEd titles (MATATAG naming: GMRC Gr 1-6, Values Education Gr 7-10);
+--    academic_history stores the subject NAME, so both tables are renamed together.
+--  * Joke section names Masungit / Marumi -> Masunurin / Masipag.
+--  * Grade 10 timetable: ICT slots -> TLE (same teacher; ICT is a TLE specialization),
+--    Pre-Calculus slots (a Grade 11 STEM subject) -> Values Education, taught by the
+--    section adviser when the adviser is free at that time, else by the current teacher.
+--  * Grades: the "Sample: Q1 in progress" rows are replaced by
+--      - SY 2024-2025 and 2025-2026: all four quarters, whole-number final grade
+--        (average of the quarters), Passed, locked (submitted);
+--      - SY 2026-2027: Quarter 1 only (DepEd Q1 ended in August; Q2 is in progress),
+--        remarks "In progress", unlocked, one row per subject on the section's timetable.
+--    Past-year subjects follow the curriculum in force for that grade and year
+--    (MATATAG rollout: Gr 1/4/7 in 2024, Gr 2/5/8 in 2025, Gr 3/6/9 in 2026, Gr 10 in 2027;
+--    older grades used K-12: EsP, EPP for Gr 4-6, Mother Tongue for Gr 1-3).
+--    Scores are deterministic (hashtext-based), so re-running produces the same data.
+--  * Test accounts 48-55 (impossible birthdates, no section) are deliberately left untouched.
+-- ============================================================
+begin;
+
+-- 1. Section names
+update sections set section_name = 'Masunurin' where section_id = 7 and section_name = 'Masungit';
+update sections set section_name = 'Masipag'   where section_id = 4 and section_name = 'Marumi';
+
+-- 2. Subjects: DepEd titles and codes (renamed in academic_history too, same transaction)
+with renames(subject_id, new_code, new_name, new_grade, new_desc) as (values
+  (2,  'ENG',    'English',                                   null::int, 'Language, reading and literature'),
+  (3,  'FIL',    'Filipino',                                  null,      'Wika at panitikan'),
+  (4,  'MATH',   'Mathematics',                               null,      'Number sense, algebra, geometry and statistics'),
+  (5,  'SCI',    'Science',                                   null,      'Life, physical, earth and space science'),
+  (6,  'AP',     'Araling Panlipunan',                        null,      'Kasaysayan, heograpiya, ekonomiks at sibika'),
+  (7,  'MAPEH',  'MAPEH',                                     null,      'Music, Arts, Physical Education and Health'),
+  (8,  'TLE',    'Technology and Livelihood Education',       null,      'Grades 6-10 livelihood and technical skills'),
+  (9,  'VE',     'Values Education',                          null,      'Grades 7-10 (MATATAG; formerly EsP)'),
+  (10, 'ICT',    'Information and Communications Technology', null,      'Computer and digital literacy (TLE specialization)'),
+  (1,  'PRECAL', 'Pre-Calculus',                              11,        'Senior High STEM specialized subject'),
+  (11, 'PR1',    'Practical Research 1',                      11,        'Senior High applied subject: qualitative research'),
+  (22, 'CW',     'Creative Writing',                          11,        'Senior High HUMSS: fiction, poetry and personal essay')
+), old as (
+  select r.*, s.subject_name as old_name from renames r join subjects s using (subject_id)
+), history as (
+  update academic_history a set subject = o.new_name from old o where a.subject = o.old_name and o.old_name <> o.new_name
+)
+update subjects s set subject_code = o.new_code, subject_name = o.new_name, grade_level = o.new_grade, description = o.new_desc
+from old o where s.subject_id = o.subject_id;
+
+insert into subjects (subject_code, subject_name, grade_level, description, is_active) values
+  ('GMRC', 'Good Manners and Right Conduct (GMRC)',         null, 'Grades 1-6 (MATATAG; formerly EsP)', true),
+  ('EPP',  'Edukasyong Pantahanan at Pangkabuhayan (EPP)',  null, 'Grades 4-5 home economics and livelihood', true)
+on conflict (subject_code) do nothing;
+
+-- 3. Grade 10 timetable
+update subject_schedules ss set subject_id = 8
+from sections sec where sec.section_id = ss.section_id and sec.grade_level = 10 and ss.subject_id = 10;
+
+with adviser as (
+  select ss.schedule_id, sp.profile_id, sp.first_name || ' ' || sp.last_name as name
+  from subject_schedules ss
+  join sections sec on sec.section_id = ss.section_id
+  join staff_profiles sp on lower(sp.first_name || ' ' || sp.last_name) = lower(sec.faculty_assigned)
+  where sec.grade_level = 10 and ss.subject_id = 1
+    and not exists (select 1 from subject_schedules o
+                    where o.faculty_profile_id = sp.profile_id and o.day_of_week = ss.day_of_week
+                      and o.schedule_id <> ss.schedule_id and o.start_time < ss.end_time and ss.start_time < o.end_time)
+)
+update subject_schedules ss set faculty_profile_id = a.profile_id, faculty_name = a.name
+from adviser a where a.schedule_id = ss.schedule_id;
+
+update subject_schedules ss set subject_id = 9
+from sections sec where sec.section_id = ss.section_id and sec.grade_level = 10 and ss.subject_id = 1;
+
+insert into faculty_subjects (profile_id, subject_id)
+select distinct faculty_profile_id, subject_id from subject_schedules where subject_id in (8, 9)
+on conflict (profile_id, subject_id) do nothing;
+
+-- 4. Grades
+delete from academic_history where remarks ilike 'Sample:%';
+
+with params as (
+  select array[48,49,50,51,52,53,54,55] as test_ids
+), cohort as (
+  select s.student_id, s.grade_level from students s, params p
+  where s.grade_level between 1 and 12 and not (s.student_id = any (p.test_ids))
+), past as (
+  -- one row per student per past school year they were in Grades 1-10
+  select c.student_id, y.school_year, c.grade_level - y.back as grade
+  from cohort c cross join (values ('2024-2025', 2), ('2025-2026', 1)) y(school_year, back)
+  where c.grade_level - y.back between 1 and 10
+), past_era as (
+  select p.*, left(p.school_year, 4)::int >= case when p.grade in (1,4,7) then 2024 when p.grade in (2,5,8) then 2025
+                                                   when p.grade in (3,6,9) then 2026 else 2027 end as matatag
+  from past p
+), past_subjects as (
+  select e.student_id, e.school_year, subj
+  from past_era e cross join lateral unnest(array_remove(array[
+    'Filipino', 'English', 'Mathematics',
+    case when e.grade >= 3 then 'Science' end,
+    'Araling Panlipunan', 'MAPEH',
+    case when e.matatag and e.grade <= 6 then 'Good Manners and Right Conduct (GMRC)'
+         when e.matatag then 'Values Education'
+         else 'Edukasyon sa Pagpapakatao (EsP)' end,
+    case when e.grade in (4,5) then 'Edukasyong Pantahanan at Pangkabuhayan (EPP)'
+         when e.grade = 6 then case when e.matatag then 'Technology and Livelihood Education' else 'Edukasyong Pantahanan at Pangkabuhayan (EPP)' end
+         when e.grade >= 7 then 'Technology and Livelihood Education' end,
+    case when e.grade <= 3 and not e.matatag then 'Mother Tongue' end
+  ], null)) subj
+), current_subjects as (
+  select distinct c.student_id, '2026-2027'::text as school_year, sub.subject_name as subj
+  from cohort c
+  join enrollments en on en.student_id = c.student_id and en.status = 'active'
+  join subject_schedules ss on ss.section_id = en.section_id
+  join subjects sub on sub.subject_id = ss.subject_id
+), all_rows as (
+  select student_id, school_year, subj, false as current from past_subjects
+  union all
+  select student_id, school_year, subj, true from current_subjects
+), scored as (
+  -- u(key) in [0,1): deterministic pseudo-random from the key text
+  select r.*,
+    81 + round(14 * (abs(hashtext('base' || r.student_id)) % 10000) / 10000.0)                      -- student ability 81-95
+    + round(6 * (abs(hashtext('subj' || r.student_id || r.subj)) % 10000) / 10000.0) - 3            -- subject strength -3..+3
+    + round(2 * (abs(hashtext('year' || r.student_id || r.school_year)) % 10000) / 10000.0) - 1     -- year form -1..+1
+    as level
+  from all_rows r
+), quarters as (
+  select s.*,
+    least(99, s.level + round(4 * (abs(hashtext('q1' || s.student_id || s.subj || s.school_year)) % 10000) / 10000.0) - 2) as q1,
+    least(99, s.level + round(4 * (abs(hashtext('q2' || s.student_id || s.subj || s.school_year)) % 10000) / 10000.0) - 2) as q2,
+    least(99, s.level + 1 + round(4 * (abs(hashtext('q3' || s.student_id || s.subj || s.school_year)) % 10000) / 10000.0) - 2) as q3,
+    least(99, s.level + 1 + round(4 * (abs(hashtext('q4' || s.student_id || s.subj || s.school_year)) % 10000) / 10000.0) - 2) as q4
+  from scored s
+), graded as (
+  select q.*, case when q.current then q.q1 else round((q.q1 + q.q2 + q.q3 + q.q4) / 4.0) end as final_grade from quarters q
+)
+insert into academic_history (student_id, school_year, subject, grade, remarks, first_sem_q1, first_sem_q2, second_sem_q1, second_sem_q2, letter_grade, locked)
+select g.student_id, g.school_year, g.subj, g.final_grade,
+  case when g.current then 'In progress' when g.final_grade >= 75 then 'Passed' else 'Failed' end,
+  g.q1,
+  case when g.current then null else g.q2 end,
+  case when g.current then null else g.q3 end,
+  case when g.current then null else g.q4 end,
+  case when g.final_grade >= 97 then 'A+' when g.final_grade >= 92 then 'A' when g.final_grade >= 87 then 'B+'
+       when g.final_grade >= 82 then 'B' when g.final_grade >= 78 then 'C+' when g.final_grade >= 75 then 'C' else 'F' end,
+  not g.current
+from graded g
+on conflict (student_id, school_year, subject) do nothing;
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v27-ph-curriculum-data.sql
+
+-- ============================================================
+-- BEGIN migration-v28-sy2025-2026-history.sql  (applied 2026-09-29)
+-- Completes SY 2025-2026 so past-year report cards and records are whole
+-- (its grades were added in v27):
+--  * One section per grade (Grades 4-10), status 'closed'. Same virtue names and advisers as
+--    this year where the grade has a section now; Grades 4 and 5 get Magalang / Matulungin.
+--    No timetable rows, so no teacher gains access to a past section.
+--  * One 'completed' enrollment per student (the 42 real students; test accounts 48-55 skipped),
+--    in the grade they were in last year.
+--  * Daily advisory attendance (subject_id null, one row per school day) over DepEd's
+--    SY 2025-2026 calendar: 16 Jun 2025 - 31 Mar 2026, weekdays, less Ninoy Aquino Day,
+--    National Heroes Day, Immaculate Conception and the 22 Dec - 2 Jan Christmas break.
+--    Each student has their own absence/late tendency; deterministic (hashtext-based).
+--  * Lunch/break settings for 2025-2026 copied from 2026-2027.
+-- The app lists only sections from the current school year onward (see grades.js
+-- currentSchoolYear), so these past sections never appear as placement targets.
+-- ============================================================
+begin;
+
+insert into sections (section_name, grade_level, academic_year, capacity, status, room, faculty_assigned)
+values
+  ('Magalang',   4,  '2025-2026', 40, 'closed', 'Room 104', 'Carla Denise Garcia'),
+  ('Matulungin', 5,  '2025-2026', 40, 'closed', 'Room 105', 'Francis Miguel Torres'),
+  ('Masunurin',  6,  '2025-2026', 40, 'closed', 'Room 101', 'Diego Rafael Mendoza'),
+  ('Mapayapa',   7,  '2025-2026', 40, 'closed', 'Room 201', 'Althea Marie Santos'),
+  ('Malasakit',  8,  '2025-2026', 40, 'closed', 'Room 202', 'Bernardo Luis Reyes'),
+  ('Masipag',    9,  '2025-2026', 40, 'closed', 'Room 301', 'Eunice Grace Villanueva'),
+  ('Mapagmahal', 10, '2025-2026', 40, 'closed', 'Room 302', 'Hector Paolo Ramos')
+on conflict (section_name, grade_level, academic_year, semester) do nothing;
+
+insert into school_year_settings (school_year, lunch_start, lunch_end, break_start, break_end, updated_by)
+select '2025-2026', lunch_start, lunch_end, break_start, break_end, 'migration v28'
+from school_year_settings where school_year = '2026-2027'
+on conflict (school_year) do nothing;
+
+-- Enrollment period 19 May - 12 Jun 2025; a date that lands on a weekend moves to the Monday.
+insert into enrollments (student_id, school_year, grade_level, section_id, status, enrolled_at)
+select s.student_id, '2025-2026', s.grade_level - 1, sec.section_id, 'completed',
+       d.day + (case extract(isodow from d.day) when 6 then 2 when 7 then 1 else 0 end || ' days')::interval
+from students s
+cross join lateral (select timestamp with time zone '2025-05-19 08:00+08' + ((abs(hashtext('enrol' || s.student_id)) % 25) || ' days')::interval as day) d
+join sections sec on sec.academic_year = '2025-2026' and sec.grade_level = s.grade_level - 1
+where s.student_id not in (48,49,50,51,52,53,54,55) and s.grade_level - 1 between 4 and 10
+on conflict (student_id, school_year) do nothing;
+
+with school_days as (
+  select d::date as day
+  from generate_series(date '2025-06-16', date '2026-03-31', interval '1 day') d
+  where extract(isodow from d) < 6
+    and d::date not in (date '2025-08-21', date '2025-08-25', date '2025-12-08')
+    and not (d::date between date '2025-12-22' and date '2026-01-02')
+), roll as (
+  select e.student_id, e.section_id, sec.faculty_assigned, sd.day,
+    -- per-student tendencies: absent 0.5-4%, late 1-5%; excused 0.4%
+    0.005 + 0.035 * (abs(hashtext('abs' || e.student_id)) % 10000) / 10000.0 as p_absent,
+    0.010 + 0.040 * (abs(hashtext('late' || e.student_id)) % 10000) / 10000.0 as p_late,
+    (abs(hashtext('day' || e.student_id || sd.day)) % 10000) / 10000.0 as u
+  from enrollments e
+  join sections sec on sec.section_id = e.section_id
+  cross join school_days sd
+  where e.school_year = '2025-2026'
+)
+insert into attendance (student_id, attendance_date, status, section_id, subject_id, recorded_by, remarks)
+select r.student_id, r.day,
+  case when r.u < r.p_absent then 'Absent'
+       when r.u < r.p_absent + 0.004 then 'Excused'
+       when r.u < r.p_absent + 0.004 + r.p_late then 'Late'
+       else 'Present' end,
+  r.section_id, null, r.faculty_assigned,
+  case when r.u >= r.p_absent and r.u < r.p_absent + 0.004 then 'With excuse letter from parent' end
+from roll r
+where not exists (select 1 from attendance a where a.student_id = r.student_id and a.attendance_date = r.day and a.section_id = r.section_id);
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v28-sy2025-2026-history.sql

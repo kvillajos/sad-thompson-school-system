@@ -27,7 +27,7 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
     { title: 'Arts', keys: ['arts'], isSub: true },
     { title: 'Physical Education', keys: ['physical education', 'pe'], isSub: true },
     { title: 'Health', keys: ['health'], isSub: true },
-    { title: 'Edukasyon sa Pagpapakatao (EsP)', keys: ['edukasyon sa pagpapakatao (esp)', 'edukasyon sa pagpapakatao', 'esp', 'values education'] }
+    { title: 'Edukasyon sa Pagpapakatao (EsP)', keys: ['edukasyon sa pagpapakatao (esp)', 'edukasyon sa pagpapakatao', 'esp', 'values education', 'good manners and right conduct (gmrc)', 'gmrc'] }
   ]
 
   // Map database records by normalized subject key
@@ -54,11 +54,11 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
 
     return `
       <tr>
-        <td class="${indentClass}" style="${paddingStyle}">${escapeHtml(item.title)}</td>
-        <td style="text-align: center;">${record.q1 ?? record.q1_score ?? ''}</td>
-        <td style="text-align: center;">${record.q2 ?? record.q2_score ?? ''}</td>
-        <td style="text-align: center;">${record.q3 ?? record.q3_score ?? ''}</td>
-        <td style="text-align: center;">${record.q4 ?? record.q4_score ?? ''}</td>
+        <td class="${indentClass}" style="${paddingStyle}">${escapeHtml(record.subject || item.title)}</td>
+        <td style="text-align: center;">${record.first_sem_q1 ?? ''}</td>
+        <td style="text-align: center;">${record.first_sem_q2 ?? ''}</td>
+        <td style="text-align: center;">${record.second_sem_q1 ?? ''}</td>
+        <td style="text-align: center;">${record.second_sem_q2 ?? ''}</td>
         <td style="text-align: center;"><strong>${record.grade ?? ''}</strong></td>
         <td style="text-align: center;">${escapeHtml(record.remarks || (record.grade ? (record.grade >= 75 ? 'Passed' : 'Failed') : ''))}</td>
       </tr>
@@ -68,10 +68,6 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
   return `
     <link rel="stylesheet" href="/css/documents.css">
     <div class="document-container">
-      <div class="print-btn-bar no-print">
-        <button class="btn-print" onclick="window.print()">Print / Save as PDF</button>
-      </div>
-
       <header class="doc-header" style="text-align: center; margin-bottom: 20px;">
         <h3 style="margin: 0; font-size: 13pt; font-weight: bold; letter-spacing: 0.03em;">REPORT ON LEARNING PROGRESS AND ACHIEVEMENT</h3>
       </header>

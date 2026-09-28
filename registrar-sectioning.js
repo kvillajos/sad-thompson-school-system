@@ -4,6 +4,7 @@ import { withBusy } from './shell.js'
 import { $, state } from './registrar-state.js'
 import { escapeHtml, formatDate, gradeLabel, errorRow } from './html.js'
 import { describeError } from './errors.js'
+import { currentSchoolYear } from './grades.js'
 import { planBalancedAssignments, studentsForSection } from './sectioning.js'
 import { statusBadge, bindViewStudentButtons } from './registrar-admissions.js'
 import { fetchAll } from './fetch-all.js'
@@ -16,7 +17,8 @@ let sectionCounts = {}
 // Rebuilding a <select> resets it, so the current choice is put back afterwards.
 const refill = (select, html) => { const keep = select.value; select.innerHTML = html; if ([...select.options].some(option => option.value === keep)) select.value = keep }
 export async function loadSections() {
-  const { data, error } = await supabase.from('sections').select('section_id,section_name,grade_level,capacity,faculty_assigned').order('grade_level').order('section_name')
+  // Past-year sections are history (report cards, attendance); only current and upcoming ones can take students.
+  const { data, error } = await supabase.from('sections').select('section_id,section_name,grade_level,capacity,faculty_assigned').gte('academic_year', currentSchoolYear()).order('grade_level').order('section_name')
   if (error) { $('section-table').innerHTML = errorRow(5, error, 'Load sections'); return }
   state.sections = data || []
   const { data: enrollmentRows, error: countError } = await fetchAll(() => supabase.from('enrollments').select('section_id').eq('status','active').order('id'))

@@ -4,6 +4,8 @@ import { $, state } from './registrar-state.js'
 import { escapeHtml, gradeLabel, gradeLevelOptions, errorRow } from './html.js'
 import { describeError } from './errors.js'
 import { confirmDialog } from './dialog.js'
+import { withBusy } from './shell.js'
+import { currentSchoolYear } from './grades.js'
 import { buildReportCard } from './report-card.js'
 import { buildSemesterTable } from './semester-grades.js'
 import { buildTranscript } from './transcript.js'
@@ -43,9 +45,10 @@ export function renderAcademicStudents() {
     const summary = summaries.get(`${student.student_id}`) || { count: 0, latest: '' }
     return `<tr><td>${escapeHtml(student.lrn_number || student.student_id)}</td><td>${escapeHtml(`${student.first_name||''} ${student.last_name||''}`)}</td><td>${escapeHtml(gradeLabel(student.grade_level))}</td><td>${summary.count}</td><td>${escapeHtml(summary.latest || '-')}</td><td>${escapeHtml(state.studentSections.get(String(student.student_id)) || 'No Section')}</td><td><button class="admin-view" data-view-academic="${student.student_id}">View History</button> <button class="admin-view" data-print-academic="${student.student_id}">Record Card</button> <button class="admin-view" data-transcript-academic="${student.student_id}">Transcript</button></td></tr>`
   }).join('') || '<tr><td colspan="7" class="empty-state">No students found.</td></tr>'
-  document.querySelectorAll('[data-view-academic]').forEach(button => { button.onclick = () => openAcademicHistory(button.dataset.viewAcademic) })
-  document.querySelectorAll('[data-transcript-academic]').forEach(button => { button.onclick = () => generateTranscript(button.dataset.transcriptAcademic) })
-  document.querySelectorAll('[data-print-academic]').forEach(button => { button.onclick = () => printAcademicCard(button.dataset.printAcademic) })
+  // Each button disables itself with a spinner until its window opens, so a slow network can't be spam-clicked.
+  document.querySelectorAll('[data-view-academic]').forEach(button => { button.onclick = () => withBusy(button, 'Opening…', () => openAcademicHistory(button.dataset.viewAcademic)) })
+  document.querySelectorAll('[data-transcript-academic]').forEach(button => { button.onclick = () => withBusy(button, 'Preparing…', () => generateTranscript(button.dataset.transcriptAcademic)) })
+  document.querySelectorAll('[data-print-academic]').forEach(button => { button.onclick = () => withBusy(button, 'Preparing…', () => printAcademicCard(button.dataset.printAcademic)) })
 }
 let academicLoadSequence = 0
 export async function loadAcademic() {
@@ -69,7 +72,7 @@ export async function loadAcademic() {
 }
 $('academic-search').oninput = renderAcademicStudents
 $('academic-grade-filter').addEventListener('change', renderAcademicStudents)
-$('refresh-academic').onclick = loadAcademic
+$('refresh-academic').onclick = event => withBusy(event.currentTarget, 'Refreshing…', loadAcademic)
 
 async function openAcademicHistory(studentId) {
   const student = state.students.find(item => `${item.student_id}` === `${studentId}`) || {}
@@ -86,11 +89,13 @@ async function openAcademicHistory(studentId) {
   document.querySelectorAll('[data-unlock-year]').forEach(button => button.onclick = async () => {
     const who = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'this student'
     if (!await confirmDialog(`Unlock ${button.dataset.unlockYear} grades for ${who}? Faculty will be able to change them again until they re-submit.`, { title: 'Unlock submitted grades', confirmText: 'Unlock grades', danger: true, warning: 'Final grades that were already shared (report cards, transcripts) may no longer match if they are edited.' })) return
-    const { error } = await supabase.rpc('set_academic_lock', { p_student_id: Number(studentId), p_school_year: button.dataset.unlockYear, p_locked: false })
-    if (error) return toast(describeError(error, 'Unlock grades'), 'error')
-    toast(`${button.dataset.unlockYear} grades unlocked.`)
-    await loadAcademic()
-    openAcademicHistory(studentId)
+    await withBusy(button, 'Unlocking…', async () => {
+      const { error } = await supabase.rpc('set_academic_lock', { p_student_id: Number(studentId), p_school_year: button.dataset.unlockYear, p_locked: false })
+      if (error) return toast(describeError(error, 'Unlock grades'), 'error')
+      toast(`${button.dataset.unlockYear} grades unlocked.`)
+      await loadAcademic()
+      await openAcademicHistory(studentId)
+    })
   })
   $('academic-term-filter').onchange = event => {
     const selected = event.target.value
@@ -99,56 +104,46 @@ async function openAcademicHistory(studentId) {
   $('academic-history-modal').classList.remove('hidden')
 }
 $('close-academic-history').onclick = () => $('academic-history-modal').classList.add('hidden')
-$('print-academic-card').onclick = () => printAcademicCard(state.academicStudentId)
-// Report card = grades + attendance + remarks + general average, printed the same way
-// (see printAcademicCard()): the theme hides every other body child while the body
-// carries the printing-report-card class.
-async function printReportCard(studentId) {
-  const student = state.students.find(item => `${item.student_id}` === `${studentId}`)
-  if (!student) return toast('Open a student record first.', 'error')
-  const rows = academicRowsFor(studentId)
-  if (!rows.length) return toast('No academic records to print for this student.', 'error')
-  const schoolYear = rows[rows.length - 1].school_year
-  const yearRows = rows.filter(row => row.school_year === schoolYear)
-  const enrollment = await supabase.from('enrollments').select('sections(section_name)').eq('student_id', studentId).eq('school_year', schoolYear).maybeSingle()
-  const totals = await supabase.rpc('attendance_totals', { p_student_id: studentId, p_school_year: schoolYear })
-  $('report-print-card').innerHTML = buildReportCard({
-    student, gradeLevel: gradeLabel(student.grade_level), schoolYear, sectionName: enrollment.data?.sections?.section_name,
-    academicRows: yearRows, attendance: totals.data, remarks: yearRows.map(row => row.remarks).filter(Boolean).join('; ')
-  })
-  previewPdf($('report-print-card'), { title: 'Report Card', filename: pdfName('Report Card', student), printClass: 'printing-report-card' })
-}
-$('print-report-card').onclick = () => printReportCard(state.academicStudentId)
+// Inside the history window the card follows the School Year filter, so past years can be printed too.
+$('print-academic-card').onclick = event => withBusy(event.currentTarget, 'Preparing…', () => printAcademicCard(state.academicStudentId, $('academic-term-filter')?.value))
 // The card prints from the page itself instead of a pop-up: the theme hides every other
 // body child while body carries the printing-card class.
-async function printAcademicCard(studentId) {
+async function printAcademicCard(studentId, year = '') {
   const student = state.students.find(item => `${item.student_id}` === `${studentId}`)
   if (!student) return toast('Open a student record first.', 'error')
   const rows = academicRowsFor(studentId)
   if (!rows.length) return toast('No academic records to print for this student.', 'error')
-  const schoolYear = rows[rows.length - 1].school_year
+  const schoolYear = year || rows[rows.length - 1].school_year
   const yearRows = rows.filter(row => row.school_year === schoolYear)
-  const enrollment = await supabase.from('enrollments').select('sections(section_name)').eq('student_id', studentId).eq('school_year', schoolYear).maybeSingle()
-  const totals = await supabase.rpc('attendance_totals', { p_student_id: studentId, p_school_year: schoolYear })
-  
+  const [enrollment, totals] = await Promise.all([
+    supabase.from('enrollments').select('grade_level,sections(section_name)').eq('student_id', studentId).eq('school_year', schoolYear).maybeSingle(),
+    supabase.rpc('attendance_totals', { p_student_id: studentId, p_school_year: schoolYear })
+  ])
+  if (totals.error) toast(describeError(totals.error, 'Load attendance'), 'error')
+
+  // A past year's card shows the grade and section the student had that year, not today's.
+  const isCurrentYear = schoolYear === currentSchoolYear()
   $('academic-print-card').innerHTML = buildReportCard({
     student,
-    gradeLevel: gradeLabel(student.grade_level),
+    gradeLevel: gradeLabel(enrollment.data?.grade_level ?? student.grade_level),
     schoolYear,
-    sectionName: enrollment.data?.sections?.section_name || state.studentSections.get(String(studentId)) || '',
+    sectionName: enrollment.data?.sections?.section_name || (isCurrentYear ? state.studentSections.get(String(studentId)) : '') || '',
     academicRows: yearRows,
     attendance: totals.data,
     remarks: yearRows.map(row => row.remarks).filter(Boolean).join('; ')
   })
-  
-  previewPdf($('academic-print-card'), { title: 'Report Card', filename: pdfName('Report Card', student), printClass: 'printing-report-card' })
+
+  previewPdf($('academic-print-card'), { title: `Report Card ${schoolYear}`, filename: pdfName(`Report Card ${schoolYear}`, student), printClass: 'printing-card' })
 }
 async function generateTranscript(studentId) {
-  const { data: s, error: se } = await supabase.from('students').select('*').eq('student_id', studentId).single()
+  // Fresh reads (not the page cache): an official transcript must reflect grades changed since the page loaded.
+  const [{ data: s, error: se }, { data: g, error: ge }, enrollment] = await Promise.all([
+    supabase.from('students').select('*').eq('student_id', studentId).single(),
+    supabase.from('academic_history').select('*').eq('student_id', studentId).order('school_year'),
+    supabase.from('enrollments').select('sections(section_name)').eq('student_id', studentId).eq('status', 'active').maybeSingle()
+  ])
   if (se) return toast(describeError(se, 'Load student'), 'error')
-  const { data: g, error: ge } = await supabase.from('academic_history').select('*').eq('student_id', studentId).order('school_year')
   if (ge) return toast(describeError(ge, 'Load grades'), 'error')
-  const enrollment = await supabase.from('enrollments').select('sections(section_name)').eq('student_id', studentId).eq('status', 'active').maybeSingle()
   $('transcript-print-card').innerHTML = buildTranscript({
     student: s,
     rows: g || [],

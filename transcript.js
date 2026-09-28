@@ -63,10 +63,6 @@ export function buildTranscript({ student = {}, rows = [], mode = 'official', sc
   return `
     <link rel="stylesheet" href="/css/documents.css">
     <div class="document-container${unofficial ? ' unofficial' : ''}">
-      <div class="print-btn-bar no-print">
-        <button class="btn-print" onclick="window.print()">Print / Save as PDF</button>
-      </div>
-
       <header class="doc-header">
         <h4>Republic of the Philippines — Department of Education</h4>
         <h4>Region XI • Division of Davao City</h4>
