@@ -1,3 +1,52 @@
-/* TABLET - owner: tablet-mode branch only. Tablets: 600px to 1024px. Keep everything inside the media query. */
-@media (min-width: 600px) and (max-width: 1024px) {
+/* TABLET - owner: tablet-mode branch only. */
+
+@media (min-width: 600px) and (max-width: 1376px) {
+
+    /* Keep admin buttons consistent on tablets */
+    .admin-view,
+    .admin-primary,
+    .admin-cancel {
+        min-height: 38px;
+        padding: 8px 14px;
+        box-sizing: border-box;
+        white-space: nowrap;
+    }
+
+    /* Buttons inside table Actions columns */
+    td .admin-view {
+        display: block;
+        width: 100%;
+        margin-bottom: 6px;
+    }
+
+    /* Keep Remove aligned with the other announcement buttons */
+    .ann-actions .admin-remove {
+        display: block;
+        width: 100%;
+        margin-bottom: 6px;
+        box-sizing: border-box;
+    }
+
+    /* Prevent the announcements table from getting cramped */
+    .admin-announcements table {
+        min-width: 900px;
+    }
+
+    /* Keep Manage section Edit and Remove buttons aligned */
+    .admin-table-wrap td .admin-remove {
+        display: block;
+        width: 100%;
+        margin-bottom: 6px;
+        box-sizing: border-box;
+    }
+
+    /* Keep Manage Enrollment View and Remove buttons aligned */
+    #enrollment-table .admin-view,
+    #enrollment-table .admin-remove {
+        display: block;
+        width: 100%;
+        margin-bottom: 6px;
+        box-sizing: border-box;
+    }
+
 }
