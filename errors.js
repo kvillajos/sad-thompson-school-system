@@ -1,3 +1,15 @@
+// supabase.functions.invoke()'s error object only ever carries a generic "Edge Function returned
+// a non-2xx status code" message; the actual reason is in the function's JSON response body,
+// reachable only via error.context (a Response) - so callers must await this instead of describeError.
+export async function describeFunctionError(error, context = 'Request') {
+  let message = error
+  try {
+    const details = await error?.context?.json()
+    if (details?.error || details?.message) message = details.error || details.message
+  } catch {}
+  return describeError(message, context)
+}
+
 export function describeError(error, context = 'Request') {
   const message = String(error?.message || error || '')
   const code = String(error?.code || '')

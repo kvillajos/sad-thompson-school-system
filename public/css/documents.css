@@ -99,6 +99,17 @@ table.doc-table th {
   font-weight: bold;
 }
 
+/* A semester block (heading + table) and any table row never split across two pages. */
+.transcript-semester,
+table.doc-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+table.doc-table thead {
+  display: table-header-group;
+}
+
 table.doc-table td.text-left {
   text-align: left;
   padding-left: 8px;

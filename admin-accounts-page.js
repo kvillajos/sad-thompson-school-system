@@ -4,7 +4,7 @@
   import { escapeHtml as escape, formatDate, errorRow, activeStatus } from './html.js'
   import { confirmPassword, withBusy } from './shell.js'
   import { confirmDialog, noticeDialog } from './dialog.js'
-  import { describeError } from './errors.js'
+  import { describeError, describeFunctionError } from './errors.js'
   import { mountAdminShell } from './admin-page.js'
   import { fetchAll } from './fetch-all.js'
   const admin = await mountAdminShell('accounts')
@@ -12,7 +12,7 @@
   const roleNames = { 1: 'Administrator', 2: 'Registrar', 3: 'Faculty', 4: 'Student' }
   let accounts = []
   async function loadAccounts() {
-    const result = await fetchAll(() => supabase.from('users').select('username,email,role_id,is_active,student_id,user_id,initial_password,profile_picture_url').order('role_id').order('username').order('user_id'))
+    const result = await fetchAll(() => supabase.from('users').select('username,email,role_id,is_active,student_id,user_id,initial_password,profile_picture_url').is('deleted_at', null).order('role_id').order('username').order('user_id'))
     const table = document.getElementById('accounts-table')
     if (result.error) return table.innerHTML = errorRow(6, result.error, 'Load accounts')
     accounts = result.data || []
@@ -22,11 +22,75 @@
     const search = document.getElementById('account-search').value.trim().toLowerCase()
     const role = document.getElementById('account-role').value
     const rows = accounts.filter(item => (!role || String(item.role_id) === role) && (!search || `${item.username} ${item.email}`.toLowerCase().includes(search)))
-    document.getElementById('accounts-table').innerHTML = rows.map(item => `<tr><td>${escape(item.username)}</td><td>${escape(item.email)}</td><td>${roleNames[item.role_id] || 'Unknown'}</td><td>${activeStatus(item.is_active)}</td><td>${item.student_id ? `Student #${item.student_id}` : '-'}</td><td><button class="admin-view" data-details="${item.user_id}">View / Edit</button> ${item.initial_password ? `<button class="admin-view" data-provision="${item.user_id}">Provision Login</button> ` : ''}<button class="admin-view" data-toggle="${item.user_id}" data-active="${item.is_active}">${item.is_active ? 'Deactivate' : 'Activate'}</button> <button class="admin-view" data-reset="${item.user_id}">Reset Password</button></td></tr>`).join('') || '<tr><td colspan="6">No accounts found.</td></tr>'
+    document.getElementById('accounts-table').innerHTML = rows.map(item => `<tr><td>${escape(item.username)}</td><td>${escape(item.email)}</td><td>${roleNames[item.role_id] || 'Unknown'}</td><td>${activeStatus(item.is_active)}</td><td>${item.student_id ? `Student #${item.student_id}` : '-'}</td><td><button class="admin-view" data-details="${item.user_id}">View / Edit</button> ${item.initial_password ? `<button class="admin-view" data-provision="${item.user_id}">Provision Login</button> ` : ''}<button class="admin-view" data-toggle="${item.user_id}" data-active="${item.is_active}">${item.is_active ? 'Deactivate' : 'Activate'}</button> <button class="admin-view" data-reset="${item.user_id}">Reset Password</button>${item.user_id === admin.user_id ? '' : ` <button class="admin-remove" data-delete-account="${item.user_id}">Delete</button>`}</td></tr>`).join('') || '<tr><td colspan="6">No accounts found.</td></tr>'
     document.querySelectorAll('[data-details]').forEach(button => button.onclick = () => showAccountDetails(button.dataset.details))
     document.querySelectorAll('[data-provision]').forEach(button => button.onclick = () => runAccountAction(button.dataset.provision, 'provision', button))
     document.querySelectorAll('[data-toggle]').forEach(button => button.onclick = () => runAccountAction(button.dataset.toggle, button.dataset.active === 'true' ? 'deactivate' : 'activate', button))
     document.querySelectorAll('[data-reset]').forEach(button => button.onclick = () => runAccountAction(button.dataset.reset, 'reset', button))
+    document.querySelectorAll('[data-delete-account]').forEach(button => button.onclick = () => deleteAccount(button.dataset.deleteAccount, button))
+  }
+
+  const HOLD_MS = 1500
+  // Typed sentence -> 3 s wait -> press and hold. Resolves true only when the hold completes.
+  function deleteAccountDialog(item) {
+    return new Promise(resolve => {
+      const sentence = `delete ${item.username}`
+      const modal = document.createElement('div')
+      modal.className = 'admin-modal stack-above'
+      modal.innerHTML = `<div class="admin-modal-box" style="width:min(100%,460px)"><div class="admin-modal-head"><h3>Delete account</h3><button type="button" data-delete-close>x</button></div><p style="margin:0 0 12px;line-height:1.5">Deleting <b>${escape(item.username)}</b> blocks its login immediately and hides it from this list. It can be restored from <b>Audit Trail → Restore Changes</b> for 30 days, then it is erased for good. ${item.student_id ? 'The student record, grades and enrollment are kept.' : 'The staff profile and history are kept.'}</p><label style="display:block;font-size:13px">Type <b>${escape(sentence)}</b> to confirm<input data-delete-sentence autocomplete="off" spellcheck="false" style="margin-top:6px"></label><p data-delete-status class="admin-note" style="margin:10px 0 0;font-size:12px">Type the sentence above to continue.</p><div class="admin-actions" style="margin-top:14px"><button type="button" class="admin-cancel" data-delete-cancel>Cancel</button><button type="button" class="hold-delete" data-delete-hold disabled><span>Hold to delete</span></button></div></div>`
+      document.body.appendChild(modal)
+      const input = modal.querySelector('[data-delete-sentence]')
+      const status = modal.querySelector('[data-delete-status]')
+      const hold = modal.querySelector('[data-delete-hold]')
+      let countdown = null
+      let holdFrame = null
+      const finish = value => { clearInterval(countdown); cancelAnimationFrame(holdFrame); modal.remove(); resolve(value) }
+      modal.querySelector('[data-delete-close]').onclick = modal.querySelector('[data-delete-cancel]').onclick = () => finish(false)
+      input.oninput = () => {
+        clearInterval(countdown)
+        hold.disabled = true
+        if (input.value.trim() !== sentence) { status.textContent = 'Type the sentence above to continue.'; return }
+        let left = 3
+        status.textContent = `Wait ${left}s…`
+        countdown = setInterval(() => {
+          left -= 1
+          if (left > 0) { status.textContent = `Wait ${left}s…`; return }
+          clearInterval(countdown)
+          hold.disabled = false
+          status.textContent = 'Press and hold the button to delete.'
+        }, 1000)
+      }
+      const stopHold = () => { cancelAnimationFrame(holdFrame); holdFrame = null; hold.style.setProperty('--hold', '0%') }
+      const startHold = () => {
+        if (hold.disabled || holdFrame) return
+        const start = performance.now()
+        const step = now => {
+          const progress = Math.min(1, (now - start) / HOLD_MS)
+          hold.style.setProperty('--hold', `${progress * 100}%`)
+          if (progress >= 1) return finish(true)
+          holdFrame = requestAnimationFrame(step)
+        }
+        holdFrame = requestAnimationFrame(step)
+      }
+      hold.addEventListener('pointerdown', startHold)
+      ;['pointerup', 'pointerleave', 'pointercancel'].forEach(type => hold.addEventListener(type, stopHold))
+      hold.addEventListener('keydown', event => { if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); startHold() } })
+      hold.addEventListener('keyup', event => { if (event.key === ' ' || event.key === 'Enter') stopHold() })
+      input.focus()
+    })
+  }
+
+  async function deleteAccount(userId, button) {
+    const item = accounts.find(account => String(account.user_id) === String(userId))
+    if (!item) return
+    if (!await verify(`Enter your password to delete ${item.username}.`)) return
+    if (!await deleteAccountDialog(item)) return
+    await withBusy(button, 'Deleting…', async () => {
+      const { error } = await supabase.functions.invoke('provision-account', { body: { user_id: Number(userId), action: 'delete' } })
+      if (error) return toast(await describeFunctionError(error, 'Delete account'), 'error')
+      toast(`${item.username} deleted. It can be restored from Audit Trail for 30 days.`)
+      await loadAccounts()
+    })
   }
   const label = key => key.replaceAll('_', ' ').replace(/^./, c => c.toUpperCase())
   const format = (key, value) => {
@@ -117,7 +181,7 @@
     if (!await verify(`Enter your password to ${verb} ${item?.username || 'this account'}.${action === 'deactivate' ? ' They will not be able to sign in until the account is activated again.' : ''}`)) return
     await withBusy(button, busy, async () => {
       const { data, error } = await supabase.functions.invoke('provision-account', { body: { user_id: Number(userId), action } })
-      if (error) return toast(describeError(error, 'Account action'), 'error')
+      if (error) return toast(await describeFunctionError(error, 'Account action'), 'error')
       if (action === 'reset') await noticeDialog(`New temporary password for ${data.username}. Share it with the account holder securely; it will not be shown again.`, { title: 'Temporary password', copyText: data.temporary_password })
       else if (action === 'provision') toast(`Login "${data.username}" is ready to use.`)
       else toast(action === 'deactivate' ? `${item?.username || 'Account'} deactivated.` : `${item?.username || 'Account'} activated.`)

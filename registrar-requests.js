@@ -32,10 +32,11 @@ $('account-request-form').addEventListener('submit', async event => {
   })
 })
 
-// Browser-style tabs so the four forms/lists don't have to be scrolled through.
-const subtabs = [...document.querySelectorAll('[data-subtab]')]
-subtabs.forEach(tab => tab.addEventListener('click', () => {
-  subtabs.forEach(item => { item.classList.toggle('active', item === tab); item.setAttribute('aria-selected', String(item === tab)) })
-  document.querySelectorAll('[data-subpanel]').forEach(panel => panel.classList.toggle('hidden', panel.dataset.subpanel !== tab.dataset.subtab))
+// Browser-style tabs so forms/lists don't have to be scrolled through. Each tab group only
+// switches the panels in its own section, so several sections can have sub-tabs.
+document.querySelectorAll('[data-subtab]').forEach(tab => tab.addEventListener('click', () => {
+  const section = tab.closest('[data-panel]')
+  section.querySelectorAll('[data-subtab]').forEach(item => { item.classList.toggle('active', item === tab); item.setAttribute('aria-selected', String(item === tab)) })
+  section.querySelectorAll('[data-subpanel]').forEach(panel => panel.classList.toggle('hidden', panel.dataset.subpanel !== tab.dataset.subtab))
   if (tab.dataset.subtab === 'mine') loadMyRequests()
 }))

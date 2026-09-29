@@ -16,7 +16,7 @@ export function statusBadge(s) { return `<span class="badge ${String(s).toLowerC
 const photoPlaceholder = $('application-photo-preview')?.getAttribute('src') || ''
 if ($('application-photo')) {
   $('application-photo').setAttribute('capture', 'user')
-  $('application-photo').closest('label')?.querySelector('small')?.replaceChildren('Optional — choose a file or use the device camera')
+  $('application-photo-hint')?.replaceChildren('Optional — choose a file or use the device camera')
 }
 
 let cameraStream = null
@@ -120,6 +120,7 @@ async function saveApplication(data, status) {
   const payload = {
     first_name:data.first_name, middle_name:data.middle_name || null, last_name:data.last_name,
     birth_date:data.birth_date || null, sex:data.sex || null, address:data.address || null,
+    contact_number:data.contact_number || null,
     guardian_name:data.guardian_name || null, guardian_relationship:data.guardian_relationship || null,
     guardian_phone:data.guardian_phone || null, guardian_email:data.guardian_email || null,
     prior_school:data.prior_school || null, prior_grade:data.prior_grade || null,
@@ -290,7 +291,7 @@ async function openReview(id) {
   state.selectedApplication = data
   const field = (label, name, type = 'text') => `<label>${label}<input name="${name}" type="${type}" value="${escapeHtml(data[name] ?? '')}"></label>`
   $('review-content').innerHTML = `<div class="note">Editing as <b>${escapeHtml(data.editing_by || 'registrar')}</b>. The administrator cannot approve or decline this file while it is open here. Closing the form releases it.</div>
-  <form id="review-form">${field('First Name','first_name')}${field('Middle Name','middle_name')}${field('Last Name','last_name')}${field('Birth Date','birth_date','date')}${field('Sex','sex')}${field('Grade Level','grade_level')}${field('Address','address')}${field('Guardian Name','guardian_name')}${field('Relationship','guardian_relationship')}${field('Guardian Phone','guardian_phone')}${field('Guardian Email','guardian_email')}${field('Prior School','prior_school')}${field('Prior Grade','prior_grade')}${field('Special Program','special_program')}<label>Registrar remarks<textarea name="remarks">${escapeHtml(data.remarks || '')}</textarea></label><label>Status<select name="status" disabled><option>draft</option><option>under_review</option></select></label><div class="actions"><button class="btn-approve">Save Review</button></div></form>`
+  <form id="review-form">${field('First Name','first_name')}${field('Middle Name','middle_name')}${field('Last Name','last_name')}${field('Birth Date','birth_date','date')}${field('Sex','sex')}${field('Grade Level','grade_level')}${field('Address','address')}${field('Contact Number','contact_number')}${field('Guardian Name','guardian_name')}${field('Relationship','guardian_relationship')}${field('Guardian Phone','guardian_phone')}${field('Guardian Email','guardian_email')}${field('Prior School','prior_school')}${field('Prior Grade','prior_grade')}${field('Special Program','special_program')}<label>Registrar remarks<textarea name="remarks">${escapeHtml(data.remarks || '')}</textarea></label><label>Status<select name="status" disabled><option>draft</option><option>under_review</option></select></label><div class="actions"><button class="btn-approve">Save Review</button></div></form>`
   $('review-content').querySelector('[name=status]').value = data.status === 'submitted' ? 'under_review' : data.status
   $('review-modal').classList.remove('hidden')
   // Renew the lease; stale tokens are rejected by the server even after tab suspension.

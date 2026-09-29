@@ -1,7 +1,7 @@
   import { supabase } from './auth-client.js'
   import { toast } from './ui-theme.js'
   import { hideLoadingScreen } from './loading-screen.js'
-  import { escapeHtml as escape, gradeLevelOptions, errorRow } from './html.js'
+  import { escapeHtml as escape, gradeLevelOptions, gradeLevelSummary, errorRow } from './html.js'
   import { formatDays, groupScheduleRows, planDayChanges } from './schedule-days.js'
   import { describeError } from './errors.js'
   import { mountAdminShell } from './admin-page.js'
@@ -165,8 +165,8 @@
   }
   function renderSubjectPicker() {
     const search = document.getElementById('subject-picker-search').value.trim().toLowerCase()
-    const rows = subjects.filter(item => `${item.subject_code} ${item.subject_name} ${item.grade_level === null ? 'All Grades' : item.grade_level === 0 ? 'Kindergarten' : `Grade ${item.grade_level}`}`.toLowerCase().includes(search))
-    document.getElementById('subject-picker-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subject_code)}</td><td>${escape(item.subject_name)}</td><td>${item.grade_level === null ? 'All Grades' : item.grade_level === 0 ? 'Kindergarten' : `Grade ${item.grade_level}`}</td><td><button type="button" class="admin-view" data-pick-subject="${item.subject_id}">Choose</button></td></tr>`).join('') || '<tr><td colspan="4">No subjects found.</td></tr>'
+    const rows = subjects.filter(item => `${item.subject_code} ${item.subject_name} ${gradeLevelSummary(item.grade_level)}`.toLowerCase().includes(search))
+    document.getElementById('subject-picker-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subject_code)}</td><td>${escape(item.subject_name)}</td><td>${escape(gradeLevelSummary(item.grade_level))}</td><td><button type="button" class="admin-view" data-pick-subject="${item.subject_id}">Choose</button></td></tr>`).join('') || '<tr><td colspan="4">No subjects found.</td></tr>'
     document.querySelectorAll('[data-pick-subject]').forEach(button => button.onclick = () => { const item = subjects.find(row => String(row.subject_id) === button.dataset.pickSubject); scheduleForm.elements.subject_id.value = item.subject_id; const display = document.getElementById('schedule-subject-display'); display.textContent = `${item.subject_code} - ${item.subject_name}`; display.classList.remove('empty'); document.getElementById('subject-picker-modal').classList.add('hidden') })
   }
   function renderFacultyPicker() {

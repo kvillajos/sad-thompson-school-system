@@ -2879,3 +2879,481 @@ select public.archive_audit_logs(d) from (select distinct created_at::date as d 
 notify pgrst, 'reload schema';
 commit;
 -- END migration-v29-audit-rolling-archive.sql
+
+
+-- ============================================================
+-- BEGIN migration-v30-subjects-multi-grade.sql  (applied, confirmed live 2026-09-29)
+-- ============================================================
+-- subjects.grade_level was a single integer (or null for "All Grades"). The Add/Edit Subject
+-- form now lets the registrar/admin pick several grades for one subject, so the column becomes
+-- an array. null still means "All Grades"; existing single values move into a one-item array.
+begin;
+alter table subjects drop constraint if exists subjects_grade_level_check;
+alter table subjects alter column grade_level type integer[]
+  using case when grade_level is null then null else array[grade_level] end;
+alter table subjects add constraint subjects_grade_level_check check (
+  grade_level is null or (cardinality(grade_level) > 0 and 0 <= all(grade_level) and 12 >= all(grade_level))
+);
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v30-subjects-multi-grade.sql
+
+
+-- ============================================================
+-- BEGIN migration-v31-fix-admission-approval-crypt.sql  (applied, confirmed live 2026-09-29)
+-- ============================================================
+-- Bug: review_admission_application() runs with search_path = public and called the bare
+-- crypt()/gen_salt() functions, but on Supabase pgcrypto lives in the extensions schema, so
+-- approving an application failed with "function gen_salt(unknown) does not exist". Fixed by
+-- schema-qualifying both calls, the same way review_approval() already does correctly.
+begin;
+create or replace function review_admission_application(p_application_id integer,p_status admission_status,p_remarks text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a admission_applications%rowtype; new_no text; target_student_id integer; new_username text; new_password text; new_user_id integer;
+begin
+  perform registrar_workflow_actor(1);
+  if p_status not in ('approved','rejected') then raise exception 'Choose Approve or Decline'; end if;
+  if length(coalesce(p_remarks, '')) > 500 then raise exception 'Remarks must be 500 characters or fewer'; end if;
+  select * into a from admission_applications where id=p_application_id for update;
+  if not found then raise exception 'Application not found'; end if;
+  if a.status not in ('submitted','under_review') then raise exception 'This application is no longer pending'; end if;
+  if a.editing_by is not null and a.editing_since is not null and a.editing_since > now() - interval '10 minutes' then
+    raise exception 'Registrar % is editing this application right now. Ask them to save or close the form before reviewing it.', a.editing_by;
+  end if;
+  if p_status in ('under_review','approved') then perform validate_admission(to_jsonb(a)); end if;
+  update admission_applications set status=p_status, remarks=p_remarks, updated_at=now(), editing_by=null, editing_since=null, editing_token=null where id=p_application_id;
+  if p_status='approved' and not exists(select 1 from students where lower(first_name)=lower(a.first_name) and lower(last_name)=lower(a.last_name) and date_of_birth=a.birth_date) then
+    new_no := 'TCS-' || to_char(now(),'YY') || '-' || lpad(nextval('student_number_seq')::text,5,'0');
+    insert into students(lrn_number,first_name,last_name,date_of_birth,gender,enrollment_status)
+    values(new_no,a.first_name,a.last_name,a.birth_date,a.sex,'Enrolled');
+  end if;
+  if p_status='approved' then
+    select student_id into target_student_id from students
+      where lower(first_name)=lower(a.first_name) and lower(last_name)=lower(a.last_name) and date_of_birth=a.birth_date
+      limit 1;
+    insert into enrollments(student_id, school_year, grade_level, status, enrolled_at)
+    select target_student_id, extract(year from current_date)::text || '-' || (extract(year from current_date)+1)::text,
+      a.grade_level::integer, 'active', now()
+    on conflict(student_id, school_year) do update set grade_level=excluded.grade_level, status='active', enrolled_at=excluded.enrolled_at;
+
+    update students set grade_level=a.grade_level::integer, enrollment_status='Enrolled' where student_id=target_student_id;
+    if a.profile_picture_url is not null then
+      update students set profile_picture_url = a.profile_picture_url where student_id = target_student_id;
+    end if;
+
+    if target_student_id is not null and not exists (select 1 from users where student_id = target_student_id) then
+      new_username := generate_username(a.first_name, a.last_name);
+      new_password := new_username || '123';
+      insert into users(username, email, password_hash, role_id, is_active, student_id, initial_password)
+      values (new_username, new_username || '@tcs.edu.ph', extensions.crypt(new_password, extensions.gen_salt('bf')), 4, true, target_student_id, new_password)
+      returning user_id into new_user_id;
+    end if;
+  end if;
+  insert into notifications(recipient_email,title,message,entity_type,entity_id) values(a.guardian_email,'Application Status Updated','Your TCSMS admission application is now '||replace(p_status::text,'_',' ')||'.','admission_application',a.id);
+  insert into audit_logs(action,entity_type,entity_id,details) values('UPDATE_STATUS','admission_application',a.id,jsonb_build_object('status',p_status,'remarks',p_remarks));
+  return jsonb_build_object('id',a.id,'status',p_status,'new_user_id',new_user_id);
+end $$;
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v31-fix-admission-approval-crypt.sql
+
+
+-- ============================================================
+-- BEGIN migration-v32-admission-contact-and-address.sql  (applied 2026-09-29)
+-- ============================================================
+-- Bug: the New Admission form never asked for the student's own contact number, and even the
+-- fields it DID collect (address, guardian name/relationship/phone/email) were never copied onto
+-- the students row on approval - review_admission_application()'s insert only carried name, birth
+-- date, sex and status. That's why an enrolled student's profile showed a blank Address, Contact
+-- Number and Guardian section even though the registrar filled them in on the original application.
+begin;
+alter table admission_applications add column if not exists contact_number text;
+
+create or replace function review_admission_application(p_application_id integer,p_status admission_status,p_remarks text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a admission_applications%rowtype; new_no text; target_student_id integer; new_username text; new_password text; new_user_id integer;
+begin
+  perform registrar_workflow_actor(1);
+  if p_status not in ('approved','rejected') then raise exception 'Choose Approve or Decline'; end if;
+  if length(coalesce(p_remarks, '')) > 500 then raise exception 'Remarks must be 500 characters or fewer'; end if;
+  select * into a from admission_applications where id=p_application_id for update;
+  if not found then raise exception 'Application not found'; end if;
+  if a.status not in ('submitted','under_review') then raise exception 'This application is no longer pending'; end if;
+  if a.editing_by is not null and a.editing_since is not null and a.editing_since > now() - interval '10 minutes' then
+    raise exception 'Registrar % is editing this application right now. Ask them to save or close the form before reviewing it.', a.editing_by;
+  end if;
+  if p_status in ('under_review','approved') then perform validate_admission(to_jsonb(a)); end if;
+  update admission_applications set status=p_status, remarks=p_remarks, updated_at=now(), editing_by=null, editing_since=null, editing_token=null where id=p_application_id;
+  if p_status='approved' and not exists(select 1 from students where lower(first_name)=lower(a.first_name) and lower(last_name)=lower(a.last_name) and date_of_birth=a.birth_date) then
+    new_no := 'TCS-' || to_char(now(),'YY') || '-' || lpad(nextval('student_number_seq')::text,5,'0');
+    insert into students(lrn_number,first_name,last_name,date_of_birth,gender,enrollment_status,
+      address,contact_number,guardian_name,guardian_relationship,guardian_phone,guardian_email)
+    values(new_no,a.first_name,a.last_name,a.birth_date,a.sex,'Enrolled',
+      a.address,a.contact_number,a.guardian_name,a.guardian_relationship,a.guardian_phone,a.guardian_email);
+  end if;
+  if p_status='approved' then
+    select student_id into target_student_id from students
+      where lower(first_name)=lower(a.first_name) and lower(last_name)=lower(a.last_name) and date_of_birth=a.birth_date
+      limit 1;
+    insert into enrollments(student_id, school_year, grade_level, status, enrolled_at)
+    select target_student_id, extract(year from current_date)::text || '-' || (extract(year from current_date)+1)::text,
+      a.grade_level::integer, 'active', now()
+    on conflict(student_id, school_year) do update set grade_level=excluded.grade_level, status='active', enrolled_at=excluded.enrolled_at;
+
+    -- coalesce: an already-enrolled sibling record's saved details are not blanked out by an application that left a field empty.
+    update students set grade_level=a.grade_level::integer, enrollment_status='Enrolled',
+      address=coalesce(a.address, address), contact_number=coalesce(a.contact_number, contact_number),
+      guardian_name=coalesce(a.guardian_name, guardian_name), guardian_relationship=coalesce(a.guardian_relationship, guardian_relationship),
+      guardian_phone=coalesce(a.guardian_phone, guardian_phone), guardian_email=coalesce(a.guardian_email, guardian_email)
+      where student_id=target_student_id;
+    if a.profile_picture_url is not null then
+      update students set profile_picture_url = a.profile_picture_url where student_id = target_student_id;
+    end if;
+
+    if target_student_id is not null and not exists (select 1 from users where student_id = target_student_id) then
+      new_username := generate_username(a.first_name, a.last_name);
+      new_password := new_username || '123';
+      insert into users(username, email, password_hash, role_id, is_active, student_id, initial_password)
+      values (new_username, new_username || '@tcs.edu.ph', extensions.crypt(new_password, extensions.gen_salt('bf')), 4, true, target_student_id, new_password)
+      returning user_id into new_user_id;
+    end if;
+  end if;
+  insert into notifications(recipient_email,title,message,entity_type,entity_id) values(a.guardian_email,'Application Status Updated','Your TCSMS admission application is now '||replace(p_status::text,'_',' ')||'.','admission_application',a.id);
+  insert into audit_logs(action,entity_type,entity_id,details) values('UPDATE_STATUS','admission_application',a.id,jsonb_build_object('status',p_status,'remarks',p_remarks));
+  return jsonb_build_object('id',a.id,'status',p_status,'new_user_id',new_user_id);
+end $$;
+
+-- One-time backfill: students already approved before this fix never received these fields.
+-- contact_number is skipped here since the column didn't exist yet on any past application.
+update students s set
+  address = coalesce(s.address, a.address),
+  guardian_name = coalesce(s.guardian_name, a.guardian_name),
+  guardian_relationship = coalesce(s.guardian_relationship, a.guardian_relationship),
+  guardian_phone = coalesce(s.guardian_phone, a.guardian_phone),
+  guardian_email = coalesce(s.guardian_email, a.guardian_email)
+from admission_applications a
+where a.status = 'approved'
+  and lower(a.first_name) = lower(s.first_name) and lower(a.last_name) = lower(s.last_name)
+  and a.birth_date = s.date_of_birth
+  and (s.address is null or s.guardian_name is null or s.guardian_phone is null or s.guardian_email is null);
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v32-admission-contact-and-address.sql
+
+
+-- ============================================================
+-- BEGIN migration-v33-restore-changes-and-account-delete.sql  (applied 2026-09-29)
+-- ============================================================
+-- 1. Accounts are soft-deleted: hidden, login blocked, and permanently erased (database row and
+--    Supabase Auth login) 30 days later unless restored. The person's records stay.
+-- 2. Every insert/update/delete on the main school tables is snapshotted (before and after), grouped
+--    by transaction, and can be restored for 30 days. Admins can restore anything; registrars only
+--    their own changes.
+begin;
+
+-- ---------- 1. Account soft delete ----------
+alter table users add column if not exists deleted_at timestamptz;
+alter table users add column if not exists deleted_by text;
+alter table users add column if not exists deleted_was_active boolean;
+
+-- Erasing a login must not erase the history or the person it belonged to: every reference to
+-- users becomes ON DELETE SET NULL (staff/admin/registrar profiles included), except a deleted
+-- account's own pending profile-change requests, which still go with it.
+do $$
+declare r record;
+begin
+  for r in
+    select c.conname, c.conrelid::regclass as tbl, a.attname as col, a.attnotnull
+    from pg_constraint c
+    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+    where c.contype = 'f' and c.confrelid = 'public.users'::regclass and cardinality(c.conkey) = 1
+      and c.confdeltype <> 'n'
+      and not (c.conrelid = 'public.profile_change_requests'::regclass and a.attname = 'user_id')
+  loop
+    if r.attnotnull then execute format('alter table %s alter column %I drop not null', r.tbl, r.col); end if;
+    execute format('alter table %s drop constraint %I', r.tbl, r.conname);
+    execute format('alter table %s add constraint %I foreign key (%I) references public.users(user_id) on delete set null', r.tbl, r.conname, r.col);
+  end loop;
+end $$;
+
+create or replace function purge_deleted_accounts() returns integer
+language plpgsql security definer set search_path = public as $$
+declare erased integer;
+begin
+  delete from auth.users au using public.users u
+    where u.deleted_at < now() - interval '30 days' and lower(au.email) = lower(u.email);
+  delete from public.users where deleted_at < now() - interval '30 days';
+  get diagnostics erased = row_count;
+  return erased;
+end $$;
+revoke execute on function purge_deleted_accounts() from public, anon, authenticated;
+
+-- ---------- 2. Change snapshots ----------
+create table if not exists change_snapshots (
+  id bigserial primary key,
+  change_group bigint not null default txid_current(),
+  table_name text not null,
+  pk_column text not null,
+  pk_value text not null,
+  operation text not null check (operation in ('INSERT','UPDATE','DELETE')),
+  old_row jsonb,
+  new_row jsonb,
+  changed_by text,
+  changed_at timestamptz not null default now(),
+  restored_at timestamptz,
+  restored_by text
+);
+create index if not exists change_snapshots_group_idx on change_snapshots(change_group);
+create index if not exists change_snapshots_row_idx on change_snapshots(table_name, pk_value, id);
+create index if not exists change_snapshots_changed_at_idx on change_snapshots(changed_at desc);
+-- No policies on purpose: only reachable through the security-definer functions below.
+alter table change_snapshots enable row level security;
+
+-- AFTER row trigger; TG_ARGV[0] is the table's primary key column. Updates that only touch
+-- bookkeeping columns (edit-lock heartbeat, updated_at) are not worth a restore entry.
+create or replace function snapshot_row_change() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  o jsonb; n jsonb; pk text := TG_ARGV[0];
+  noise text[] := array['updated_at','editing_by','editing_since','editing_token'];
+begin
+  if TG_OP <> 'INSERT' then o := to_jsonb(old); end if;
+  if TG_OP <> 'DELETE' then n := to_jsonb(new); end if;
+  if TG_OP = 'UPDATE' and (o - noise) = (n - noise) then return null; end if;
+  insert into change_snapshots(table_name, pk_column, pk_value, operation, old_row, new_row, changed_by)
+  values (TG_TABLE_NAME, pk, coalesce(n, o) ->> pk, TG_OP, o, n, coalesce(auth.jwt() ->> 'email', current_user));
+  return null;
+end $$;
+
+do $$
+declare t record;
+begin
+  for t in select * from (values
+    ('students','student_id'), ('admission_applications','id'), ('application_documents','id'),
+    ('enrollments','id'), ('sections','section_id'), ('subjects','subject_id'),
+    ('subject_schedules','schedule_id'), ('faculty_subjects','id'), ('announcements','id'),
+    ('staff_profiles','profile_id'), ('academic_history','id'), ('attendance','id'),
+    ('school_year_settings','school_year')
+  ) as v(tbl, pk)
+  loop
+    execute format('drop trigger if exists zz_snapshot_change on %I', t.tbl);
+    execute format('create trigger zz_snapshot_change after insert or update or delete on %I for each row execute function snapshot_row_change(%L)', t.tbl, t.pk);
+  end loop;
+end $$;
+
+-- One row per change group (one save/delete action), newest first, last 30 days.
+create or replace function list_change_groups(p_limit integer default 200)
+returns table(change_group bigint, changed_at timestamptz, changed_by text, label text, tables text[],
+  operations text[], row_count integer, restored_at timestamptz, restored_by text, has_newer boolean)
+language sql stable security definer set search_path = public as $$
+  with me as (select current_app_role() as role, lower(auth.jwt() ->> 'email') as email),
+  groups as (
+    select s.change_group, min(s.changed_at) as changed_at, min(s.changed_by) as changed_by,
+      count(*)::integer as row_count, array_agg(distinct s.table_name) as tables,
+      array_agg(distinct s.operation) as operations, max(s.restored_at) as restored_at,
+      max(s.restored_by) as restored_by, max(s.id) as last_id,
+      (array_agg(coalesce(
+        nullif(trim(concat_ws(' ', coalesce(s.new_row, s.old_row) ->> 'first_name', coalesce(s.new_row, s.old_row) ->> 'last_name')), ''),
+        coalesce(s.new_row, s.old_row) ->> 'section_name', coalesce(s.new_row, s.old_row) ->> 'subject_name',
+        coalesce(s.new_row, s.old_row) ->> 'title', coalesce(s.new_row, s.old_row) ->> 'subject',
+        coalesce(s.new_row, s.old_row) ->> 'attendance_date', coalesce(s.new_row, s.old_row) ->> 'school_year',
+        s.table_name || ' #' || s.pk_value) order by s.id))[1] as label
+    from change_snapshots s cross join me
+    where s.changed_at > now() - interval '30 days'
+      and me.role in (1, 2)
+      and (me.role = 1 or lower(s.changed_by) = me.email)
+    group by s.change_group
+  )
+  select g.change_group, g.changed_at, g.changed_by, g.label, g.tables, g.operations, g.row_count,
+    g.restored_at, g.restored_by,
+    exists (select 1 from change_snapshots mine join change_snapshots later
+              on later.table_name = mine.table_name and later.pk_value = mine.pk_value and later.id > g.last_id
+            where mine.change_group = g.change_group) as has_newer
+  from groups g
+  order by g.changed_at desc
+  limit greatest(1, least(p_limit, 500));
+$$;
+
+-- Undoes a whole change group: re-inserts deleted rows, removes inserted rows, and puts updated
+-- rows back to their earlier values. Rows are replayed newest-first; a row that fails on a
+-- foreign key (e.g. a child re-inserted before its parent) is retried after the rest.
+create or replace function restore_change_group(p_group bigint) returns integer
+language plpgsql security definer set search_path = public as $$
+declare
+  me_role integer := current_app_role();
+  me_email text := lower(auth.jwt() ->> 'email');
+  s change_snapshots%rowtype;
+  sid bigint;
+  pending bigint[];
+  failed bigint[];
+  last_error text;
+  cols text;
+  restored integer := 0;
+begin
+  if me_role is null or me_role not in (1, 2) then raise exception 'Only administrators and registrars can restore changes'; end if;
+  if not exists (select 1 from change_snapshots where change_group = p_group) then raise exception 'That change was not found'; end if;
+  if exists (select 1 from change_snapshots where change_group = p_group and restored_at is not null) then raise exception 'That change has already been restored'; end if;
+  if exists (select 1 from change_snapshots where change_group = p_group and changed_at <= now() - interval '30 days') then
+    raise exception 'Changes older than 30 days can no longer be restored';
+  end if;
+  if me_role = 2 and exists (select 1 from change_snapshots where change_group = p_group and lower(changed_by) is distinct from me_email) then
+    raise exception 'Registrars can only restore their own changes';
+  end if;
+
+  select array_agg(id order by id desc) into pending from change_snapshots where change_group = p_group;
+  loop
+    failed := '{}';
+    foreach sid in array pending loop
+      select * into s from change_snapshots where id = sid;
+      begin
+        if s.operation = 'INSERT' then
+          execute format('delete from %I where %I::text = $1', s.table_name, s.pk_column) using s.pk_value;
+        elsif s.operation = 'DELETE' then
+          execute format('insert into %I select * from jsonb_populate_record(null::%I, $1)', s.table_name, s.table_name) using s.old_row;
+        else
+          select string_agg(format('%I', k), ', ') into cols
+          from jsonb_object_keys(s.old_row) as k
+          where k <> s.pk_column and k not in ('editing_by','editing_since','editing_token')
+            and exists (select 1 from pg_attribute a where a.attrelid = format('%I', s.table_name)::regclass
+                          and a.attname = k and a.attnum > 0 and not a.attisdropped and a.attgenerated = '');
+          execute format('update %I set (%s) = (select %s from jsonb_populate_record(null::%I, $1)) where %I::text = $2',
+            s.table_name, cols, cols, s.table_name, s.pk_column) using s.old_row, s.pk_value;
+        end if;
+        restored := restored + 1;
+      exception when foreign_key_violation then
+        failed := failed || sid;
+        last_error := sqlerrm;
+      end;
+    end loop;
+    exit when cardinality(failed) = 0;
+    if cardinality(failed) = cardinality(pending) then raise exception 'Could not restore this change: %', last_error; end if;
+    pending := failed;
+  end loop;
+
+  update change_snapshots set restored_at = now(), restored_by = me_email where change_group = p_group;
+  insert into audit_logs(actor, action, entity_type, entity_id, details)
+  values (me_email, 'RESTORE_CHANGE', 'change_group', null, jsonb_build_object('change_group', p_group, 'rows', restored));
+  return restored;
+end $$;
+
+revoke execute on function snapshot_row_change() from public, anon, authenticated;
+revoke execute on function list_change_groups(integer) from public, anon;
+revoke execute on function restore_change_group(bigint) from public, anon;
+grant execute on function list_change_groups(integer) to authenticated;
+grant execute on function restore_change_group(bigint) to authenticated;
+
+-- ---------- 3. Daily cleanup ----------
+select cron.unschedule('tcsms-daily-change-cleanup')
+where exists (select 1 from cron.job where jobname = 'tcsms-daily-change-cleanup');
+select cron.schedule('tcsms-daily-change-cleanup', '20 0 * * *',
+  $$delete from public.change_snapshots where changed_at < now() - interval '30 days'; select public.purge_deleted_accounts();$$);
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v33-restore-changes-and-account-delete.sql
+
+
+-- ============================================================
+-- BEGIN migration-v34-fix-batch-promotion.sql  (NOT YET APPLIED to live DB)
+-- ============================================================
+-- Fixes found by testing batch promotion against live data:
+-- 1. The form asks for the NEXT school year (2027-2028) but the function looked for grades under that
+--    year, which do not exist yet, so nobody was promoted. The entered year is now the year students
+--    move INTO, and pass/fail is decided by the grades of the year before it (2026-2027).
+-- 2. A student already promoted for that year is skipped, so promoting Grade 6 then Grade 7 no longer
+--    moves the same students up twice.
+-- 3. A promoted student's active enrollment is closed (status completed), so they no longer sit in
+--    a section of their old grade and can be auto-assigned or placed for the new grade.
+-- 4. Grade 12 students who pass become Graduated (grade stays 12); Kindergarten (0) can be promoted.
+-- Also: students who are Graduated/Transferred/Withdrawn are never promoted, the request refuses a
+-- grade with no grades on record, and the result reports promoted/graduated/retained/incomplete/skipped.
+begin;
+
+create or replace function promotion_graded_year(p_next_year text) returns text
+language plpgsql immutable set search_path = public as $$
+declare first_year integer; second_year integer;
+begin
+  if p_next_year is null or p_next_year !~ '^[0-9]{4}-[0-9]{4}$' then raise exception 'Enter the school year like 2027-2028'; end if;
+  first_year := split_part(p_next_year, '-', 1)::integer;
+  second_year := split_part(p_next_year, '-', 2)::integer;
+  if second_year <> first_year + 1 then raise exception 'Enter the school year like 2027-2028 (two consecutive years)'; end if;
+  return (first_year - 1)::text || '-' || (second_year - 1)::text;
+end $$;
+
+create or replace function batch_promote_students(p_grade_level integer, p_school_year text, p_excluded_student_ids integer[] default '{}')
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  r record;
+  graded_year text := promotion_graded_year(p_school_year);
+  processed int := 0; promoted int := 0; graduated int := 0; retained int := 0; incomplete int := 0; skipped int := 0;
+  avg_grade numeric; target integer;
+begin
+  for r in select student_id, grade_level from students
+           where grade_level = p_grade_level
+             and coalesce(enrollment_status, 'Enrolled') not in ('Graduated', 'Transferred', 'Withdrawn')
+             and not (student_id = any(coalesce(p_excluded_student_ids, '{}')))
+  loop
+    if exists (select 1 from promotion_logs where student_id = r.student_id and school_year = p_school_year and result = 'promoted') then
+      skipped := skipped + 1;
+      continue;
+    end if;
+    processed := processed + 1;
+    select avg(grade) into avg_grade from academic_history where student_id = r.student_id and school_year = graded_year;
+    if exists (select 1 from academic_history where student_id = r.student_id and school_year = graded_year and grade < 75) then
+      insert into promotion_logs(student_id, from_grade, to_grade, school_year, result, reason)
+      values (r.student_id, r.grade_level, r.grade_level, p_school_year, 'retained', 'At least one subject below passing criteria');
+      retained := retained + 1;
+    elsif avg_grade is null then
+      insert into promotion_logs(student_id, from_grade, to_grade, school_year, result, reason)
+      values (r.student_id, r.grade_level, r.grade_level, p_school_year, 'incomplete', 'No completed grades');
+      incomplete := incomplete + 1;
+    elsif r.grade_level >= 12 then
+      update students set enrollment_status = 'Graduated' where student_id = r.student_id;
+      update enrollments set status = 'completed' where student_id = r.student_id and status = 'active';
+      insert into promotion_logs(student_id, from_grade, to_grade, school_year, result, reason)
+      values (r.student_id, r.grade_level, null, p_school_year, 'promoted', 'Graduated');
+      graduated := graduated + 1;
+    else
+      target := r.grade_level + 1;
+      update students set grade_level = target where student_id = r.student_id;
+      update enrollments set status = 'completed' where student_id = r.student_id and status = 'active';
+      insert into promotion_logs(student_id, from_grade, to_grade, school_year, result, reason)
+      values (r.student_id, r.grade_level, target, p_school_year, 'promoted', 'Passing criteria met');
+      promoted := promoted + 1;
+    end if;
+  end loop;
+  return jsonb_build_object('processed', processed, 'promoted', promoted, 'graduated', graduated,
+    'retained', retained, 'incomplete', incomplete, 'skipped', skipped);
+end $$;
+
+create or replace function request_promotion(p_grade_level integer, p_school_year text, p_excluded integer[], p_reason text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a record; yr text := trim(coalesce(p_school_year, '')); graded text; total integer; graded_count integer; rid integer;
+begin
+  select * into a from approval_actor(2);
+  if yr = '' then raise exception 'A school year is required'; end if;
+  if p_grade_level is null or p_grade_level not between 0 and 12 then raise exception 'Choose a grade level'; end if;
+  graded := promotion_graded_year(yr);
+  select count(*) into total from students
+    where grade_level = p_grade_level and coalesce(enrollment_status, 'Enrolled') not in ('Graduated', 'Transferred', 'Withdrawn')
+      and not (student_id = any(coalesce(p_excluded, '{}')));
+  if total = 0 then raise exception 'No students to promote in that grade level'; end if;
+  select count(distinct s.student_id) into graded_count from students s
+    join academic_history h on h.student_id = s.student_id and h.school_year = graded
+    where s.grade_level = p_grade_level and coalesce(s.enrollment_status, 'Enrolled') not in ('Graduated', 'Transferred', 'Withdrawn')
+      and not (s.student_id = any(coalesce(p_excluded, '{}')));
+  if graded_count = 0 then raise exception 'No grades are recorded for % in this grade level, so nobody can be promoted yet', graded; end if;
+  insert into approval_requests(request_type, payload, summary, reason, requested_by, requester_name)
+  values ('promotion', jsonb_build_object('grade_level', p_grade_level, 'school_year', yr, 'excluded', coalesce(p_excluded, '{}')),
+    format('%s to next year (%s): %s student(s), %s excluded, judged on %s grades',
+      case when p_grade_level = 0 then 'Promote Kindergarten' when p_grade_level = 12 then 'Graduate Grade 12' else 'Promote Grade ' || p_grade_level end,
+      yr, total, coalesce(array_length(p_excluded, 1), 0), graded),
+    coalesce(nullif(trim(p_reason), ''), 'Year-end promotion'), a.uid, a.uname)
+  returning id into rid;
+  return jsonb_build_object('request_id', rid, 'students', total);
+end $$;
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v34-fix-batch-promotion.sql

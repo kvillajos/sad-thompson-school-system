@@ -24,6 +24,11 @@ export function gradeLabel(value) {
   return Number(value) === 0 ? 'Kindergarten' : `Grade ${value}`
 }
 
+// subjects.grade_level is null for "All Grades", else an array of grades (see gradeLevelCheckboxes below).
+export function gradeLevelSummary(value) {
+  return value == null || !value.length ? 'All Grades' : value.map(gradeLabel).join(', ')
+}
+
 export function gradeToNumber(value) {
   return value === 'Kindergarten' ? 0 : Number(String(value).replace('Grade ', ''))
 }
@@ -32,6 +37,41 @@ export function gradeLevelOptions({ includeAll = false, allLabel = 'All Grades',
   const grades = Array.from({ length: includeKindergarten ? 13 : 12 }, (_, index) => includeKindergarten ? index : index + 1)
   const options = includeAll ? [`<option value="">${escapeHtml(allLabel)}</option>`] : []
   return options.concat(grades.map(grade => `<option value="${grade}">${escapeHtml(gradeLabel(grade))}</option>`)).join('')
+}
+
+// Same grade choices as gradeLevelOptions, but as a tile grid of checkboxes (several grades picked, like
+// the auto-assign grade picker's .grade-picker/.grade-option/.grade-check styles) instead of a dropdown.
+// Pass an <input value=""> "All Grades" tile and bindExclusiveGradePicker() to make it exclusive with the rest.
+export function gradeLevelCheckboxes(name, { includeAll = false, allLabel = 'All Grades', includeKindergarten = true } = {}) {
+  const grades = Array.from({ length: includeKindergarten ? 13 : 12 }, (_, index) => includeKindergarten ? index : index + 1)
+  const tile = (value, label, checked) => `<label class="grade-option"><input type="checkbox" name="${escapeHtml(name)}" value="${value}"${checked ? ' checked' : ''}><span class="grade-check" aria-hidden="true"></span><span>${escapeHtml(label)}</span></label>`
+  const tiles = includeAll ? [tile('', allLabel, true)] : []
+  return tiles.concat(grades.map(grade => tile(grade, gradeLabel(grade), false))).join('')
+}
+
+// Checking the value="" ("All Grades") tile unchecks every other tile in the picker, and checking
+// any other tile unchecks "All Grades" - the two are mutually exclusive, everything else is multi-select.
+export function bindExclusiveGradePicker(container) {
+  container.addEventListener('change', event => {
+    const boxes = [...container.querySelectorAll('input[type=checkbox]')]
+    const all = boxes.find(box => box.value === '')
+    if (!all) return
+    if (event.target === all) { if (all.checked) boxes.forEach(box => { if (box !== all) box.checked = false }) }
+    else if (event.target.checked) all.checked = false
+  })
+}
+
+// Reads a gradeLevelCheckboxes() picker back into subjects.grade_level's shape: null for "All Grades", else a sorted number array.
+export function readGradePicker(container) {
+  const boxes = [...container.querySelectorAll('input[type=checkbox]')]
+  if (boxes.find(box => box.value === '')?.checked) return null
+  return boxes.filter(box => box.value !== '' && box.checked).map(box => Number(box.value)).sort((a, b) => a - b)
+}
+
+// Checks the tiles matching subjects.grade_level's shape (null -> "All Grades", array -> those grades).
+export function setGradePicker(container, gradeLevel) {
+  const values = new Set(gradeLevel == null ? [''] : gradeLevel.map(String))
+  container.querySelectorAll('input[type=checkbox]').forEach(box => { box.checked = values.has(box.value) })
 }
 
 // Announcement bodies are written in a small rich-text editor and shown to other users, so they are

@@ -24,7 +24,7 @@ export function previewPdf(element, { title, filename, printClass }) {
     download.setAttribute('aria-busy', 'true')
     try {
       const { default: html2pdf } = await import('html2pdf.js')
-      await html2pdf().set({ margin: 10, filename, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(sheet).save()
+      await html2pdf().set({ margin: 10, filename, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: ['.transcript-semester', '.signatures-section', 'table.doc-table tr'] } }).from(sheet).save()
     } catch {
       toast('Could not make the PDF. Use Print and choose "Save as PDF" as the printer instead.', 'error')
     } finally {

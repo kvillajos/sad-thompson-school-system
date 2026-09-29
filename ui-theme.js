@@ -30,6 +30,8 @@ body {
   line-height: 1.45 !important;
 }
 .hidden { display: none !important; }
+/* Hidden by default; responsive-mobile.css turns these back on inside its own @media (max-width:599px) block. */
+.mobile-topbar, .mobile-nav-backdrop { display: none; }
 .toast { position:fixed; right:20px; bottom:20px; z-index:10000; max-width:min(420px, calc(100vw - 40px)); padding:13px 17px; border-radius:10px; background:#166534; color:#fff; box-shadow:0 8px 24px rgba(7,27,58,.18); font-weight:700; }
 .toast.error { background:#b91c1c; }
 button:not(:disabled) { transition:filter .15s ease; }
@@ -114,7 +116,7 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .admin-view { background:#eaf1ff; color:var(--ui-blue-dark) }
 .admin-remove { background:#fee2e2; color:var(--ui-danger) }
 .admin-modal { position:fixed; inset:0; z-index:110; display:grid; place-items:center; background:rgba(7,27,58,.5); padding:20px }
-.admin-modal-box { width:min(100%,520px); background:#fff; border-radius:18px; padding:20px; box-shadow:0 12px 35px rgba(7,27,58,.2) }
+.admin-modal-box { width:min(100%,520px); max-height:calc(100vh - 40px); overflow-y:auto; background:#fff; border-radius:18px; padding:20px; box-shadow:0 12px 35px rgba(7,27,58,.2) }
 .admin-modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px }
 .admin-modal-head h3 { margin:0; color:var(--ui-blue-dark) }
 .admin-modal-head button { border:0; background:#eaf1ff; color:var(--ui-blue-dark); border-radius:10px; padding:5px 9px; cursor:pointer }
@@ -361,9 +363,16 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
   background:#fff !important;
   box-shadow:0 5px 18px rgba(7,27,58,.14) !important;
   overflow:hidden;
+  transform-origin: top right;
+  transition: opacity .16s ease, transform .16s ease;
 }
 .profile-dropdown.hidden {
-  display:none !important;
+  opacity: 0 !important;
+  transform: translateY(-6px) scale(.97);
+  pointer-events: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .profile-dropdown { transition: none; }
 }
 .profile-dropdown button {
   display:block !important;
@@ -467,8 +476,8 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
   padding: 0 16px 0 0;
   border: 0;
   background: transparent;
+  z-index: 1;
   color: var(--sidebar-text);
-  background: var(--sidebar-unselected);
   font: 700 14px/1.2 Arial, 'Helvetica Neue', sans-serif;
   text-align: left;
   text-decoration: none;
@@ -497,7 +506,6 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 }
 .app-sidebar .sidebar-link:hover:not(.active) {
   background: #122b55;
-  transform: translateX(3px);
 }
 .app-sidebar .sidebar-link:focus-visible {
   outline: 2px solid #bcd3ff;
@@ -509,41 +517,48 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
   text-overflow: ellipsis;
 }
 
-/* Active tab: same color as the page, so it merges with the main area */
-.app-sidebar .sidebar-link.active {
-  z-index: 2;
-  color: var(--sidebar-active-text);
+/* Active tab: one highlight (placed by mountSidebar) slides between links. It is the page colour, so it merges with the main area. */
+.app-sidebar .sidebar-nav { position: relative; }
+/* No background transition here: a hovered link's blue would otherwise fade out over the sliding highlight. */
+.app-sidebar .sidebar-link.active { color: var(--sidebar-active-text); background: transparent; transition: color .18s ease, transform .18s ease; }
+.app-sidebar .sidebar-indicator {
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 0;
+  height: 36px;
   background: var(--ui-bg);
-  animation: sidebar-tab-in .28s ease both;
+  border-radius: 999px 0 0 999px;
+  pointer-events: none;
+  opacity: 0;
 }
-@keyframes sidebar-tab-in {
-  from { opacity: 1; transform: translateX(10px); }
-  to { opacity: 1; transform: translateX(0); }
+.app-sidebar .sidebar-indicator.ready {
+  transition: transform .38s cubic-bezier(.3,.8,.25,1), height .38s cubic-bezier(.3,.8,.25,1), opacity .2s ease;
 }
-@media (prefers-reduced-motion: reduce) {
-  .app-sidebar .sidebar-link,
-  .app-sidebar .sidebar-link.active { animation: none; transition: none; }
-}
-.app-sidebar .sidebar-link.active::before,
-.app-sidebar .sidebar-link.active::after {
+/* Curves are 1px taller and overlap the highlight, so no hairline seam shows where they meet. */
+.app-sidebar .sidebar-indicator::before,
+.app-sidebar .sidebar-indicator::after {
   content: "";
   position: absolute;
   right: 0;
   width: var(--sidebar-curve);
-  height: var(--sidebar-curve);
-  pointer-events: none;
+  height: calc(var(--sidebar-curve) + 1px);
 }
 /* curve above the tab: quarter-circle left transparent so the blue shows through */
-.app-sidebar .sidebar-link.active::before {
+.app-sidebar .sidebar-indicator::before {
   top: calc(var(--sidebar-curve) * -1);
   background: radial-gradient(circle at 0 0,
     transparent calc(var(--sidebar-curve) - 0.5px), var(--ui-bg) var(--sidebar-curve));
 }
 /* curve below the tab */
-.app-sidebar .sidebar-link.active::after {
+.app-sidebar .sidebar-indicator::after {
   bottom: calc(var(--sidebar-curve) * -1);
   background: radial-gradient(circle at 0 100%,
     transparent calc(var(--sidebar-curve) - 0.5px), var(--ui-bg) var(--sidebar-curve));
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar .sidebar-link,
+  .app-sidebar .sidebar-indicator.ready { transition: none; }
 }
 body.has-app-sidebar > header { display:none; }
 body.has-app-sidebar > main { margin-left:244px; max-width:none; padding:36px 36px; }
@@ -560,8 +575,8 @@ body.has-app-sidebar > .app-sidebar { position:fixed; inset:0 auto 0 0; z-index:
   .app-sidebar .sidebar-nav { flex-direction: row; flex-wrap: wrap; gap: 8px; min-height: 0; padding: 4px 12px 14px; overflow: hidden; }
   .app-sidebar .sidebar-link { flex: 1 1 180px; width: auto; margin-left: 0; min-height: 40px; grid-template-columns: 36px auto; padding-right: 16px; border-radius: 999px; font-size: 14px; }
   .app-sidebar .sidebar-link .sidebar-icon { width: 36px; height: 40px; }
-  .app-sidebar .sidebar-link.active::before,
-  .app-sidebar .sidebar-link.active::after { display: none; }
+  .app-sidebar .sidebar-indicator { display: none; }
+  .app-sidebar .sidebar-link.active { background: var(--ui-bg); }
   /* The brand row above reserves 60px on its right for this; collapse it to just
      the avatar so it fits there instead of covering the seal/brand text. */
   .floating-profile { top: 10px; right: 10px; }
@@ -577,6 +592,17 @@ body.has-app-sidebar > .app-sidebar { position:fixed; inset:0 auto 0 0; z-index:
 .review-grid small { display: block; color: var(--ui-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .review-grid p { margin: 4px 0 0; color: var(--ui-text); font-weight: 600; }
 .enrollee-details-grid { max-height:45vh; overflow:auto; }
+.note-inline { display:block; margin-top:4px; color:var(--ui-muted); font-size:12px; font-weight:400; }
+.enrollee-details-box { width:min(100%,560px); }
+/* Press-and-hold delete: --hold (0-100%) is filled in by the dialog while the button is held. */
+.hold-delete { position:relative; overflow:hidden; border:1px solid #fca5a5; border-radius:11px; padding:9px 16px; background:#fee2e2; color:#b91c1c; font-weight:700; font-size:14px; cursor:pointer; user-select:none; touch-action:none; }
+.hold-delete::before { content:""; position:absolute; inset:0 auto 0 0; width:var(--hold, 0%); background:#b91c1c; opacity:.3; }
+.hold-delete span { position:relative; }
+.hold-delete:disabled { opacity:.5; cursor:not-allowed; }
+.enrollee-details-head { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
+.enrollee-details-head h3 { margin:0; color:var(--ui-blue-dark); }
+.enrollee-details-photo { width:72px; height:72px; flex:0 0 72px; border-radius:50%; object-fit:cover; border:1px solid var(--ui-border); }
+.enrollee-details-photo-empty { display:grid; place-items:center; background:#eaf1ff; color:var(--ui-muted); font-size:11px; text-align:center; }
 .document-list { margin:8px 0 0; padding-left:20px; color:var(--ui-text); }
 .document-list a { color:var(--ui-blue); font-weight:700; }
 .audit-export-controls { display:flex; align-items:center; gap:8px; }
@@ -637,6 +663,25 @@ button.btn-remove, .admin-remove { background:#fee2e2 !important; color:#c0392b 
 .shift-student-picker table { min-width:0 !important; }
 .exclude-list input[type=checkbox] { width:auto; }
 .exclude-list label { display:block; padding:3px 0; font-weight:400; }
+/* Auto-assign grade picker: each grade is a tile with its own tick box. */
+.grade-picker { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; margin:8px 0 12px; }
+.grade-option { position:relative; display:flex; align-items:center; gap:10px; min-height:50px; padding:10px 12px; border:1px solid var(--ui-border); border-radius:12px; background:var(--ui-surface-strong); color:var(--ui-text); font-size:13px; font-weight:700; cursor:pointer; transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+.grade-option:hover { transform:translateY(-2px); border-color:var(--ui-blue); box-shadow:0 8px 16px rgba(7,27,58,.1); }
+.grade-option input { position:absolute; width:1px; height:1px; margin:0; padding:0; opacity:0; pointer-events:none; }
+.grade-check { display:grid; place-items:center; flex:0 0 22px; width:22px; height:22px; border:2px solid var(--ui-border); border-radius:7px; transition:background-color .16s ease, border-color .16s ease; }
+.grade-check::after { content:""; width:5px; height:10px; margin-top:-2px; border:solid var(--ui-surface-strong); border-width:0 2px 2px 0; transform:rotate(45deg) scale(0); transition:transform .16s ease; }
+.grade-option:has(input:checked) { border-color:var(--ui-blue); background:color-mix(in srgb, var(--ui-blue) 9%, var(--ui-surface-strong)); box-shadow:inset 0 0 0 1px var(--ui-blue); }
+.grade-option:has(input:checked) .grade-check { border-color:var(--ui-blue); background:var(--ui-blue); }
+.grade-option:has(input:checked) .grade-check::after { transform:rotate(45deg) scale(1); }
+.grade-option:has(input:focus-visible) { outline:3px solid color-mix(in srgb, var(--ui-blue) 45%, transparent); outline-offset:2px; }
+.grade-picker-bar { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:14px; padding-top:12px; border-top:1px solid var(--ui-border); }
+.grade-picker-count { display:inline-flex; padding:6px 12px; border-radius:999px; background:color-mix(in srgb, var(--ui-blue) 12%, transparent); color:var(--ui-blue-dark); font-size:12px; font-weight:700; }
+@media (prefers-reduced-motion: reduce) { .grade-option, .grade-check, .grade-check::after { transition:none; } .grade-option:hover { transform:none; } }
+/* Compact variant: same tiles, smaller and denser, for pickers with many options in a modal (e.g. the Add Subject grade field). */
+.grade-picker-compact { grid-template-columns:repeat(auto-fill, minmax(108px, 1fr)); gap:8px; margin:6px 0 10px; }
+.grade-picker-compact .grade-option { min-height:36px; padding:6px 10px; font-size:12px; gap:8px; }
+.grade-picker-compact .grade-check { flex-basis:18px; width:18px; height:18px; border-radius:6px; }
+.grade-picker-compact .grade-check::after { width:4px; height:8px; margin-top:-1px; }
 .academic-scroll { overflow-x:auto; }
 .academic-scroll input { min-width:65px; }
 
@@ -817,6 +862,15 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .notif-toggle:hover { background:#f3f7fd; }
 .theme-toggle { flex:none; width:53px; height:53px; display:grid; place-items:center; padding:0; border:1px solid var(--ui-border); border-radius:16px; background:#fff; color:var(--ui-blue-dark); cursor:pointer; box-shadow:0 3px 12px rgba(7,27,58,.1); }
 .theme-toggle:hover { background:#f3f7fd; }
+.theme-toggle svg { transition: transform .2s ease; }
+.theme-toggle.spin svg { animation: theme-toggle-spin .32s ease; }
+@keyframes theme-toggle-spin {
+  from { transform: rotate(-100deg) scale(.5); opacity: .2; }
+  to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle.spin svg { animation: none; }
+}
 .notif-count { position:absolute; top:7px; right:7px; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; display:grid; place-items:center; border-radius:9px; background:#c0392b; color:#fff; font-size:11px; font-weight:700; }
 .notif-panel { position:absolute; right:0; top:60px; width:340px; max-height:420px; overflow:auto; padding:8px; background:#fff; border:1px solid #dbe3ef; border-radius:14px; box-shadow:0 12px 28px rgba(7,27,58,.16); z-index:120; }
 .notif-item { display:flex; flex-direction:column; gap:2px; width:100%; margin:0; padding:10px 12px; border:0; border-radius:10px; background:none; text-align:left; cursor:pointer; color:var(--ui-text); font:inherit; }
@@ -904,7 +958,7 @@ function installSpamGuard() {
     const target = event.target.closest('button, [type="submit"], .admin-view, .admin-remove, .sidebar-link');
     // Menu toggles open/close instantly and can't double-submit anything, so they don't
     // need the cooldown that guards real actions (saves, deletes) from a double-click.
-    if (!target || target.closest('.profile-toggle, .pw-toggle, .notif-toggle, .theme-toggle, .notif-item, .subtab, .pager-btn')) return;
+    if (!target || target.closest('.profile-toggle, .pw-toggle, .notif-toggle, .theme-toggle, .notif-item, .subtab, .pager-btn, .sidebar-link[data-tab]')) return;
     const now = Date.now();
     const last = Number(target.dataset.tcsmsLastClick || 0);
     if (now - last < SPAM_GUARD_MS) {

@@ -48,10 +48,11 @@ async function viewSectionStudents(sectionId) {
   $('section-students-title').textContent = `${section.section_name} — Students`
   $('section-students-body').innerHTML = '<p>Loading section students…</p>'
   $('section-students-modal').classList.remove('hidden')
-  const { data, error } = await supabase.from('enrollments').select('student_id,students(lrn_number,first_name,last_name,grade_level,enrollment_status)').eq('section_id', sectionId).eq('status', 'active')
+  const { data, error } = await supabase.from('enrollments').select('student_id,students(lrn_number,first_name,last_name,gender,grade_level,enrollment_status)').eq('section_id', sectionId).eq('status', 'active')
   if (error) return $('section-students-body').innerHTML = `<p class="empty-state" role="alert">${escapeHtml(describeError(error, 'Load section students'))}</p>`
   const rows = data || []
-  $('section-students-body').innerHTML = `<table><thead><tr><th>Student ID</th><th>Name</th><th>Grade</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows.map(row => { const student = row.students || {}; return `<tr><td>${escapeHtml(student.lrn_number || row.student_id)}</td><td>${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`)}</td><td>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</td><td>${statusBadge(student.enrollment_status || 'Enrolled')}</td><td><button class="admin-view" data-view-student="${row.student_id}">View</button></td></tr>` }).join('') || '<tr><td colspan="5" class="empty-state">No active students in this section.</td></tr>'}</tbody></table>`
+  const sexLabel = value => ({ m: 'Male', f: 'Female' })[String(value || '').trim().toLowerCase().charAt(0)] || value || '-'
+  $('section-students-body').innerHTML = `<table><thead><tr><th>Student ID</th><th>Name</th><th>Sex</th><th>Grade</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows.map(row => { const student = row.students || {}; return `<tr><td>${escapeHtml(student.lrn_number || row.student_id)}</td><td>${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`)}</td><td>${escapeHtml(sexLabel(student.gender))}</td><td>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</td><td>${statusBadge(student.enrollment_status || 'Enrolled')}</td><td><button class="admin-view" data-view-student="${row.student_id}">View</button></td></tr>` }).join('') || '<tr><td colspan="6" class="empty-state">No active students in this section.</td></tr>'}</tbody></table>`
   bindViewStudentButtons($('section-students-body'))
 }
 export async function loadEnrollments() {
@@ -129,12 +130,12 @@ async function openPlacement(sectionId='') {
   if (placementError) return toast(describeError(placementError, 'Load placement students'),'error')
   state.students = studentResult.data || []
   state.enrolledByStudent = new Map((enrollmentResult.data || []).map(row => [row.student_id, row.section_id]))
-  state.enrolledSections = new Map((enrollmentResult.data || []).map(row => [String(row.student_id), row.sections?.section_name || 'Another section']))
+  // Approving an application creates an active enrollment with no section yet; those students are unassigned.
+  state.enrolledSections = new Map((enrollmentResult.data || []).filter(row => row.section_id).map(row => [String(row.student_id), row.sections?.section_name || 'Another section']))
   if (!state.students.length) return toast('No students are available for placement. Check the students table and RLS policy.', 'error')
   const grades=[...new Set(state.sections.map(s=>s.grade_level))].sort((a,b)=>a-b)
   $('placement-grade').innerHTML=grades.map(g=>`<option value="${g}">${escapeHtml(gradeLabel(g))}</option>`).join('')
   $('placement-search').value=''
-  $('placement-filter').value=''
   renderPlacementStudents()
   if (sectionId) $('placement-section').value=sectionId
   renderPlacementStudents()
@@ -149,15 +150,11 @@ function placementRows() {
   $('placement-section').innerHTML = sections.map(s=>`<option value="${s.section_id}">${escapeHtml(s.section_name)} (${s.capacity} seats)</option>`).join('')
   if (sections.some(section => String(section.section_id) === currentSection)) $('placement-section').value = currentSection
   const search = $('placement-search').value.trim().toLowerCase()
-  const unassignedOnly = $('placement-filter').value === 'unassigned'
   return studentsForSection(state.students, {
     gradeLevel: grade,
     sectionId: $('placement-section').value,
     enrolledByStudent: state.enrolledByStudent
-  }).filter(student => {
-    if (unassignedOnly && state.enrolledSections.has(String(student.student_id))) return false
-    return !search || `${student.lrn_number||''} ${student.student_id} ${student.first_name||''} ${student.last_name||''}`.toLowerCase().includes(search)
-  })
+  }).filter(student => !search || `${student.lrn_number||''} ${student.student_id} ${student.first_name||''} ${student.last_name||''}`.toLowerCase().includes(search))
 }
 function renderPlacementStudents() {
   const rows = placementRows()
@@ -168,7 +165,6 @@ function renderPlacementStudents() {
 $('placement-grade').addEventListener('change', renderPlacementStudents)
 $('placement-section').addEventListener('change', renderPlacementStudents)
 $('placement-search').addEventListener('input', renderPlacementStudents)
-$('placement-filter').addEventListener('change', renderPlacementStudents)
 $('placement-select-all').onclick = () => {
   const boxes = [...$('placement-students').querySelectorAll('input[type=checkbox]')]
   const select = boxes.some(box => !box.checked)
@@ -192,10 +188,14 @@ $('place-selected').onclick=async()=>{
 // students. The plan is previewed on every change and written in one validated RPC call.
 const autoAssignGrades = () => [...$('auto-assign-grades').querySelectorAll('input[type=checkbox]')]
 const chosenGrades = () => autoAssignGrades().filter(box => box.checked).map(box => +box.value)
-const autoAssignExclusions = () => new Set([...$('auto-assign-exclude-list').querySelectorAll('input:checked')].map(box => +box.value))
+// Exclusions live in a Set, not in the checkboxes: only one page of the list is drawn at a time, so ticks on other pages must survive paging.
+const excludedIds = new Set()
+const EXCLUDE_PAGE_SIZE = 10
+let excludePage = 1
+const autoAssignExclusions = () => excludedIds
 function renderAutoAssignGrades() {
   const grades = [...new Set(state.sections.map(section => Number(section.grade_level)))].sort((a,b)=>a-b)
-  $('auto-assign-grades').innerHTML = grades.map(grade => `<label><input type="checkbox" value="${grade}" checked> ${escapeHtml(gradeLabel(grade))}</label>`).join('')
+  $('auto-assign-grades').innerHTML = grades.map(grade => `<label class="grade-option"><input type="checkbox" value="${grade}" checked><span class="grade-check" aria-hidden="true"></span><span>${escapeHtml(gradeLabel(grade))}</span></label>`).join('')
     || '<small>No sections are configured, so there is nothing to auto-assign.</small>'
 }
 function renderAutoAssignExclusions() {
@@ -205,8 +205,14 @@ function renderAutoAssignExclusions() {
     if (!grades.has(Number(student.grade_level))) return false
     return !search || `${student.lrn_number||''} ${student.student_id} ${student.first_name||''} ${student.last_name||''}`.toLowerCase().includes(search)
   })
-  $('auto-assign-exclude-list').innerHTML = students.map(student => `<label><input type="checkbox" value="${student.student_id}"> ${escapeHtml(student.lrn_number||student.student_id)} — ${escapeHtml(`${student.first_name||''} ${student.last_name||''}`)}</label>`).join('')
+  const pages = Math.max(1, Math.ceil(students.length / EXCLUDE_PAGE_SIZE))
+  excludePage = Math.min(Math.max(1, excludePage), pages)
+  const visible = students.slice((excludePage - 1) * EXCLUDE_PAGE_SIZE, excludePage * EXCLUDE_PAGE_SIZE)
+  $('auto-assign-exclude-list').innerHTML = visible.map(student => `<label><input type="checkbox" value="${student.student_id}"${excludedIds.has(student.student_id) ? ' checked' : ''}> ${escapeHtml(student.lrn_number||student.student_id)} — ${escapeHtml(`${student.first_name||''} ${student.last_name||''}`)}</label>`).join('')
     || '<small>No students in the selected grade levels.</small>'
+  $('auto-assign-exclude-page').textContent = students.length ? `Page ${excludePage} of ${pages} · ${students.length} students` : ''
+  $('auto-assign-exclude-prev').disabled = excludePage <= 1
+  $('auto-assign-exclude-next').disabled = excludePage >= pages
 }
 function planAutoAssign() {
   const grades = chosenGrades()
@@ -223,13 +229,16 @@ function planAutoAssign() {
 function previewAutoAssign() {
   const plan = planAutoAssign()
   state.autoAssignPlan = plan
+  const gradeCount = chosenGrades().length
+  $('auto-assign-grade-count').textContent = `${gradeCount} grade${gradeCount === 1 ? '' : 's'} selected`
   if (!plan) {
     $('auto-assign-summary').innerHTML = '<p class="empty-state"><b id="auto-assign-count">0</b> — select at least one grade level to auto-assign.</p>'
     $('confirm-auto-assign').disabled = true
     return
   }
   $('confirm-auto-assign').disabled = false
-  const excluded = autoAssignExclusions().size
+  const chosen = new Set(chosenGrades())
+  const excluded = state.students.filter(student => excludedIds.has(student.student_id) && chosen.has(Number(student.grade_level))).length
   const sections = plan.summary.filter(row=>row.total).map(row=> `<small>${escapeHtml(row.section_name)} — ${row.boys} boy(s), ${row.girls} girl(s)</small>`).join('<br>')
   const unplaced = plan.unplaced.length ? `<br><small class="empty-state">Unplaced: ${plan.unplaced.map(row=>escapeHtml(row.student_id)).join(', ')}</small>` : ''
   $('auto-assign-summary').innerHTML = `<p><b id="auto-assign-count">${plan.assignments.length}</b> student(s) will be placed in ${escapeHtml(chosenGrades().map(gradeLabel).join(', '))}; <b>${plan.unplaced.length}</b> cannot be placed${excluded ? `; <b>${excluded}</b> excluded` : ''}.</p>${sections}${unplaced}`
@@ -240,6 +249,8 @@ $('auto-assign-sections').onclick=async()=>{
   if (error) return toast(describeError(error, 'Load enrollments'), 'error')
   state.enrolledByStudent = new Map((enrollments || []).map(row => [row.student_id, row.section_id]))
   $('auto-assign-exclude-search').value = ''
+  excludedIds.clear()
+  excludePage = 1
   renderAutoAssignGrades()
   renderAutoAssignExclusions()
   previewAutoAssign()
@@ -249,12 +260,19 @@ $('auto-assign-all-grades').onclick=()=>{
   const boxes = autoAssignGrades()
   const select = boxes.some(box => !box.checked)
   boxes.forEach(box => { box.checked = select })
+  excludePage = 1
   renderAutoAssignExclusions()
   previewAutoAssign()
 }
-$('auto-assign-exclude-search').oninput = renderAutoAssignExclusions
-$('auto-assign-grades').addEventListener('change', () => { renderAutoAssignExclusions(); previewAutoAssign() })
-$('auto-assign-exclude-list').addEventListener('change', previewAutoAssign)
+$('auto-assign-exclude-search').oninput = () => { excludePage = 1; renderAutoAssignExclusions() }
+$('auto-assign-grades').addEventListener('change', () => { excludePage = 1; renderAutoAssignExclusions(); previewAutoAssign() })
+$('auto-assign-exclude-list').addEventListener('change', event => {
+  const box = event.target
+  if (box.checked) excludedIds.add(+box.value); else excludedIds.delete(+box.value)
+  previewAutoAssign()
+})
+$('auto-assign-exclude-prev').onclick = () => { excludePage--; renderAutoAssignExclusions() }
+$('auto-assign-exclude-next').onclick = () => { excludePage++; renderAutoAssignExclusions() }
 $('close-auto-assign').onclick=()=>$('auto-assign-modal').classList.add('hidden')
 document.querySelectorAll('[data-close]').forEach(button => { button.onclick = () => $(button.dataset.close).classList.add('hidden') })
 $('confirm-auto-assign').onclick=()=>{

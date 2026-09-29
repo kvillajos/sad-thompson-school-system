@@ -25,7 +25,8 @@ export function mountSidebar(items, brand, role) {
     '♙': '<svg viewBox="0 0 24 24"><path d="M12 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"></path><path d="m8 20 1-6 3-2 3 2 1 6"></path><path d="M6 20h12"></path></svg>',
     '▤': '<svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="16"></rect><path d="M8 8h8M8 12h8M8 16h8"></path></svg>',
     '♧': '<svg viewBox="0 0 24 24"><path d="M12 20v-5"></path><path d="M12 15a4 4 0 1 0-3-6 4 4 0 1 0 3 6Z"></path><path d="M12 15a4 4 0 1 0 3-6 4 4 0 1 0-3 6Z"></path></svg>',
-    '☷': '<svg viewBox="0 0 24 24"><path d="M4 6h4M12 6h8M4 12h8M16 12h4M4 18h4M12 18h8"></path></svg>'
+    '☷': '<svg viewBox="0 0 24 24"><path d="M4 6h4M12 6h8M4 12h8M16 12h4M4 18h4M12 18h8"></path></svg>',
+    '↺': '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg>'
   };
   const existing = document.querySelector('.app-sidebar, .side, .admin-sidebar');
   if (existing) existing.remove();
@@ -58,6 +59,24 @@ export function mountSidebar(items, brand, role) {
 } else {
     document.body.prepend(sidebar);
 }
+
+  // One highlight follows whichever link has .active, so switching tabs slides it instead of popping it.
+  const indicator = document.createElement('span');
+  indicator.className = 'sidebar-indicator';
+  indicator.setAttribute('aria-hidden', 'true');
+  nav.prepend(indicator);
+  const moveIndicator = () => {
+    const active = nav.querySelector('.sidebar-link.active');
+    indicator.style.opacity = active ? '1' : '0';
+    if (!active) return;
+    indicator.style.transform = `translateY(${active.offsetTop}px)`;
+    indicator.style.height = `${active.offsetHeight}px`;
+  };
+  moveIndicator();
+  // Transitions switch on only after the first placement, so the page doesn't open with the highlight sliding in from the top.
+  requestAnimationFrame(() => { moveIndicator(); requestAnimationFrame(() => indicator.classList.add('ready')); });
+  new MutationObserver(moveIndicator).observe(nav, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  window.addEventListener('resize', moveIndicator);
 
 
 /* =========================================
@@ -221,6 +240,9 @@ export function mountProfile(user, roleLabel, onSignOut) {
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     try { localStorage.setItem('tcsms_theme', dark ? 'dark' : 'light'); } catch {}
     updateThemeToggle();
+    themeToggle.classList.remove('spin');
+    void themeToggle.offsetWidth
+    themeToggle.classList.add('spin')
   });
   // Drag the profile bar sideways to move it out of the way. It stays on the top edge (fixed
   // margin) and the position is remembered per browser.

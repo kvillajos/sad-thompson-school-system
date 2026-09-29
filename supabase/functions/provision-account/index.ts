@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
   try {
     const { user_id, action = 'provision', request_id } = await req.json()
     if (!user_id) return json({ error: 'user_id is required' }, 400)
-    if (!['provision', 'deactivate', 'activate', 'reset', 'approve-profile-change', 'reject-profile-change'].includes(action)) return json({ error: 'Unknown action' }, 400)
+    if (!['provision', 'deactivate', 'activate', 'reset', 'delete', 'restore-account', 'approve-profile-change', 'reject-profile-change'].includes(action)) return json({ error: 'Unknown action' }, 400)
 
     // Verify the caller is a signed-in admin using their forwarded session token.
     const authHeader = req.headers.get('Authorization') || ''
@@ -98,11 +98,37 @@ Deno.serve(async (req) => {
     }
 
     const { data: account, error: accountError } = await admin
-      .from('users').select('user_id, username, email, initial_password, student_id').eq('user_id', user_id).single()
+      .from('users').select('user_id, username, email, initial_password, student_id, is_active, deleted_at, deleted_was_active').eq('user_id', user_id).single()
     if (accountError || !account) return json({ error: 'Account not found' }, 404)
+    if (account.deleted_at && action !== 'restore-account') return json({ error: 'This account is deleted. Restore it from the audit trail first.' }, 409)
 
     const { user: existing, error: listError } = await findAuthUser(admin, account.email)
     if (listError) return json({ error: listError.message }, 500)
+
+    // Soft delete: hidden and locked out now; purge_deleted_accounts() erases the row and login after 30 days.
+    if (action === 'delete') {
+      if (Number(account.user_id) === Number(callerProfile.user_id)) return json({ error: 'You cannot delete your own account.' }, 400)
+      const { error: deleteError } = await admin.from('users').update({ deleted_at: new Date().toISOString(), deleted_by: caller.email, deleted_was_active: account.is_active, is_active: false }).eq('user_id', user_id)
+      if (deleteError) return json({ error: deleteError.message }, 500)
+      if (existing) {
+        const banResult = await admin.auth.admin.updateUserById(existing.id, { ban_duration: '876000h' })
+        if (banResult.error) return json({ error: banResult.error.message }, 500)
+      }
+      return json({ username: account.username, deleted: true })
+    }
+
+    if (action === 'restore-account') {
+      if (!account.deleted_at) return json({ error: 'This account is not deleted.' }, 409)
+      if (Date.now() - new Date(account.deleted_at).getTime() > 30 * 24 * 60 * 60 * 1000) return json({ error: 'This account was deleted more than 30 days ago and can no longer be restored.' }, 410)
+      const isActive = account.deleted_was_active ?? true
+      const { error: restoreError } = await admin.from('users').update({ deleted_at: null, deleted_by: null, deleted_was_active: null, is_active: isActive }).eq('user_id', user_id)
+      if (restoreError) return json({ error: restoreError.message }, 500)
+      if (existing && isActive) {
+        const unbanResult = await admin.auth.admin.updateUserById(existing.id, { ban_duration: 'none' })
+        if (unbanResult.error) return json({ error: unbanResult.error.message }, 500)
+      }
+      return json({ username: account.username, restored: true, is_active: isActive })
+    }
 
     if (action === 'deactivate' || action === 'activate') {
       const isActive = action === 'activate'

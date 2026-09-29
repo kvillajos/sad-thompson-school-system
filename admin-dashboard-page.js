@@ -6,7 +6,7 @@
       import { staleFields } from './edit-request.js'
       import { withBusy, confirmPassword } from './shell.js'
       import { isEditLocked, editLockMessage } from './edit-lock.js'
-      import { describeError } from './errors.js'
+      import { describeError, describeFunctionError } from './errors.js'
       import { mountAdminShell } from './admin-page.js'
 import { mountAnnouncements, pinIcon } from './announcements.js'
       const user = await mountAdminShell('dashboard')
@@ -118,12 +118,16 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
           // Password reset and (de)activation change the Supabase login, so the Edge Function runs before the approval is recorded.
           if (approve && request.request_type === 'account_action' && action.action !== 'role_change') {
             const { data, error } = await supabase.functions.invoke('provision-account', { body: { user_id: Number(action.target_user_id), action: action.action } })
-            if (error) return toast(describeError(error, 'Account action'), 'error')
+            if (error) return toast(await describeFunctionError(error, 'Account action'), 'error')
             if (data?.temporary_password) await noticeDialog(`Temporary password for ${data.username}. It is shown only once; give it to the account owner securely.`, { title: 'Temporary password', copyText: data.temporary_password })
           }
-          const { error } = await supabase.rpc('review_approval', { p_id: Number(id), p_approve: approve, p_remarks: remarks })
+          const { data: outcome, error } = await supabase.rpc('review_approval', { p_id: Number(id), p_approve: approve, p_remarks: remarks })
           if (error) return toast(describeError(error, 'Review request'), 'error')
-          toast(approve ? 'Request approved.' : 'Request rejected.')
+          // A promotion can approve fine yet move nobody (no grades, already promoted), so say what happened.
+          if (approve && request.request_type === 'promotion' && outcome?.processed != null) {
+            const parts = [`${outcome.promoted} promoted`, outcome.graduated && `${outcome.graduated} graduated`, outcome.retained && `${outcome.retained} retained`, outcome.incomplete && `${outcome.incomplete} without grades`, outcome.skipped && `${outcome.skipped} already promoted`].filter(Boolean)
+            toast(`Promotion approved: ${parts.join(', ')}.`)
+          } else toast(approve ? 'Request approved.' : 'Request rejected.')
           await loadApprovalRequests()
         })
       }
@@ -134,14 +138,7 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
         button.textContent = action === 'approve' ? 'Approving...' : 'Rejecting...'
         try {
           const { error } = await supabase.functions.invoke('provision-account', { body: { user_id: Number(userId), action: `${action}-profile-change`, request_id: Number(requestId) } })
-          if (error) {
-            let message = error.message
-            try {
-              const details = await error.context?.json()
-              message = details?.error || details?.message || message
-            } catch {}
-            return toast(describeError(message, 'Profile change'), 'error')
-          }
+          if (error) return toast(await describeFunctionError(error, 'Profile change'), 'error')
           await loadProfileRequests()
         } catch (error) {
           toast(describeError(error instanceof Error ? error : 'The profile change could not be processed.', 'Profile change'), 'error')
@@ -186,15 +183,26 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
             const result = await supabase.storage.from('admission-documents').createSignedUrl(document.file_path, 600)
             return `<li>${escape(document.document_type)}: ${result.error ? `<span class="note">${escape(document.original_name)} (link unavailable: ${escape(describeError(result.error, 'Open file'))})</span>` : `<a href="${escape(result.data.signedUrl)}" target="_blank" rel="noopener">${escape(document.original_name)}</a>`}</li>`
           }))
-          document.getElementById('review-details').innerHTML = `<div class="review-grid enrollee-details-grid">
-            <div><small>Student</small><p>${escape(`${a.first_name || ''} ${a.middle_name || ''} ${a.last_name || ''}`)}</p></div><div><small>Grade Level</small><p>${escape(a.grade_level || '-')}</p></div>
-            <div><small>Birth Date</small><p>${escape(a.birth_date || '-')}</p></div><div><small>Sex</small><p>${escape(a.sex || '-')}</p></div>
-            <div><small>Address</small><p>${escape(a.address || '-')}</p></div><div><small>Prior School</small><p>${escape(a.prior_school || '-')}</p></div>
-            <div><small>Guardian</small><p>${escape(a.guardian_name || '-')} (${escape(a.guardian_relationship || '-')})</p></div><div><small>Guardian Contact</small><p>${escape(a.guardian_phone || '-')} / ${escape(a.guardian_email || '-')}</p></div>
-          </div><h4>Uploaded Documents</h4><ul class="document-list">${documentLinks.join('') || '<li>No documents uploaded.</li>'}</ul>`
+          const fullName = escape(`${a.first_name || ''} ${a.middle_name || ''} ${a.last_name || ''}`.replace(/\s+/g, ' ').trim())
+          const photo = a.profile_picture_url
+            ? `<img src="${escape(a.profile_picture_url)}" alt="Profile picture" class="enrollee-details-photo">`
+            : `<div class="enrollee-details-photo enrollee-details-photo-empty" aria-hidden="true">No photo</div>`
+          document.getElementById('enrollee-details-body').innerHTML = `
+            <div class="enrollee-details-head">${photo}<h3>${fullName || 'Applicant'}</h3></div>
+            <div class="review-grid enrollee-details-grid">
+              <div><small>Grade Level</small><p>${escape(a.grade_level || '-')}</p></div><div><small>Sex</small><p>${escape(a.sex || '-')}</p></div>
+              <div><small>Birth Date</small><p>${escape(a.birth_date || '-')}</p></div><div><small>Address</small><p>${escape(a.address || '-')}</p></div>
+              <div><small>Contact Number</small><p>${escape(a.contact_number || '-')}</p></div><div><small>Prior School</small><p>${escape(a.prior_school || '-')}</p></div>
+              <div><small>Prior Grade</small><p>${escape(a.prior_grade || '-')}</p></div>
+              <div><small>Special Program</small><p>${escape(a.special_program || '-')}</p></div><div><small>Status</small><p>${escape(a.status || '-')}</p></div>
+              <div><small>Guardian</small><p>${escape(a.guardian_name || '-')} (${escape(a.guardian_relationship || '-')})</p></div><div><small>Guardian Contact</small><p>${escape(a.guardian_phone || '-')} / ${escape(a.guardian_email || '-')}</p></div>
+            </div>
+            <h4>Uploaded Documents</h4><ul class="document-list">${documentLinks.join('') || '<li>No documents uploaded.</li>'}</ul>`
+          document.getElementById('enrollee-details-modal').classList.remove('hidden')
         })
       }
       document.getElementById('view-enrollee-details').onclick = showEnrolleeDetails
+      document.getElementById('close-enrollee-details').onclick = () => document.getElementById('enrollee-details-modal').classList.add('hidden')
 
       function startReviewCountdown() {
         const approveBtn = document.getElementById('approve-application')
@@ -239,7 +247,7 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
           closeReview()
           if (status === 'approved' && data?.new_user_id) {
             const { data: provision, error: provisionError } = await supabase.functions.invoke('provision-account', { body: { user_id: data.new_user_id } })
-            if (provisionError) await noticeDialog(`The application was approved, but the student's login could not be created automatically (${describeError(provisionError, 'Create login')}).\nOpen Manage Accounts and use "Provision Login" on the new student account to finish.`, { title: 'Approved, login still needed' })
+            if (provisionError) await noticeDialog(`The application was approved, but the student's login could not be created automatically (${await describeFunctionError(provisionError, 'Create login')}).\nOpen Manage Accounts and use "Provision Login" on the new student account to finish.`, { title: 'Approved, login still needed' })
             else toast(`Application approved. Student login "${provision.username}" is ready to use.`)
           } else {
             toast(status === 'approved' ? 'Application approved.' : 'Application declined.')

@@ -1,6 +1,7 @@
 import { requireRole, signOut } from './auth-client.js'
 import { applyUiTheme, toast } from './ui-theme.js'
-import { mountProfile, mountSidebar } from './shell.js'
+import { mountProfile, mountSidebar, withBusy } from './shell.js'
+import { mountRestoreChanges } from './restore-changes.js'
 import { hideLoadingScreen } from './loading-screen.js'
 import { describeError } from './errors.js'
 import { $, state } from './registrar-state.js'
@@ -25,9 +26,9 @@ mountSidebar([
   { label: 'Applications', tab: 'applications', icon: '♙' },
   { label: 'Section Students', tab: 'sectioning', icon: '▤' },
   { label: 'Academic History', tab: 'academic', icon: '♧' },
-  { label: 'Batch Promotion', tab: 'promotion', icon: '↗' },
-  { label: 'Transfer & Shifting', tab: 'shifting', icon: '⇄' },
-  { label: 'Requests & Feedback', tab: 'requests', icon: '✉' }
+  { label: 'Promotion & Transfers', tab: 'promotion', icon: '↗' },
+  { label: 'Requests & Feedback', tab: 'requests', icon: '✉' },
+  { label: 'Restore Changes', tab: 'restore', icon: '↺' }
 ], 'Registry and<br>Student Records', 'registrar')
 
 const tabs = [...document.querySelectorAll('[data-tab]')]
@@ -39,7 +40,9 @@ function showTab(name) {
   $(name).classList.remove('hidden')
   if (name === 'sectioning') loadSections()
   if (name === 'requests') loadMyRequests()
+  if (name === 'restore') mountRestoreChanges($('restore-changes-host'))
 }
+$('refresh-restore').onclick = event => withBusy(event.currentTarget, 'Refreshing…', () => mountRestoreChanges($('restore-changes-host')))
 const tabFromHash = () => { const name = location.hash.slice(1); return tabs.some(t => t.dataset.tab === name) && $(name) ? name : null }
 tabs.forEach((tab) => tab.addEventListener('click', () => {
   if (location.hash.slice(1) !== tab.dataset.tab) history.pushState(null, '', `#${tab.dataset.tab}`)

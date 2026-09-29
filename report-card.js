@@ -82,7 +82,7 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
       </section>
 
       <main>
-        <table class="doc-table" style="width: 100%; border-collapse: collapse; font-size: 10.5pt;">
+        <table class="doc-table" data-no-sort style="width: 100%; border-collapse: collapse; font-size: 10.5pt;">
           <thead>
             <tr>
               <th rowspan="2" style="width: 42%; text-align: center; vertical-align: middle;">Learning Areas</th>

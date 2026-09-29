@@ -5,6 +5,7 @@ import { describeError } from './errors.js'
 import { todayDateValue } from './attendance.js'
 import { mountAdminShell } from './admin-page.js'
 import { withBusy } from './shell.js'
+import { mountRestoreChanges } from './restore-changes.js'
 
 await mountAdminShell('audit')
 
@@ -62,6 +63,9 @@ document.getElementById('refresh-audit').onclick = event => withBusy(event.curre
 document.getElementById('audit-date').value = todayDateValue()
 document.getElementById('audit-date').onchange = loadAuditArchive
 document.getElementById('export-audit').onclick = exportAudit
+const restoreHost = document.getElementById('restore-changes-host')
+document.getElementById('refresh-restore').onclick = event => withBusy(event.currentTarget, 'Refreshing…', () => mountRestoreChanges(restoreHost, { includeDeletedAccounts: true }))
 await loadAudit()
 await loadAuditArchive()
+await mountRestoreChanges(restoreHost, { includeDeletedAccounts: true })
 hideLoadingScreen()
