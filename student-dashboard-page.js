@@ -46,7 +46,11 @@
       let sectionId = null
       let sectionName = ''
       let schoolYear = ''
+      let currentSemester = ''
       let gradeRows = []
+      let scheduleRows = []
+      let gradeYears = []
+      let gradePageIndex = 0
 
       // Same placeholder as the profile bar and dashboard card: initials on a blue circle until a photo is set.
       function showProfilePicture(url) {
@@ -62,6 +66,7 @@
         sectionId = enrollment?.section_id || null
         sectionName = enrollment?.sections?.section_name || 'Unassigned'
         schoolYear = enrollment?.school_year || ''
+        currentSemester = { '1st Semester': 'first', '2nd Semester': 'second' }[enrollment?.sections?.semester] || ''
 
         const fullName = `${student?.first_name || ''} ${student?.middle_name || ''} ${student?.last_name || ''}`.replace(/\s+/g, ' ').trim()
         document.getElementById('dash-name').textContent = fullName
@@ -147,6 +152,7 @@
         if (!sectionId) { host.innerHTML = '<p>No active section enrollment found.</p>'; return }
         const { data, error } = await supabase.from('subject_schedules').select('subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_name),sections(section_name)').eq('section_id', sectionId).order('day_of_week').order('start_time')
         if (error) return host.innerHTML = `<p class="note" role="alert">${escape(describeError(error, 'Load schedule'))}</p>`
+        scheduleRows = data || []
         const settings = await loadSchoolYearSettings(schoolYear)
         mountDayTabs(host, data || [], {
           gaps: gapsFrom(settings),
@@ -157,25 +163,48 @@
       }
 
       async function loadGrades() {
-        const table = document.getElementById('grades-table')
-        if (!user.student_id) return table.innerHTML = '<tr><td colspan="10">No student record linked.</td></tr>'
+        const hosts = [document.getElementById('grades-table-first'), document.getElementById('grades-table-second'), document.getElementById('current-grades-table')]
+        const showMessage = html => hosts.forEach(host => { host.innerHTML = html })
+        if (!user.student_id) return showMessage('<p>No student record linked.</p>')
         const { data, error } = await supabase.from('academic_history').select('school_year,subject,grade,letter_grade,remarks,first_sem_q1,first_sem_q2,second_sem_q1,second_sem_q2').eq('student_id', user.student_id).order('school_year', { ascending: false })
-        if (error) return table.innerHTML = errorRow(10, error, 'Load grades')
+        if (error) return showMessage(`<p class="note" role="alert">${escape(describeError(error, 'Load grades'))}</p>`)
         gradeRows = data || []
-        const years = [...new Set(gradeRows.map(row => row.school_year).filter(Boolean))].sort().reverse()
-        document.getElementById('grade-year-filter').innerHTML = '<option value="">All school years</option>' + years.map(year => `<option>${escape(year)}</option>`).join('')
-        document.getElementById('transcript-year-filter').innerHTML = '<option value="">All school years</option>' + years.map(year => `<option>${escape(year)}</option>`).join('')
+        gradeYears = [...new Set(gradeRows.map(row => row.school_year).filter(Boolean))].sort().reverse()
+        gradePageIndex = 0
+        const transcriptYears = gradeYears
+        document.getElementById('transcript-year-filter').innerHTML = '<option value="">All school years</option>' + transcriptYears.map(year => `<option>${escape(year)}</option>`).join('')
         renderGrades()
         renderTranscript()
       }
 
+      // Absences are recorded per student, not per subject, so the term table shows one total below it rather than a per-subject count.
+      async function renderCurrentGrades() {
+        const host = document.getElementById('current-grades-table')
+        if (!schoolYear || !currentSemester) { host.innerHTML = '<p>No active enrollment for this term.</p>'; return }
+        const label = currentSemester === 'first' ? '1st Semester' : '2nd Semester'
+        document.getElementById('current-grades-title').textContent = `Current Term — ${label}`
+        const quarterFields = currentSemester === 'first' ? ['first_sem_q1', 'first_sem_q2'] : ['second_sem_q1', 'second_sem_q2']
+        const teacherFor = subject => scheduleRows.find(item => item.subjects?.subject_name === subject)?.faculty_name || '-'
+        const rows = gradeRows.filter(row => row.school_year === schoolYear)
+        const body = rows.map(row => {
+          const semGrade = generalAverage(quarterFields.map(field => ({ grade: row[field] })))
+          return `<tr><td>${escape(row.subject)}</td><td>${escape(teacherFor(row.subject))}</td><td>${row[quarterFields[0]] ?? ''}</td><td>${row[quarterFields[1]] ?? ''}</td><td>${semGrade ?? row.grade ?? ''}</td><td>${escape(row.letter_grade || letterGrade(semGrade ?? row.grade)?.letter || '')}</td><td>${escape(row.remarks || '')}</td></tr>`
+        }).join('')
+        const { data: totals } = await supabase.rpc('attendance_totals', { p_student_id: user.student_id, p_school_year: schoolYear })
+        host.innerHTML = `<table><thead><tr><th>Subject</th><th>Teacher</th><th>Q1</th><th>Q2</th><th>Grade</th><th>Letter</th><th>Remarks</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="empty-state">No academic records yet.</td></tr>'}</tbody></table><p class="admin-note">Absences this term: ${totals?.absent ?? 0}</p>`
+      }
+
+      // All Grades is paged one school year at a time, most recent first, each page split into its own 1st/2nd semester tables.
       function renderGrades() {
-        const year = document.getElementById('grade-year-filter').value
-        const semester = document.getElementById('grade-semester-filter').value
-        const averageRows = year ? gradeRows.filter(row => row.school_year === year) : gradeRows
-        document.getElementById('grades-table').innerHTML = buildSemesterTable(averageRows, { semester })
-        const average = generalAverage(averageRows)
-        document.getElementById('grades-average').textContent = average == null ? '' : `General Average (${year || 'all school years'}): ${average} (${letterGrade(average)?.letter || '-'})`
+        const year = gradeYears[gradePageIndex]
+        document.getElementById('grades-year-label').textContent = year ? `${year} (${gradePageIndex + 1} of ${gradeYears.length})` : 'No records'
+        document.getElementById('grades-prev-year').disabled = gradePageIndex <= 0
+        document.getElementById('grades-next-year').disabled = gradePageIndex >= gradeYears.length - 1
+        const rows = year ? gradeRows.filter(row => row.school_year === year) : []
+        document.getElementById('grades-table-first').innerHTML = buildSemesterTable(rows, { semester: 'first' })
+        document.getElementById('grades-table-second').innerHTML = buildSemesterTable(rows, { semester: 'second' })
+        const average = generalAverage(rows)
+        document.getElementById('grades-average').textContent = average == null ? '' : `General Average (${year || 'no records'}): ${average} (${letterGrade(average)?.letter || '-'})`
       }
 
       function renderTranscript() {
@@ -255,12 +284,13 @@
         }
       }
 
-      document.getElementById('grade-year-filter').onchange = renderGrades
-      document.getElementById('grade-semester-filter').onchange = renderGrades
+      document.getElementById('grades-prev-year').onclick = () => { gradePageIndex--; renderGrades() }
+      document.getElementById('grades-next-year').onclick = () => { gradePageIndex++; renderGrades() }
       document.getElementById('transcript-year-filter').onchange = renderTranscript
       document.getElementById('print-unofficial-transcript').onclick = () => previewPdf(document.getElementById('student-transcript-print'), { title: 'Unofficial Transcript', filename: pdfName('Unofficial Transcript', student), printClass: 'printing-transcript' })
 
       await loadStudent()
       await Promise.all([loadSchedule(), loadGrades(), mountAnnouncements(document.getElementById('announcements-host'), 'student'), loadAttendance()])
+      await renderCurrentGrades()
       hideLoadingScreen()
     

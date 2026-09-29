@@ -1,7 +1,7 @@
   import { supabase } from './auth-client.js'
   import { toast } from './ui-theme.js'
   import { hideLoadingScreen } from './loading-screen.js'
-  import { escapeHtml as escape, errorRow } from './html.js'
+  import { escapeHtml as escape, errorRow, activeStatus } from './html.js'
   import { describeError } from './errors.js'
   import { mountAdminShell } from './admin-page.js'
   import { confirmPassword, withBusy } from './shell.js'
@@ -29,7 +29,7 @@
     const rows = faculty.filter(item => `${item.first_name} ${item.last_name} ${item.department} ${item.specialization} ${item.employee_no}`.toLowerCase().includes(search))
     document.getElementById('faculty-table').innerHTML = rows.map(item => {
       const assigned = assignments.filter(a => a.profile_id === item.profile_id).map(a => escape(a.subjects?.subject_code || '')).join(', ')
-      return `<tr><td>${escape(item.employee_no)}</td><td>${escape(`${item.first_name} ${item.middle_name || ''} ${item.last_name}`)}</td><td>${escape(item.department)}</td><td>${escape(item.specialization)}</td><td>${escape(item.phone || '-')}</td><td>${item.users?.is_active ? 'Active' : 'Inactive'}</td><td>${assigned || '-'}</td><td><button class="admin-view" data-details="${item.profile_id}">Details</button><button class="admin-view" data-assign="${item.profile_id}">Assign Subjects</button></td></tr>`
+      return `<tr><td>${escape(item.employee_no)}</td><td>${escape(`${item.first_name} ${item.middle_name || ''} ${item.last_name}`)}</td><td>${escape(item.department)}</td><td>${escape(item.specialization)}</td><td>${escape(item.phone || '-')}</td><td>${activeStatus(item.users?.is_active)}</td><td>${assigned || '-'}</td><td><button class="admin-view" data-details="${item.profile_id}">Details</button><button class="admin-view" data-assign="${item.profile_id}">Assign Subjects</button></td></tr>`
     }).join('') || `<tr><td colspan="8">${search ? 'No faculty match your search.' : 'No faculty found.'}</td></tr>`
     document.querySelectorAll('[data-assign]').forEach(button => button.onclick = () => openAssign(button.dataset.assign))
     document.querySelectorAll('[data-details]').forEach(button => button.onclick = async () => {

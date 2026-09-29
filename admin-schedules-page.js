@@ -7,7 +7,7 @@
   import { mountAdminShell } from './admin-page.js'
   import { confirmPassword, withBusy } from './shell.js'
   import { confirmDialog } from './dialog.js'
-  import { overlapsLunch } from './day-tabs.js'
+  import { overlapsLunch, timeRange12 } from './day-tabs.js'
   import { fetchAll } from './fetch-all.js'
   import { currentSchoolYear } from './grades.js'
   const admin = await mountAdminShell('schedules')
@@ -36,7 +36,7 @@
   }
   function renderSchedules() {
     const rows = groupScheduleRows(schedules.filter(item => Number(item.section_id) === Number(selectedSection?.section_id)))
-    document.getElementById('section-schedules-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subjects?.subject_code || '')} - ${escape(item.subjects?.subject_name || '')}</td><td>${escape(item.faculty_name || '-')}</td><td>${escape(item.room || '-')}</td><td>${formatDays(item.days)}</td><td>${escape(item.start_time?.slice(0, 5))} - ${escape(item.end_time?.slice(0, 5))}</td><td><button class="admin-view" data-edit-schedule="${item.schedule_ids.join(',')}">Edit</button><button class="admin-remove" data-remove-schedule="${item.schedule_ids.join(',')}">Remove</button></td></tr>`).join('') || '<tr><td colspan="6">No subjects scheduled for this section.</td></tr>'
+    document.getElementById('section-schedules-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subjects?.subject_code || '')} - ${escape(item.subjects?.subject_name || '')}</td><td>${escape(item.faculty_name || '-')}</td><td>${escape(item.room || '-')}</td><td>${formatDays(item.days)}</td><td>${timeRange12(item.start_time, item.end_time)}</td><td><button class="admin-view" data-edit-schedule="${item.schedule_ids.join(',')}">Edit</button><button class="admin-remove" data-remove-schedule="${item.schedule_ids.join(',')}">Remove</button></td></tr>`).join('') || '<tr><td colspan="6">No subjects scheduled for this section.</td></tr>'
     document.querySelectorAll('[data-edit-schedule]').forEach(button => button.onclick = () => openSchedule(rows.find(item => button.dataset.editSchedule.split(',').includes(String(item.schedule_ids[0])))))
     document.querySelectorAll('[data-remove-schedule]').forEach(button => button.onclick = () => removeSchedule(button.dataset.removeSchedule.split(',')))
   }
@@ -138,7 +138,7 @@
       return end.addEventListener('input', () => end.setCustomValidity(''), { once: true })
     }
     const lunch = lunchFor(selectedSection.academic_year)
-    if (overlapsLunch(lunch, values.start_time, values.end_time) && !await confirmDialog(`This class overlaps lunch (${String(lunch.lunch_start).slice(0, 5)} - ${String(lunch.lunch_end).slice(0, 5)}). Save it anyway?`, { title: 'Overlaps lunch', confirmText: 'Save anyway' })) return
+    if (overlapsLunch(lunch, values.start_time, values.end_time) && !await confirmDialog(`This class overlaps lunch (${timeRange12(lunch.lunch_start, lunch.lunch_end)}). Save it anyway?`, { title: 'Overlaps lunch', confirmText: 'Save anyway' })) return
     return withBusy(scheduleForm.querySelector('[type="submit"], button:not([type])'), 'Saving…', () => saveSchedule(values, selectedDays))
   }
   async function saveSchedule(values, selectedDays) {

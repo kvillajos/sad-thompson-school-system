@@ -1,7 +1,7 @@
     import { supabase } from './auth-client.js'
     import { toast } from './ui-theme.js'
     import { hideLoadingScreen } from './loading-screen.js'
-    import { escapeHtml as escape, gradeLevelOptions, errorRow } from './html.js'
+    import { escapeHtml as escape, gradeLevelOptions, errorRow, activeStatus } from './html.js'
     import { describeError } from './errors.js'
     import { mountAdminShell } from './admin-page.js'
     import { confirmDialog } from './dialog.js'
@@ -24,7 +24,7 @@
       const search = document.getElementById('subject-search').value.trim().toLowerCase()
       const status = document.getElementById('subject-status').value
       const visibleSubjects = subjects.filter(item => (!status || String(item.is_active) === status) && (!search || `${item.subject_code} ${item.subject_name}`.toLowerCase().includes(search)))
-      document.getElementById('subjects-table').innerHTML = visibleSubjects.map(item => `<tr><td>${escape(item.subject_code)}</td><td>${escape(item.subject_name)}</td><td>${item.grade_level === null ? 'All Grades' : item.grade_level === 0 ? 'Kindergarten' : `Grade ${item.grade_level}`}</td><td>${item.is_active ? 'Active' : 'Inactive'}</td><td><button class="admin-view" data-edit-subject="${item.subject_id}">Edit</button><button class="admin-remove" data-remove-subject="${item.subject_id}">Remove</button></td></tr>`).join('') || '<tr><td colspan="5">No matching subjects.</td></tr>'
+      document.getElementById('subjects-table').innerHTML = visibleSubjects.map(item => `<tr><td>${escape(item.subject_code)}</td><td>${escape(item.subject_name)}</td><td>${item.grade_level === null ? 'All Grades' : item.grade_level === 0 ? 'Kindergarten' : `Grade ${item.grade_level}`}</td><td>${activeStatus(item.is_active)}</td><td><button class="admin-view" data-edit-subject="${item.subject_id}">Edit</button><button class="admin-remove" data-remove-subject="${item.subject_id}">Remove</button></td></tr>`).join('') || '<tr><td colspan="5">No matching subjects.</td></tr>'
       document.querySelectorAll('[data-edit-subject]').forEach(button => button.onclick = () => openSubject(subjects.find(item => String(item.subject_id) === button.dataset.editSubject)))
       document.querySelectorAll('[data-remove-subject]').forEach(button => button.onclick = () => removeSubject(button.dataset.removeSubject))
     }

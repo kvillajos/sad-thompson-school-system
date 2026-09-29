@@ -24,9 +24,14 @@
 
       <section data-panel="grades" class="hidden">
         <div class="admin-page-head"><div><h2>Grades</h2></div></div>
-        <div><label>School Year <select id="grade-year-filter"><option value="">All school years</option></select></label> <label>Semester <select id="grade-semester-filter"><option value="">Both semesters</option><option value="first">1st Semester</option><option value="second">2nd Semester</option></select></label></div>
+        <section class="admin-table-wrap"><div class="admin-section-title"><h3 id="current-grades-title">Current Term</h3></div><div id="current-grades-table"><p>Loading grades...</p></div></section>
+        <div class="admin-page-head" style="margin-top:24px"><div><h3>All Grades</h3></div></div>
         <p id="grades-average" class="admin-note"></p>
-        <section class="admin-table-wrap"><table><thead><tr><th>School Year</th><th>Semester</th><th>Subject</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Grade</th><th>Letter</th><th>Remarks</th></tr></thead><tbody id="grades-table"><tr><td colspan="10">Loading grades...</td></tr></tbody></table></section>
+        <div class="admin-actions"><button type="button" id="grades-prev-year" class="admin-secondary">‹ Prev</button><span id="grades-year-label" class="admin-note"></span><button type="button" id="grades-next-year" class="admin-secondary">Next ›</button></div>
+        <div class="admin-section-title"><h3>1st Semester</h3></div>
+        <section class="admin-table-wrap" id="grades-table-first"><p>Loading grades...</p></section>
+        <div class="admin-section-title" style="margin-top:16px"><h3>2nd Semester</h3></div>
+        <section class="admin-table-wrap" id="grades-table-second"><p>Loading grades...</p></section>
       </section>
 
       <section data-panel="transcript" class="hidden">
@@ -79,7 +84,6 @@
             </div>
           </section>
           <section class="admin-table-wrap edit-request-card"><div class="admin-section-title"><h3>Request an Edit</h3></div>
-            <p class="admin-note">Need to correct your details? Send a request. An administrator reviews it before anything changes.</p>
             <p class="admin-note" id="edit-request-status" hidden></p>
             <button class="admin-primary" type="button" id="open-edit-request">Request edit</button>
           </section>

@@ -11,6 +11,8 @@ export function errorRow(colspan, error, context = 'Load') {
   return `<tr class="table-state-error"><td colspan="${colspan}" role="alert">${escapeHtml(describeError(error, context))}<button type="button" class="table-retry">Retry</button></td></tr>`
 }
 
+export const activeStatus = isActive => isActive ? '<span class="badge active">Active</span>' : 'Inactive'
+
 export function formatDate(value, includeTime = false) {
   if (!value) return '-'
   const date = new Date(value)

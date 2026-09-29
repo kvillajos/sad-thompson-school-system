@@ -2447,7 +2447,7 @@ notify pgrst, 'reload schema';
 
 
 -- ============================================================
--- STATUS: NOT YET APPLIED to the live database (run it in the Supabase SQL editor)
+-- STATUS: applied (confirmed live 2026-09-29)
 -- BEGIN migration-v25-schedule-teacher-id.sql
 -- Teachers were tied to classes by name text ("first last" compared with subject_schedules.faculty_name), so a renamed
 -- teacher lost every class and two teachers with one name shared them. Schedules now carry faculty_profile_id.
@@ -2551,7 +2551,7 @@ notify pgrst, 'reload schema';
 
 
 -- ============================================================
--- STATUS: NOT YET APPLIED (run after v25)
+-- STATUS: applied (confirmed live 2026-09-29)
 -- BEGIN migration-v26-student-edit-request-status.sql
 -- (1) request_student_profile now records the values the student saw ("before"), so the admin can be warned when the record
 --     changed after the request was made. (2) my_pending_profile_request() lets a student see whether an edit is waiting.
@@ -2838,3 +2838,44 @@ where not exists (select 1 from attendance a where a.student_id = r.student_id a
 notify pgrst, 'reload schema';
 commit;
 -- END migration-v28-sy2025-2026-history.sql
+
+
+-- ============================================================
+-- BEGIN migration-v29-audit-rolling-archive.sql  (applied 2026-09-29)
+-- ============================================================
+-- Live audit_logs keeps a rolling 3 days; the nightly job archives every older day still in it
+-- (so a missed night catches up). Re-archiving a day now appends instead of overwriting it with [].
+begin;
+alter table audit_log_archives alter column events set compression lz4;
+
+create or replace function archive_audit_logs(p_archive_date date default (current_date - 1))
+returns integer language plpgsql security definer set search_path = public as $$
+declare archived_count integer;
+begin
+  insert into audit_log_archives(archive_date, events, archived_at)
+  select p_archive_date, coalesce(jsonb_agg(to_jsonb(row) order by row.created_at), '[]'::jsonb), now()
+  from (
+    select id, actor, action, entity_type, entity_id, details, created_at
+    from audit_logs
+    where created_at >= p_archive_date::timestamptz
+      and created_at < (p_archive_date + 1)::timestamptz
+  ) row
+  on conflict (archive_date) do update
+    set events = audit_log_archives.events || excluded.events, archived_at = excluded.archived_at;
+  delete from audit_logs
+  where created_at >= p_archive_date::timestamptz
+    and created_at < (p_archive_date + 1)::timestamptz;
+  get diagnostics archived_count = row_count;
+  return archived_count;
+end $$;
+
+select cron.unschedule('tcsms-daily-audit-archive')
+where exists (select 1 from cron.job where jobname = 'tcsms-daily-audit-archive');
+select cron.schedule('tcsms-daily-audit-archive', '5 0 * * *',
+  $$select public.archive_audit_logs(d) from (select distinct created_at::date as d from public.audit_logs where created_at < (current_date - 2)::timestamptz) s;$$);
+
+select public.archive_audit_logs(d) from (select distinct created_at::date as d from public.audit_logs where created_at < (current_date - 2)::timestamptz) s;
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v29-audit-rolling-archive.sql

@@ -28,9 +28,17 @@ async function loadAuditArchive() {
   if (!date) return
   const target = document.getElementById('audit-archive-table')
   target.innerHTML = '<p>Loading archived actions...</p>'
-  const { data: archive, error } = await supabase.from('audit_log_archives').select('events').eq('archive_date', date).maybeSingle()
+  // The last 3 days are still in audit_logs; older days are in the archive. Archive days are UTC dates, so the live query uses the same UTC day.
+  const nextDay = new Date(`${date}T00:00:00Z`)
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1)
+  const [archived, live] = await Promise.all([
+    supabase.from('audit_log_archives').select('events').eq('archive_date', date).maybeSingle(),
+    supabase.from('audit_logs').select('created_at,action,entity_type,entity_id,details').gte('created_at', `${date}T00:00:00Z`).lt('created_at', nextDay.toISOString()).order('created_at')
+  ])
+  const error = archived.error || live.error
   if (error) return target.innerHTML = `<p class="note" role="alert">${escape(describeError(error, 'Load archived actions'))}</p>`
-  target.innerHTML = `<table><thead><tr><th>When</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead><tbody>${auditRowsHtml(archive?.events || [])}</tbody></table>`
+  const events = [...(archived.data?.events || []), ...(live.data || [])].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+  target.innerHTML = `<table><thead><tr><th>When</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead><tbody>${auditRowsHtml(events)}</tbody></table>`
 }
 
 async function exportAudit() {
