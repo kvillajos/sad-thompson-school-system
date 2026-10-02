@@ -12,9 +12,9 @@
   const roleNames = { 1: 'Administrator', 2: 'Registrar', 3: 'Faculty', 4: 'Student' }
   let accounts = []
   async function loadAccounts() {
-    const result = await fetchAll(() => supabase.from('users').select('username,email,role_id,is_active,student_id,user_id,initial_password,profile_picture_url').is('deleted_at', null).order('role_id').order('username').order('user_id'))
+    const result = await fetchAll(() => supabase.from('users').select('username,email,role_id,is_active,student_id,user_id,initial_password,profile_picture_url,created_at').is('deleted_at', null).order('role_id').order('username').order('user_id'))
     const table = document.getElementById('accounts-table')
-    if (result.error) return table.innerHTML = errorRow(6, result.error, 'Load accounts')
+    if (result.error) return table.innerHTML = errorRow(7, result.error, 'Load accounts')
     accounts = result.data || []
     renderAccounts()
   }
@@ -22,7 +22,7 @@
     const search = document.getElementById('account-search').value.trim().toLowerCase()
     const role = document.getElementById('account-role').value
     const rows = accounts.filter(item => (!role || String(item.role_id) === role) && (!search || `${item.username} ${item.email}`.toLowerCase().includes(search)))
-    document.getElementById('accounts-table').innerHTML = rows.map(item => `<tr><td>${escape(item.username)}</td><td>${escape(item.email)}</td><td>${roleNames[item.role_id] || 'Unknown'}</td><td>${activeStatus(item.is_active)}</td><td>${item.student_id ? `Student #${item.student_id}` : '-'}</td><td><button class="admin-view" data-details="${item.user_id}">View / Edit</button> ${item.initial_password ? `<button class="admin-view" data-provision="${item.user_id}">Provision Login</button> ` : ''}<button class="admin-view" data-toggle="${item.user_id}" data-active="${item.is_active}">${item.is_active ? 'Deactivate' : 'Activate'}</button> <button class="admin-view" data-reset="${item.user_id}">Reset Password</button>${item.user_id === admin.user_id ? '' : ` <button class="admin-remove" data-delete-account="${item.user_id}">Delete</button>`}</td></tr>`).join('') || '<tr><td colspan="6">No accounts found.</td></tr>'
+    document.getElementById('accounts-table').innerHTML = rows.map(item => `<tr><td>${escape(item.username)}</td><td>${escape(item.email)}</td><td>${roleNames[item.role_id] || 'Unknown'}</td><td>${activeStatus(item.is_active)}</td><td>${item.student_id ? `Student #${item.student_id}` : '-'}</td><td>${formatDate(item.created_at, true)}</td><td><button class="admin-view" data-details="${item.user_id}">View / Edit</button> ${item.initial_password ? `<button class="admin-view" data-provision="${item.user_id}">Provision Login</button> ` : ''}<button class="admin-view" data-toggle="${item.user_id}" data-active="${item.is_active}">${item.is_active ? 'Deactivate' : 'Activate'}</button> <button class="admin-view" data-reset="${item.user_id}">Reset Password</button>${item.user_id === admin.user_id ? '' : ` <button class="admin-remove" data-delete-account="${item.user_id}">Delete</button>`}</td></tr>`).join('') || '<tr><td colspan="7">No accounts found.</td></tr>'
     document.querySelectorAll('[data-details]').forEach(button => button.onclick = () => showAccountDetails(button.dataset.details))
     document.querySelectorAll('[data-provision]').forEach(button => button.onclick = () => runAccountAction(button.dataset.provision, 'provision', button))
     document.querySelectorAll('[data-toggle]').forEach(button => button.onclick = () => runAccountAction(button.dataset.toggle, button.dataset.active === 'true' ? 'deactivate' : 'activate', button))

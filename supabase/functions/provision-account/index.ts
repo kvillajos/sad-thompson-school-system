@@ -24,7 +24,6 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 // Browsers preflight cross-origin POSTs with a custom Authorization header;
 // without these headers supabase.functions.invoke() fails before it even runs.
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'http://localhost:5173',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 }
@@ -37,7 +36,21 @@ function randomPassword() {
   return crypto.randomUUID().replace(/-/g, '').slice(0, 12)
 }
 
+// Only the production site, its Vercel previews, local dev and the optional APP_ORIGIN override may call this.
+const allowedOrigin = (origin: string) =>
+  origin === Deno.env.get('APP_ORIGIN') || origin === 'https://tcsms.vercel.app' ||
+  /^https:\/\/tcsms-[a-z0-9-]+\.vercel\.app$/.test(origin) || /^http:\/\/localhost:\d+$/.test(origin)
+
 Deno.serve(async (req) => {
+  const res = await handle(req)
+  const origin = req.headers.get('Origin') || ''
+  const headers = new Headers(res.headers)
+  headers.set('Vary', 'Origin')
+  if (allowedOrigin(origin)) headers.set('Access-Control-Allow-Origin', origin)
+  return new Response(res.body, { status: res.status, headers })
+})
+
+async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
     const { user_id, action = 'provision', request_id } = await req.json()
@@ -166,4 +179,4 @@ Deno.serve(async (req) => {
   } catch (err) {
     return json({ error: String(err) }, 500)
   }
-})
+}
