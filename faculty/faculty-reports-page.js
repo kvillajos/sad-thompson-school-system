@@ -1,7 +1,7 @@
 import { supabase } from '../auth-client.js'
 import { loadFacultyContext, escapeHtml } from './faculty-common.js'
 import { buildReportCard } from '../report-card.js'
-import { printElement } from '../print.js'
+import { previewPdf, pdfName } from '../pdf-preview.js'
 import { withBusy } from '../shell.js'
 import { toast } from '../ui-theme.js'
 import { describeError } from '../errors.js'
@@ -26,6 +26,7 @@ if (context) {
     if (error) return toast(describeError(error, 'Load report card'), 'error')
     if (!academicResult.data?.length) toast(`No grades are recorded for ${year} yet; the report card will be mostly blank.`, 'error')
     $('faculty-report-preview').innerHTML = buildReportCard({ student: { ...studentRow.students, student_id: studentId }, gradeLevel: gradeLabel(enrollmentDetail.data?.grade_level ?? studentRow.students?.grade_level), schoolYear: year, sectionName: enrollmentDetail.data?.sections?.section_name, academicRows: academicResult.data || [], attendance: attendanceResult.data })
-    printElement($('faculty-report-preview'), 'printing-report-card')
+    // Same preview window as the registrar's record card: shows the page, then Print or Download PDF.
+    previewPdf($('faculty-report-preview'), { title: `Report Card ${year}`, filename: pdfName(`Report Card ${year}`, studentRow.students), printClass: 'printing-report-card' })
   })
 }
