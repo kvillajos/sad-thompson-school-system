@@ -1,6 +1,6 @@
 import { supabase } from './auth-client.js'
 import { toast } from './ui-theme.js'
-import { withBusy } from './shell.js'
+import { withBusy, confirmPassword } from './shell.js'
 import { $, state } from './registrar-state.js'
 import { escapeHtml, formatDate, gradeLabel, gradeToNumber, errorRow } from './html.js'
 import { attendanceSummaryLine } from './attendance.js'
@@ -16,7 +16,7 @@ export function statusBadge(s) { return `<span class="badge ${String(s).toLowerC
 const photoPlaceholder = $('application-photo-preview')?.getAttribute('src') || ''
 if ($('application-photo')) {
   $('application-photo').setAttribute('capture', 'user')
-  $('application-photo-hint')?.replaceChildren('Optional — choose a file or use the device camera')
+  $('application-photo-hint')?.replaceChildren('PNG/JPG/WEBP up to 3MB — choose a file or use the device camera')
 }
 
 let cameraStream = null
@@ -95,12 +95,25 @@ $('clear-application').onclick = clearApplicationForm
 export function bindViewStudentButtons(container) {
   container.querySelectorAll('[data-view-student]').forEach(button => button.onclick = () => openStudentDetails(button.dataset.viewStudent))
 }
+const ADDRESS_MIN = 10, ADDRESS_MAX = 200 // keep in step with minlength/maxlength on the address textarea in student-records.html
+// Live "42 / 200" under the address box; turns red while a filled address is still under the minimum.
+function updateAddressCount() {
+  const box = document.querySelector('#application-form [name=address]'), hint = $('address-hint')
+  if (!box || !hint) return
+  const length = box.value.trim().length
+  hint.textContent = length ? `${length} / ${ADDRESS_MAX} characters${length < ADDRESS_MIN ? ` (at least ${ADDRESS_MIN} needed)` : ''}` : `${ADDRESS_MIN} to ${ADDRESS_MAX} characters.`
+  hint.style.color = length && length < ADDRESS_MIN ? '#b91c1c' : ''
+}
+document.querySelector('#application-form [name=address]')?.addEventListener('input', updateAddressCount)
+$('application-form').addEventListener('reset', () => setTimeout(updateAddressCount))
 function validateApplication(form) {
   const data = Object.fromEntries(new FormData(form).entries())
   const errors = []
   if (!data.first_name?.trim() || !data.last_name?.trim()) errors.push('Student first and last name are required.')
   if (!/^\+?[0-9 ()-]{7,20}$/.test(data.guardian_phone || '')) errors.push('Enter a valid guardian phone number.')
   if (!/^\S+@\S+\.\S+$/.test(data.guardian_email || '')) errors.push('Enter a valid guardian email.')
+  const address = (data.address || '').trim()
+  if (address && (address.length < ADDRESS_MIN || address.length > ADDRESS_MAX)) errors.push(`Address must be ${ADDRESS_MIN} to ${ADDRESS_MAX} characters (now ${address.length}).`)
   if (!data.birth_date) errors.push('Birth date is required.')
   if (!data.grade_level) errors.push('Grade level is required.')
   return { data, errors }
@@ -188,8 +201,8 @@ export async function loadApplications() {
   state.applications = data || []
   $('applications-table').innerHTML = state.applications.map(a => `<tr>
     <td>${escapeHtml(`${a.first_name} ${a.last_name}`)}</td><td>${escapeHtml(gradeLabel(a.grade_level))}</td><td>${statusBadge(a.status)}</td>
-    <td>${formatDate(a.created_at)}</td><td>${a.status === 'draft' ? `<button class="admin-approve" data-resume="${a.id}">Resume</button>` : `<button class="admin-view" data-review="${a.id}">Review</button>`}</td></tr>`).join('') || '<tr><td colspan="5">No applications found.</td></tr>'
-  document.querySelectorAll('[data-review]').forEach(b => b.addEventListener('click', () => openReview(b.dataset.review)))
+    <td>${formatDate(a.created_at)}</td><td>${a.status === 'draft' ? `<button class="admin-approve" data-resume="${a.id}">Resume</button>` : `<button class="admin-view" data-review="${a.id}">View</button>`}</td></tr>`).join('') || '<tr><td colspan="5">No applications found.</td></tr>'
+  document.querySelectorAll('[data-review]').forEach(b => b.addEventListener('click', () => openView(b.dataset.review)))
   document.querySelectorAll('[data-resume]').forEach(b => b.addEventListener('click', () => resumeApplication(b.dataset.resume)))
 }
 
@@ -207,6 +220,7 @@ function resumeApplication(id) {
   // Grade is stored as a number, the select options are labels like "Grade 1".
   form.elements.namedItem('grade_level').value = gradeSelectLabel(application.grade_level)
   setApplicationPhoto(application.profile_picture_url || null)
+  updateAddressCount()
   $('drafts-modal').classList.add('hidden')
   document.querySelector('[data-tab="admission"]').click()
   toast('Draft loaded. Continue editing and submit when ready.')
@@ -282,6 +296,39 @@ export async function openStudentDetails(studentId) {
 }
 
 
+const APPLICATION_FIELDS = [['First Name', 'first_name'], ['Middle Name', 'middle_name'], ['Last Name', 'last_name'], ['Birth Date', 'birth_date'], ['Sex', 'sex'], ['Grade Level', 'grade_level'], ['Address', 'address'], ['Contact Number', 'contact_number'], ['Guardian Name', 'guardian_name'], ['Relationship', 'guardian_relationship'], ['Guardian Phone', 'guardian_phone'], ['Guardian Email', 'guardian_email'], ['Prior School', 'prior_school'], ['Prior Grade', 'prior_grade'], ['Special Program', 'special_program'], ['Registrar Remarks', 'remarks']]
+
+// Read-only view of any application, whatever its status. Opening it takes no edit lock and changes nothing.
+// Pending files can then be edited after the registrar re-enters their password; approved/declined ones are
+// view-only because they have already become (or been refused as) student records.
+async function openView(id) {
+  if (state.selectedApplication) return toast('Close the current review first.', 'error')
+  const a = state.applications.find(item => String(item.id) === String(id))
+  if (!a) return toast('That application could not be found. Refresh the list and try again.', 'error')
+  const editable = ['submitted', 'under_review'].includes(a.status)
+  const show = (key, value) => value == null || value === '' ? '-' : key === 'grade_level' ? gradeLabel(value) : value
+  document.querySelector('#review-modal h2').textContent = `${a.first_name || ''} ${a.last_name || ''}`.trim() || 'Application'
+  $('review-content').innerHTML = '<div id="view-fields"></div><h3>Documents</h3><ul class="document-list" id="view-documents"><li>Loading documents…</li></ul><div id="view-actions"></div>'
+  $('view-fields').innerHTML = `<div class="review-grid">${APPLICATION_FIELDS.map(([label, key]) => `<div><b>${label}</b><p>${escapeHtml(show(key, a[key]))}</p></div>`).join('')}<div><b>Status</b><p>${statusBadge(a.status)}</p></div><div><b>Submitted</b><p>${formatDate(a.created_at, true)}</p></div></div>`
+  $('view-actions').innerHTML = '<div class="actions"><button type="button" class="btn-approve" id="edit-application">Edit Application</button></div>'
+  if (!editable) $('view-actions').innerHTML = '<p class="note">Approved and declined applications are view-only.</p>'
+  $('review-modal').classList.remove('hidden')
+  $('edit-application')?.addEventListener('click', async () => {
+    if (!await confirmPassword(state.user.email, 'Enter your password to edit this application. Every change is recorded in the audit trail.')) return
+    await openReview(a.id)
+  })
+  const { data: documents, error } = await supabase.from('application_documents').select('document_type,original_name,file_path').eq('application_id', a.id).order('uploaded_at')
+  const list = $('view-documents')
+  if (!list) return
+  if (error) return list.innerHTML = `<li role="alert">${escapeHtml(describeError(error, 'Load documents'))}</li>`
+  const links = await Promise.all((documents || []).map(async doc => {
+    const { data: signed } = await supabase.storage.from('admission-documents').createSignedUrl(doc.file_path, 600)
+    const name = escapeHtml(`${doc.document_type}: ${doc.original_name || 'file'}`)
+    return signed?.signedUrl ? `<li><a href="${escapeHtml(signed.signedUrl)}" target="_blank" rel="noopener">${name}</a></li>` : `<li>${name}</li>`
+  }))
+  list.innerHTML = links.join('') || '<li>No documents uploaded.</li>'
+}
+
 // Opens the application with a database-held edit lock so the administrator cannot
 // approve or decline it while the registrar is correcting it.
 async function openReview(id) {
@@ -289,9 +336,11 @@ async function openReview(id) {
   const { data, error } = await supabase.rpc('begin_application_edit', { p_application_id: Number(id) })
   if (error) return toast(describeError(error, 'Open application'), 'error')
   state.selectedApplication = data
-  const field = (label, name, type = 'text') => `<label>${label}<input name="${name}" type="${type}" value="${escapeHtml(data[name] ?? '')}"></label>`
+  document.querySelector('#review-modal h2').textContent = 'Edit Application'
+  const LIMITS = { first_name: 50, middle_name: 50, last_name: 50, sex: 10, grade_level: 20, address: 200, contact_number: 20, guardian_name: 100, guardian_relationship: 30, guardian_phone: 20, guardian_email: 120, prior_school: 100, prior_grade: 20, special_program: 50 }
+  const field = (label, name, type = 'text') => `<label>${label}<input name="${name}" type="${type}"${LIMITS[name] ? ` maxlength="${LIMITS[name]}"` : ''} value="${escapeHtml(data[name] ?? '')}"></label>`
   $('review-content').innerHTML = `<div class="note">Editing as <b>${escapeHtml(data.editing_by || 'registrar')}</b>. The administrator cannot approve or decline this file while it is open here. Closing the form releases it.</div>
-  <form id="review-form">${field('First Name','first_name')}${field('Middle Name','middle_name')}${field('Last Name','last_name')}${field('Birth Date','birth_date','date')}${field('Sex','sex')}${field('Grade Level','grade_level')}${field('Address','address')}${field('Contact Number','contact_number')}${field('Guardian Name','guardian_name')}${field('Relationship','guardian_relationship')}${field('Guardian Phone','guardian_phone')}${field('Guardian Email','guardian_email')}${field('Prior School','prior_school')}${field('Prior Grade','prior_grade')}${field('Special Program','special_program')}<label>Registrar remarks<textarea name="remarks">${escapeHtml(data.remarks || '')}</textarea></label><label>Status<select name="status" disabled><option>draft</option><option>under_review</option></select></label><div class="actions"><button class="btn-approve">Save Review</button></div></form>`
+  <form id="review-form">${field('First Name','first_name')}${field('Middle Name','middle_name')}${field('Last Name','last_name')}${field('Birth Date','birth_date','date')}${field('Sex','sex')}${field('Grade Level','grade_level')}${field('Address','address')}${field('Contact Number','contact_number')}${field('Guardian Name','guardian_name')}${field('Relationship','guardian_relationship')}${field('Guardian Phone','guardian_phone')}${field('Guardian Email','guardian_email')}${field('Prior School','prior_school')}${field('Prior Grade','prior_grade')}${field('Special Program','special_program')}<label>Registrar remarks<textarea name="remarks" maxlength="500">${escapeHtml(data.remarks || '')}</textarea></label><label>Status<select name="status" disabled><option>draft</option><option>under_review</option></select></label><div class="actions"><button class="btn-approve">Save Review</button></div></form>`
   $('review-content').querySelector('[name=status]').value = data.status === 'submitted' ? 'under_review' : data.status
   $('review-modal').classList.remove('hidden')
   // Renew the lease; stale tokens are rejected by the server even after tab suspension.

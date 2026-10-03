@@ -11,13 +11,16 @@ export function buildTranscript({ student = {}, rows = [], mode = 'official', sc
 
   const historyHtml = grouped.map(group => {
     const semesterBlocks = [...group.semesters.entries()].map(([semester, semesterRows]) => {
-      const tableRows = semesterRows.map(row => `
+      const tableRows = semesterRows.map(row => {
+        const rating = row.semesterGrade ?? row.grade
+        return `
         <tr>
           <td class="text-left">${escapeHtml(row.subject)}</td>
-          <td>${row.grade ?? '-'}</td>
-          <td>${escapeHtml(row.remarks || (row.grade >= 75 ? 'Passed' : 'Failed'))}</td>
+          <td>${rating ?? '-'}</td>
+          <td>${escapeHtml(row.remarks || (rating >= 75 ? 'Passed' : 'Failed'))}</td>
         </tr>
-      `).join('')
+      `
+      }).join('')
 
       return `
         <div class="transcript-semester" style="margin-bottom: 12px;">

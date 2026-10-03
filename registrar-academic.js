@@ -13,7 +13,8 @@ import { previewPdf, pdfName } from './pdf-preview.js'
 
 $('academic-grade-filter').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades (1-12)', includeKindergarten: false })
 
-document.querySelector('#academic-table')?.closest('table')?.querySelector('thead tr')?.insertAdjacentHTML('beforeend', '<th>Section</th>')
+// The rows are ... Latest School Year | Section | buttons, so Section goes before the page's own "Action" header.
+document.querySelector('#academic-table')?.closest('table')?.querySelector('thead tr')?.lastElementChild?.insertAdjacentHTML('beforebegin', '<th>Section</th>')
 
 function academicRowsFor(studentId) {
   return state.academic

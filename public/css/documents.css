@@ -17,6 +17,7 @@ body.document-body {
 }
 
 .document-container {
+  color: #000;
   width: 100%;
   max-width: 210mm;
   margin: 0 auto;
@@ -80,9 +81,14 @@ body.document-body {
   padding-left: 4px;
 }
 
+/* Every line is drawn exactly once (table: top + left, cells: right + bottom). html2canvas paints collapsed
+   borders from both neighbouring cells at sub-pixel offsets, so the downloaded PDF mixed 1px and 2px lines. */
 table.doc-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-top: 1px solid #000;
+  border-left: 1px solid #000;
   margin-top: 10px;
   margin-bottom: 15px;
   font-size: 9.5pt;
@@ -90,7 +96,10 @@ table.doc-table {
 
 table.doc-table th,
 table.doc-table td {
-  border: 1px solid #000;
+  border: 0;
+  border-right: 1px solid #000;
+  border-bottom: 1px solid #000;
+  color: #000 !important; /* the app theme sets td { color: var(--ui-text) !important } */
   padding: 5px 6px;
   text-align: center;
 }
@@ -99,7 +108,13 @@ table.doc-table th {
   font-weight: bold;
 }
 
-/* A semester block (heading + table) and any table row never split across two pages. */
+/* A semester block (heading + table) and any table row never split across two pages. The PDF is cut at
+   page boundaries, so a block starting right at a cut would leave its top border on the previous page;
+   the white padding absorbs that row instead. */
+.transcript-semester {
+  padding-top: 3px;
+}
+
 .transcript-semester,
 table.doc-table tr {
   break-inside: avoid;

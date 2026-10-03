@@ -3255,7 +3255,7 @@ commit;
 
 
 -- ============================================================
--- BEGIN migration-v34-fix-batch-promotion.sql  (NOT YET APPLIED to live DB)
+-- BEGIN migration-v34-fix-batch-promotion.sql  (applied, confirmed live 2026-10-03)
 -- ============================================================
 -- Fixes found by testing batch promotion against live data:
 -- 1. The form asks for the NEXT school year (2027-2028) but the function looked for grades under that
@@ -3357,3 +3357,197 @@ end $$;
 notify pgrst, 'reload schema';
 commit;
 -- END migration-v34-fix-batch-promotion.sql
+
+
+-- ============================================================
+-- BEGIN migration-v35-fix-faculty-saves.sql  (applied, confirmed live 2026-10-03)
+-- ============================================================
+-- Faculty could not save grades or attendance (both RPCs returned 400):
+-- 1. save_faculty_grades: the plpgsql variable "subject_name" shadowed subjects.subject_name, so every
+--    call failed with 'column reference "subject_name" is ambiguous'. The variable is renamed.
+-- 2. save_attendance: the live attendance PK is attendance_id (fresh installs use id), but v33 hard-coded
+--    'id' for the change-snapshot trigger, so pk_value was null and every attendance write failed. The
+--    trigger is recreated with the table's real primary key column.
+-- 3. Teachers can save any scores they have so far (e.g. Q1 only mid-year): when there is no Final, no full set
+--    of four quarters and no Midterm, the stored grade is the average of the quarters entered. Mirrors grades.js.
+begin;
+
+create or replace function save_faculty_grades(p_subject_id integer, p_school_year text, p_records jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  actor text; subj_name text; year_text text; r record; saved integer := 0; grade_value numeric(5,2);
+begin
+  actor := registrar_workflow_actor(3);
+  year_text := trim(coalesce(p_school_year, ''));
+  if year_text = '' then raise exception 'A school year is required'; end if;
+  if coalesce(jsonb_typeof(p_records), 'null') <> 'array' or jsonb_array_length(p_records) = 0 then
+    raise exception 'No grade rows were submitted';
+  end if;
+  select s.subject_name into subj_name from subjects s where s.subject_id = p_subject_id;
+  if subj_name is null then raise exception 'Subject not found'; end if;
+  if not faculty_teaches_subject(p_subject_id) then raise exception 'You do not teach this subject'; end if;
+
+  for r in select * from jsonb_to_recordset(p_records) as x(
+      student_id integer, first_sem_q1 numeric, first_sem_q2 numeric, second_sem_q1 numeric,
+      second_sem_q2 numeric, midterm numeric, final numeric, letter_grade text, remarks text) loop
+    if not faculty_teaches_student(r.student_id) then
+      raise exception 'Student % is not enrolled in one of your sections', r.student_id;
+    end if;
+    grade_value := coalesce(
+      r.final,
+      case when r.first_sem_q1 is not null and r.first_sem_q2 is not null
+                and r.second_sem_q1 is not null and r.second_sem_q2 is not null
+           then round((r.first_sem_q1 + r.first_sem_q2 + r.second_sem_q1 + r.second_sem_q2) / 4, 2)
+      end,
+      r.midterm,
+      (select round(avg(q), 2) from unnest(array[r.first_sem_q1, r.first_sem_q2, r.second_sem_q1, r.second_sem_q2]) q));
+    if grade_value is null then
+      raise exception 'Student % needs at least one score', r.student_id;
+    end if;
+    insert into academic_history(student_id, school_year, subject, grade, remarks, first_sem_q1,
+        first_sem_q2, second_sem_q1, second_sem_q2, midterm, final, letter_grade)
+    values (r.student_id, year_text, subj_name, grade_value, r.remarks, r.first_sem_q1,
+        r.first_sem_q2, r.second_sem_q1, r.second_sem_q2, r.midterm, r.final, r.letter_grade)
+    on conflict (student_id, school_year, subject) do update set
+      grade = excluded.grade, remarks = excluded.remarks, first_sem_q1 = excluded.first_sem_q1,
+      first_sem_q2 = excluded.first_sem_q2, second_sem_q1 = excluded.second_sem_q1,
+      second_sem_q2 = excluded.second_sem_q2, midterm = excluded.midterm, final = excluded.final,
+      letter_grade = excluded.letter_grade;
+    saved := saved + 1;
+  end loop;
+
+  insert into audit_logs(action, entity_type, entity_id, details)
+  values ('SAVE_FACULTY_GRADES', 'subject', p_subject_id,
+    jsonb_build_object('school_year', year_text, 'subject', subj_name, 'records', saved, 'actor', actor));
+  return jsonb_build_object('saved', saved, 'subject', subj_name, 'school_year', year_text);
+end $$;
+
+do $$
+declare pk text;
+begin
+  select a.attname into pk from pg_index i
+  join pg_attribute a on a.attrelid = i.indrelid and a.attnum = i.indkey[0]
+  where i.indrelid = 'public.attendance'::regclass and i.indisprimary;
+  drop trigger if exists zz_snapshot_change on attendance;
+  execute format('create trigger zz_snapshot_change after insert or update or delete on attendance for each row execute function snapshot_row_change(%L)', pk);
+end $$;
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v35-fix-faculty-saves.sql
+
+
+-- ============================================================
+-- BEGIN migration-v36-users-admin-update.sql  (applied, confirmed live 2026-10-03)
+-- ============================================================
+-- The live users table only had SELECT policies (users_admin_modify from the base migration was gone), so an
+-- admin's "Save Account" (username / role) and "Revert Picture" matched zero rows under RLS: PostgREST answered
+-- 204 with no error and nothing changed, which also hid the duplicate-username error. Admins get UPDATE back;
+-- inserts and deletes stay with the provision-account edge function (service role).
+begin;
+drop policy if exists users_admin_modify on users;
+drop policy if exists users_admin_update on users;
+create policy users_admin_update on users for update to authenticated
+  using ((select current_app_role()) = 1) with check ((select current_app_role()) = 1);
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v36-users-admin-update.sql
+
+
+-- ============================================================
+-- BEGIN migration-v37-registrar-applications-and-account-search.sql  (applied, confirmed live 2026-10-03)
+-- ============================================================
+-- 1. save_application_edit: also saves contact_number (the form showed it but it was never written), and the
+--    audit entry now names the registrar and lists every changed field as before -> after, instead of only the status.
+-- 2. registrar_find_accounts: registrars cannot read users (RLS), so the Account Request form could only take an
+--    exact username. This search returns matching non-admin accounts with the owner's name, role and status so the
+--    registrar can confirm it is the right account. Admins and the caller's own account are left out because
+--    request_account_action refuses them anyway.
+begin;
+
+create or replace function save_application_edit(p_application_id integer, p_token uuid, p_payload jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a admission_applications%rowtype; merged jsonb; next_status text; editor text; after jsonb; changes text[] := '{}'; f text;
+  tracked text[] := array['first_name','middle_name','last_name','birth_date','sex','address','contact_number','guardian_name',
+    'guardian_relationship','guardian_phone','guardian_email','prior_school','prior_grade','grade_level','special_program','remarks'];
+begin
+  select * into a from admission_applications where id = p_application_id for update;
+  if not found then raise exception 'Application not found'; end if;
+  editor := registrar_workflow_actor(2);
+  if p_token is null or a.editing_token is distinct from p_token
+    or a.editing_since is null or a.editing_since <= now() - interval '10 minutes'
+    or a.editing_by is distinct from editor
+    or a.status not in ('draft','submitted','under_review') then
+    raise exception 'This edit session is no longer active. Close the form and open the application again.';
+  end if;
+  merged := to_jsonb(a) || coalesce(p_payload, '{}'::jsonb);
+  next_status := a.status::text;
+  if p_payload ? 'status' and p_payload->>'status' is distinct from next_status then
+    raise exception 'Corrections cannot change the approval decision';
+  end if;
+  if (merged->>'grade_level')::integer not between 1 and 12 then raise exception 'Choose grade 1-12'; end if;
+  if next_status <> 'draft' then perform validate_admission(merged); end if;
+  update admission_applications set
+    first_name = merged->>'first_name',
+    middle_name = nullif(merged->>'middle_name', ''),
+    last_name = merged->>'last_name',
+    birth_date = nullif(merged->>'birth_date', '')::date,
+    sex = nullif(merged->>'sex', ''),
+    address = nullif(merged->>'address', ''),
+    contact_number = nullif(merged->>'contact_number', ''),
+    guardian_name = nullif(merged->>'guardian_name', ''),
+    guardian_relationship = nullif(merged->>'guardian_relationship', ''),
+    guardian_phone = nullif(merged->>'guardian_phone', ''),
+    guardian_email = nullif(merged->>'guardian_email', ''),
+    prior_school = nullif(merged->>'prior_school', ''),
+    prior_grade = nullif(merged->>'prior_grade', ''),
+    grade_level = nullif(merged->>'grade_level', ''),
+    special_program = nullif(merged->>'special_program', ''),
+    remarks = nullif(merged->>'remarks', ''),
+    status = next_status::admission_status,
+    editing_by = null, editing_since = null, editing_token = null,
+    updated_at = now()
+  where id = p_application_id
+  returning to_jsonb(admission_applications.*) into after;
+  foreach f in array tracked loop
+    if (to_jsonb(a)->>f) is distinct from (after->>f) then
+      changes := changes || format('%s: %s -> %s', f, coalesce('"' || (to_jsonb(a)->>f) || '"', '(blank)'), coalesce('"' || (after->>f) || '"', '(blank)'));
+    end if;
+  end loop;
+  insert into audit_logs(actor, action, entity_type, entity_id, details)
+  values (auth.jwt() ->> 'email', 'REGISTRAR_EDIT', 'admission_application', p_application_id,
+    jsonb_build_object('editor', editor, 'status', next_status,
+      'changes', case when cardinality(changes) = 0 then 'no field changed' else array_to_string(changes, '; ') end));
+  return jsonb_build_object('id', p_application_id, 'status', next_status, 'edit_released', true, 'changed', cardinality(changes));
+end $$;
+
+create or replace function registrar_find_accounts(p_query text)
+returns table(user_id integer, username text, email text, role_id integer, is_active boolean, full_name text,
+  lrn_number text, grade_level integer, created_at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+declare q text := lower(trim(coalesce(p_query, '')));
+begin
+  if (select current_app_role()) is distinct from 2 then raise exception 'Only registrars can search accounts here'; end if;
+  if length(q) < 2 then return; end if;
+  return query
+  select u.user_id::integer, u.username::text, u.email::text, u.role_id::integer, coalesce(u.is_active, false),
+    coalesce(nullif(trim(concat_ws(' ', s.first_name, s.last_name)), ''), nullif(trim(concat_ws(' ', sp.first_name, sp.last_name)), ''),
+      nullif(trim(concat_ws(' ', r.first_name, r.last_name)), ''))::text,
+    s.lrn_number::text, s.grade_level::integer, u.created_at::timestamptz
+  from users u
+  left join students s on s.student_id = u.student_id
+  left join staff_profiles sp on sp.user_id = u.user_id
+  left join registrars r on r.user_id = u.user_id
+  where u.deleted_at is null and u.role_id <> 1
+    and lower(u.email) <> lower(coalesce(auth.jwt() ->> 'email', ''))
+    and strpos(lower(concat_ws(' ', u.username, u.email, s.first_name, s.last_name, s.lrn_number, sp.first_name, sp.last_name,
+      r.first_name, r.last_name)), q) > 0
+  order by u.username
+  limit 15;
+end $$;
+revoke all on function registrar_find_accounts(text) from public, anon;
+grant execute on function registrar_find_accounts(text) to authenticated;
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v37-registrar-applications-and-account-search.sql

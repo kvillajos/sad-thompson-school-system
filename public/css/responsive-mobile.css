@@ -1,5 +1,5 @@
-/* MOBILE - owner: mobile-mode branch only. Phones: up to 599px. Keep everything inside the media query. */
-@media (max-width: 599px) {
+/* MOBILE - owner: mobile-mode branch only. Phones: up to 700px (the width where the main theme stops showing the desktop sidebar). Keep everything inside the media query. */
+@media (max-width: 700px) {
 
     /* =========================================
        GENERAL MOBILE PAGE

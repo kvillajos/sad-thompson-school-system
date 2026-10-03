@@ -35,7 +35,9 @@ const quarters = { first_sem_q1: 80, first_sem_q2: 90, second_sem_q1: 70, second
 assert.equal(derivedGrade({ ...quarters, midterm: 99, final: 90 }), 90, 'Final wins')
 assert.equal(derivedGrade({ ...quarters, midterm: 99, final: null }), 80, 'all four quarters average')
 assert.equal(derivedGrade({ final: null, first_sem_q1: 80, midterm: 75 }), 75, 'Midterm is the last resort')
-assert.equal(derivedGrade({ final: null, first_sem_q1: 80 }), null, 'an incomplete quarter set cannot produce a grade')
+assert.equal(derivedGrade({ final: null, first_sem_q1: 80 }), 80, 'Q1 alone is saved as the running grade')
+assert.equal(derivedGrade({ final: null, first_sem_q1: 80, first_sem_q2: 91 }), 85.5, 'partial quarters average')
+assert.equal(derivedGrade({ final: null }), null, 'no score, no grade')
 assert.deepEqual(SCORE_FIELDS, ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2', 'midterm', 'final'])
 
 // --- the letter-grade scale and general average ---------------------------

@@ -5,7 +5,7 @@
   import { confirmPassword, withBusy } from './shell.js'
   import { confirmDialog, noticeDialog } from './dialog.js'
   import { describeError, describeFunctionError } from './errors.js'
-  import { mountAdminShell } from './admin-page.js'
+  import { mountAdminShell, createStaffAccount } from './admin-page.js'
   import { fetchAll } from './fetch-all.js'
   const admin = await mountAdminShell('accounts')
   const verify = message => confirmPassword(admin.email, message)
@@ -37,7 +37,7 @@
       const sentence = `delete ${item.username}`
       const modal = document.createElement('div')
       modal.className = 'admin-modal stack-above'
-      modal.innerHTML = `<div class="admin-modal-box" style="width:min(100%,460px)"><div class="admin-modal-head"><h3>Delete account</h3><button type="button" data-delete-close>x</button></div><p style="margin:0 0 12px;line-height:1.5">Deleting <b>${escape(item.username)}</b> blocks its login immediately and hides it from this list. It can be restored from <b>Audit Trail → Restore Changes</b> for 30 days, then it is erased for good. ${item.student_id ? 'The student record, grades and enrollment are kept.' : 'The staff profile and history are kept.'}</p><label style="display:block;font-size:13px">Type <b>${escape(sentence)}</b> to confirm<input data-delete-sentence autocomplete="off" spellcheck="false" style="margin-top:6px"></label><p data-delete-status class="admin-note" style="margin:10px 0 0;font-size:12px">Type the sentence above to continue.</p><div class="admin-actions" style="margin-top:14px"><button type="button" class="admin-cancel" data-delete-cancel>Cancel</button><button type="button" class="hold-delete" data-delete-hold disabled><span>Hold to delete</span></button></div></div>`
+      modal.innerHTML = `<div class="admin-modal-box" style="width:min(100%,460px)"><div class="admin-modal-head"><h3>Delete account</h3><button type="button" data-delete-close>x</button></div><p style="margin:0 0 12px;line-height:1.5">Deleting <b>${escape(item.username)}</b> blocks its login immediately and hides it from this list. It can be restored from <b>Audit Trail → Restore Changes</b> for 30 days, then it is erased for good. ${item.student_id ? 'The student record, grades and enrollment are kept.' : 'The staff profile and history are kept.'}</p><label style="display:block;font-size:13px">Type <b>${escape(sentence)}</b> to confirm<input maxlength="100" data-delete-sentence autocomplete="off" spellcheck="false" style="margin-top:6px"></label><p data-delete-status class="admin-note" style="margin:10px 0 0;font-size:12px">Type the sentence above to continue.</p><div class="admin-actions" style="margin-top:14px"><button type="button" class="admin-cancel" data-delete-cancel>Cancel</button><button type="button" class="hold-delete" data-delete-hold disabled><span>Hold to delete</span></button></div></div>`
       document.body.appendChild(modal)
       const input = modal.querySelector('[data-delete-sentence]')
       const status = modal.querySelector('[data-delete-status]')
@@ -160,16 +160,19 @@
     if (!username) { usernameInput.value = ''; return usernameInput.reportValidity() }
     const item = accounts.find(account => String(account.user_id) === String(userId))
     if (item && item.role_id !== roleId && !await confirmDialog(`Change ${item.username} from ${roleNames[item.role_id]} to ${roleNames[roleId]}? They will get the pages and permissions of the new role the next time they sign in.`, { title: 'Change role', confirmText: 'Change role', danger: roleId === 1 || item.role_id === 1 })) return
-    const { error } = await withBusy(event.submitter || event.target.querySelector('button'), 'Saving…', () => supabase.from('users').update({ username, role_id: roleId }).eq('user_id', userId))
+    // .select() returns the changed rows, so an update that RLS silently skipped is reported instead of "saved".
+    const { data, error } = await withBusy(event.submitter || event.target.querySelector('button'), 'Saving…', () => supabase.from('users').update({ username, role_id: roleId }).eq('user_id', userId).select('user_id'))
     if (error) return toast(describeError(error, 'Save account'), 'error')
+    if (!data?.length) return toast('Save account failed: the change was not applied. You may not have permission to edit this account.', 'error')
     document.getElementById('account-details-modal').classList.add('hidden')
     toast('Account saved.')
     await loadAccounts()
   }
   async function revertPicture(userId) {
     if (!await confirmDialog('Remove this profile picture? The account holder can upload a new one.', { title: 'Revert picture', confirmText: 'Remove picture', danger: true })) return
-    const { error } = await supabase.from('users').update({ profile_picture_url: null }).eq('user_id', userId)
+    const { data, error } = await supabase.from('users').update({ profile_picture_url: null }).eq('user_id', userId).select('user_id')
     if (error) return toast(describeError(error, 'Revert picture'), 'error')
+    if (!data?.length) return toast('Revert picture failed: the change was not applied.', 'error')
     document.getElementById('account-details-modal').classList.add('hidden')
     toast('Profile picture removed.')
     await loadAccounts()
@@ -190,6 +193,7 @@
   }
   document.getElementById('account-search').oninput = renderAccounts
   document.getElementById('account-role').onchange = renderAccounts
+  document.getElementById('add-account').onclick = async () => { if (await createStaffAccount()) await loadAccounts() }
   document.getElementById('close-account-details').onclick = () => document.getElementById('account-details-modal').classList.add('hidden')
   await loadAccounts()
   hideLoadingScreen()

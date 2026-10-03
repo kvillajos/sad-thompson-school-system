@@ -24,7 +24,21 @@ export function previewPdf(element, { title, filename, printClass }) {
     download.setAttribute('aria-busy', 'true')
     try {
       const { default: html2pdf } = await import('html2pdf.js')
-      await html2pdf().set({ margin: 10, filename, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: ['.transcript-semester', '.signatures-section', 'table.doc-table tr'] } }).from(sheet).save()
+      // html2pdf lays the source out in an A4-content-wide (~718px) box, so the 794px preview sheet would be cut
+      // off on the right. Render a copy that takes the box's width instead.
+      const source = sheet.cloneNode(true)
+      Object.assign(source.style, { width: 'auto', padding: '0', boxShadow: 'none' })
+      // html2pdf moves a block to the next page in whole 1046px steps but slices the canvas every
+      // floor(canvas.width * 277/190) px; at the default 718.1px width those drift ~2px a page, so a moved
+      // block's top border lands on the previous page. A 717.5px-wide capture (1435px at scale 2) slices at
+      // exactly 2 x 1046. ponytail: tied to A4 + 10mm margins + scale 2; recompute if any of those change.
+      const blob = await html2pdf().set({ margin: 10, filename, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, width: 717.5, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: ['.transcript-semester', '.signatures-section', 'table.doc-table tr'] } }).from(source).outputPdf('blob')
+      // A plain download link instead of .save(): the popup .save() falls back to on iOS Safari is blocked after the await.
+      const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename })
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(link.href), 60000)
     } catch {
       toast('Could not make the PDF. Use Print and choose "Save as PDF" as the printer instead.', 'error')
     } finally {

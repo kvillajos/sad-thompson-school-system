@@ -30,8 +30,9 @@ body {
   line-height: 1.45 !important;
 }
 .hidden { display: none !important; }
-/* Hidden by default; responsive-mobile.css turns these back on inside its own @media (max-width:599px) block. */
+/* Hidden by default; responsive-mobile.css turns these back on inside its own @media (max-width:700px) block. */
 .mobile-topbar, .mobile-nav-backdrop { display: none; }
+.char-count { display:block; margin-top:3px; text-align:right; font-size:11px; font-weight:400; color:#64748b; }
 .toast { position:fixed; right:20px; bottom:20px; z-index:10000; max-width:min(420px, calc(100vw - 40px)); padding:13px 17px; border-radius:10px; background:#166534; color:#fff; box-shadow:0 8px 24px rgba(7,27,58,.18); font-weight:700; }
 .toast.error { background:#b91c1c; }
 button:not(:disabled) { transition:filter .15s ease; }
@@ -997,6 +998,25 @@ export function toast(message, type = 'success', duration = type === 'error' ? 7
   toastTimer = setTimeout(() => element.classList.add('hidden'), duration);
 }
 
+// "42 / 500" under any textarea that has a maxlength, added the first time it is focused (it works for dialogs that are
+// built later too). Short inputs only get the hard cap; a textarea with data-own-counter draws its own.
+function installCharCounters(doc = document) {
+  if (!doc || doc.__tcsmsCharCountersInstalled) return
+  doc.__tcsmsCharCountersInstalled = true
+  const counterOf = box => {
+    if (box.dataset.ownCounter !== undefined) return null
+    if (!box.__charCount) {
+      box.__charCount = Object.assign(doc.createElement('small'), { className: 'char-count' })
+      box.insertAdjacentElement('afterend', box.__charCount)
+    }
+    return box.__charCount
+  }
+  const show = box => { const counter = counterOf(box); if (counter) counter.textContent = `${box.value.length} / ${box.maxLength}` }
+  doc.addEventListener('focusin', event => { if (event.target.matches?.('textarea[maxlength]')) show(event.target) })
+  doc.addEventListener('input', event => { if (event.target.matches?.('textarea[maxlength]')) show(event.target) })
+  doc.addEventListener('reset', event => setTimeout(() => event.target.querySelectorAll?.('textarea[maxlength]').forEach(box => box.__charCount && show(box))))
+}
+
 const OPEN_MODALS = '.admin-modal:not(.hidden), .modal:not(.hidden)';
 const MODAL_CLOSE = '.admin-modal-head button, .modalhead button';
 
@@ -1046,6 +1066,7 @@ export function applyUiTheme() {
     }
   }
   installSpamGuard();
+  installCharCounters();
   installTableSort();
   installTablePages();
   installTableCopy();

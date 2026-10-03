@@ -1,6 +1,7 @@
 import { supabase } from './auth-client.js'
 import { toast } from './ui-theme.js'
-import { describeError } from './errors.js'
+import { describeError } from './errors.js'
+import { noticeDialog } from './dialog.js'
 
 // Disables a button and swaps its label (with a spinner) while an async action runs, restoring it after.
 export async function withBusy(button, busyLabel, action) {
@@ -299,7 +300,7 @@ export function mountProfile(user, roleLabel, onSignOut) {
   });
   profile.querySelector('.profile-change-password').addEventListener('click', () => {
     dropdown.classList.add('hidden');
-    openPasswordModal();
+    openPasswordModal(onSignOut);
   });
   const avatar = profile.querySelector('.profile-avatar');
   const nameEl = profile.querySelector('.profile-toggle strong');
@@ -353,7 +354,7 @@ function openProfileModal(user, roleLabel, profile) {
       <label class="admin-full">First Name<input id="tcsms-profile-first-name" maxlength="80"></label>
       <label class="admin-full">Middle Name<input id="tcsms-profile-middle-name" maxlength="80"></label>
       <label class="admin-full">Last Name<input id="tcsms-profile-last-name" maxlength="80"></label>
-      <label class="admin-full">Email<input id="tcsms-profile-email" type="email" data-current="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))}" placeholder="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))}"></label>
+      <label class="admin-full">Email<input id="tcsms-profile-email" maxlength="150" type="email" data-current="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))}" placeholder="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))}"></label>
       <input id="tcsms-profile-picture" type="file" accept="image/png,image/jpeg,image/webp" hidden>
       <div class="admin-actions"><button type="button" id="tcsms-profile-cancel" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Confirm Changes</button></div>
     </form>
@@ -483,7 +484,7 @@ export function withPasswordToggle(input) {
 export function confirmPassword(email, message = 'Enter your password to continue.') {
   return new Promise(resolve => {
     const prompt = document.createElement('div'); prompt.className = 'admin-modal stack-above';
-    prompt.innerHTML = `<div class="admin-modal-box" style="width:min(100%,400px)"><div class="admin-modal-head"><h3>Confirm Password</h3><button type="button" data-password-close>x</button></div><form data-password-form style="grid-template-columns:1fr;gap:8px"><input type="password" data-profile-password placeholder="Password" autocomplete="current-password" required style="margin:0;align-self:start"><small data-password-message style="color:var(--ui-muted);line-height:1.4"></small><p class="login-hint" data-password-error style="color:#c0392b;margin:0;font-size:13px" role="alert"></p><div class="admin-actions" style="margin-top:4px"><button type="button" class="admin-cancel" data-password-cancel>Cancel</button><button type="submit" class="admin-primary">Confirm</button></div></form></div>`;
+    prompt.innerHTML = `<div class="admin-modal-box" style="width:min(100%,400px)"><div class="admin-modal-head"><h3>Confirm Password</h3><button type="button" data-password-close>x</button></div><form data-password-form style="grid-template-columns:1fr;gap:8px"><input type="password" maxlength="128" data-profile-password placeholder="Password" autocomplete="current-password" required style="margin:0;align-self:start"><small data-password-message style="color:var(--ui-muted);line-height:1.4"></small><p class="login-hint" data-password-error style="color:#c0392b;margin:0;font-size:13px" role="alert"></p><div class="admin-actions" style="margin-top:4px"><button type="button" class="admin-cancel" data-password-cancel>Cancel</button><button type="submit" class="admin-primary">Confirm</button></div></form></div>`;
     prompt.querySelector('[data-password-message]').textContent = message;
     document.body.appendChild(prompt);
     withPasswordToggle(prompt.querySelector('[data-profile-password]'));
@@ -519,7 +520,7 @@ export const passwordRules = [
 ];
 export const passwordIsValid = pw => passwordRules.every(([, test]) => test(pw));
 
-function openPasswordModal() {
+function openPasswordModal(onSignOut) {
   document.getElementById('tcsms-password-modal')?.remove();
   const modal = document.createElement('div');
   modal.id = 'tcsms-password-modal';
@@ -527,9 +528,9 @@ function openPasswordModal() {
   modal.innerHTML = `<div class="admin-modal-box" style="width:min(100%,420px)">
     <div class="admin-modal-head"><h3>Change Password</h3><button type="button" id="tcsms-password-close">x</button></div>
     <form id="tcsms-password-form">
-      <label class="admin-full">New Password<input type="password" id="tcsms-new-password" minlength="8" autocomplete="new-password"></label>
+      <label class="admin-full">New Password<input type="password" id="tcsms-new-password" minlength="8" maxlength="72" autocomplete="new-password"></label>
       <div class="pw-meter" aria-live="polite"><div class="pw-bar"><span id="tcsms-pw-fill"></span></div><small id="tcsms-pw-label">Enter a password</small><ul id="tcsms-pw-rules">${passwordRules.map(([label]) => `<li>${label}</li>`).join('')}</ul></div>
-      <label class="admin-full">Confirm Password<input type="password" id="tcsms-confirm-password" minlength="8" autocomplete="new-password"></label>
+      <label class="admin-full">Confirm Password<input type="password" id="tcsms-confirm-password" minlength="8" maxlength="72" autocomplete="new-password"></label>
       <p class="admin-full login-hint" id="tcsms-password-error" role="alert" style="color:var(--ui-danger);margin:0;font-size:13px"></p>
       <div class="admin-actions"><button type="button" id="tcsms-password-cancel" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Update Password</button></div>
     </form>
@@ -564,7 +565,9 @@ function openPasswordModal() {
     const { error } = await withBusy(modal.querySelector('[type="submit"]'), 'Updating…', () => supabase.auth.updateUser({ password: newPassword }));
     if (error) return void (errorLine.textContent = describeError(error, 'Update password'));
     close();
-    toast('Password updated.');
+    // Sign out so the new password is proven on the next login, not just assumed.
+    await noticeDialog('Your password was updated. Sign in again with your new password.', { title: 'Password updated', okText: 'Sign in' });
+    onSignOut();
   });
 }
 

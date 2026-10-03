@@ -61,7 +61,7 @@ export function mountDayTabs(host, rows, { headers, cells, emptyText = 'No class
       ? `<tr class="schedule-gap"><td colspan="${headers.length}">${escapeHtml(item.label)} &middot; ${timeRange12(item.start, item.end)}</td></tr>`
       : `<tr>${cells(item.row).map(value => `<td>${value}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${headers.length}">${escapeHtml(`${emptyText} (${dayNames[day]})`)}</td></tr>`
   }
-  host.innerHTML = `<div class="subtabs" role="tablist">${days.map(day => `<button type="button" class="subtab" role="tab" data-day="${day}">${dayNames[day]}${day === today ? ' <small>(today)</small>' : ''}${byDay(day).length ? ` <small>${byDay(day).length}</small>` : ''}</button>`).join('')}</div><table data-no-sort><thead><tr>${headers.map(header => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody></tbody></table>`
+  host.innerHTML = `<div class="subtabs" role="tablist">${days.map(day => `<button type="button" class="subtab" role="tab" data-day="${day}">${dayNames[day]}${day === today ? ' <small>(today)</small>' : ''}${byDay(day).length ? ` <small>${byDay(day).length}</small>` : ''}</button>`).join('')}</div><table data-no-sort style="table-layout:fixed;min-width:0"><thead><tr>${headers.map(header => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody></tbody></table>`
   host.querySelectorAll('.subtab').forEach(tab => tab.addEventListener('click', () => show(Number(tab.dataset.day))))
   show(initialDay(days, today))
 }

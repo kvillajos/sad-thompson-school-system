@@ -370,6 +370,16 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
         await loadAnnouncements()
         mountAnnouncements(document.getElementById('announcements-host'), 'admin', { list: false })
       })
+      // Exact row counts, so the dashboard can be checked against the tables: every student record,
+      // every faculty profile, and every login that has not been deleted.
+      const countRows = async (id, query) => {
+        const { count, error } = await query
+        document.getElementById(id).textContent = error ? '!' : count ?? 0
+        if (error) toast(describeError(error, 'Load dashboard counts'), 'error')
+      }
+      countRows('count-students', supabase.from('students').select('student_id', { count: 'exact', head: true }))
+      countRows('count-faculty', supabase.from('staff_profiles').select('profile_id', { count: 'exact', head: true }))
+      countRows('count-accounts', supabase.from('users').select('user_id', { count: 'exact', head: true }).is('deleted_at', null))
       await loadAnnouncements()
       mountAnnouncements(document.getElementById('announcements-host'), 'admin', { list: false })
       hideLoadingScreen()

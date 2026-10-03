@@ -5,14 +5,15 @@ import { escapeHtml, gradeLabel } from './html.js'
 import { describeError } from './errors.js'
 import { fetchAll } from './fetch-all.js'
 import { currentSchoolYear } from './grades.js'
+import { searchPicker } from './search-picker.js'
 
 // Capacity-override form shared by the registrar (files a request) and the admin (places directly).
 // The database refuses to bypass grade-level eligibility; it only lifts the seat limit.
 export async function mountOverrideForm(root, { rpc, button, done }) {
   root.classList.add('override-form')
-  root.innerHTML = `<label>Student<input list="override-students" class="override-student" placeholder="Search student name or ID..." autocomplete="off"></label><datalist id="override-students"></datalist>
+  root.innerHTML = `<label>Student<input maxlength="100" class="override-student" placeholder="Search student name or ID..."></label>
     <label>Full section<select class="override-section"><option value="">Choose a student first</option></select></label>
-    <label class="wide">Reason<textarea class="override-reason" required placeholder="e.g. Transferee arriving mid-term; sibling must share a section"></textarea></label>
+    <label class="wide">Reason<textarea maxlength="500" class="override-reason" required placeholder="e.g. Transferee arriving mid-term; sibling must share a section"></textarea></label>
     <div class="admin-actions actions"><button type="submit" class="admin-primary btn">${button}</button></div>`
   const $ = selector => root.querySelector(selector)
   const [students, sections, enrollments] = await Promise.all([
@@ -26,14 +27,20 @@ export async function mountOverrideForm(root, { rpc, button, done }) {
   ;(enrollments.data || []).forEach(row => filled.set(row.section_id, (filled.get(row.section_id) || 0) + 1))
   const label = student => `${student.lrn_number || student.student_id} — ${student.first_name} ${student.last_name}`
   const list = students.data || []
-  $('#override-students').innerHTML = list.map(student => `<option value="${escapeHtml(label(student))}"></option>`).join('')
-  const chosen = () => list.find(student => label(student) === $('.override-student').value)
-  $('.override-student').oninput = () => {
+  let picked = null
+  const chosen = () => picked
+  const showSections = () => {
     const student = chosen()
     const full = student ? (sections.data || []).filter(section => Number(section.grade_level) === Number(student.grade_level) && (filled.get(section.section_id) || 0) >= section.capacity) : []
     $('.override-section').innerHTML = !student ? '<option value="">Choose a student first</option>'
       : full.map(section => `<option value="${section.section_id}">${escapeHtml(section.section_name)} — ${escapeHtml(gradeLabel(section.grade_level))} (${filled.get(section.section_id)}/${section.capacity} seats)</option>`).join('') || '<option value="">No full section for this grade level, place the student normally</option>'
   }
+  const picker = searchPicker($('.override-student'), {
+    search: query => list.filter(student => label(student).toLowerCase().includes(query.toLowerCase())).slice(0, 12),
+    render: student => `<span>${escapeHtml(`${student.first_name} ${student.last_name}`)}</span><small>${escapeHtml(student.lrn_number || student.student_id)} · ${escapeHtml(gradeLabel(student.grade_level))}</small>`,
+    text: label,
+    onPick: student => { picked = student; showSections() }
+  })
   root.onsubmit = async event => {
     event.preventDefault()
     const student = chosen()
@@ -44,7 +51,7 @@ export async function mountOverrideForm(root, { rpc, button, done }) {
       if (error) return toast(describeError(error, 'Override'), 'error')
       toast(done)
       root.reset()
-      $('.override-student').oninput()
+      picker.clear()
     })
   }
 }

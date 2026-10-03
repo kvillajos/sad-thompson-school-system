@@ -67,7 +67,8 @@ const score = (value) => {
 }
 
 // The value promotion, transcripts and the registrar card read. Mirrors save_faculty_grades():
-// final, else the average of all four quarters, else midterm. The RPC stays the authority.
+// final, else the average of all four quarters, else midterm, else the average of the quarters entered so far
+// (so a teacher can save Q1 alone mid-year). The RPC stays the authority.
 export function derivedGrade(record) {
   if (record.final != null) return record.final
   const quarters = [record.first_sem_q1, record.first_sem_q2, record.second_sem_q1, record.second_sem_q2]
@@ -75,7 +76,10 @@ export function derivedGrade(record) {
     const average = quarters.reduce((total, value) => total + value, 0) / 4
     return Math.round(average * 100) / 100
   }
-  return record.midterm ?? null
+  if (record.midterm != null) return record.midterm
+  const entered = quarters.filter(value => value != null)
+  if (!entered.length) return null
+  return Math.round(entered.reduce((total, value) => total + value, 0) / entered.length * 100) / 100
 }
 
 // One sheet row to one RPC record; null when the row was left untouched, so a class can be
@@ -113,7 +117,7 @@ export function parseGradeCsv(text) {
     if (!studentId || !Number.isFinite(Number(studentId))) errors.push('student_id is required and must be a number')
     const record = studentId && Number.isFinite(Number(studentId)) ? gradeRecord(studentId, values) : null
     if (studentId && Number.isFinite(Number(studentId)) && !record) errors.push('no scores were provided')
-    if (record && derivedGrade(record) == null) errors.push('needs a Final, a Midterm, or all four quarter scores')
+    if (record && derivedGrade(record) == null) errors.push('needs at least one score')
     return { row: index + 2, student_id: studentId, record, errors }
   })
 }

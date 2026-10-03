@@ -217,11 +217,15 @@
       async function loadAttendance() {
         const table = document.getElementById('attendance-table')
         if (!user.student_id) return table.innerHTML = '<tr><td colspan="2">No student record linked.</td></tr>'
+        // The list covers the same school year as the totals (a session's year is its section's academic_year),
+        // so a record from another year can't show up in the list but not in the counts.
+        let historyQuery = supabase.from('attendance').select('attendance_date,status,sections!inner(academic_year)').eq('student_id', user.student_id)
+        if (schoolYear) historyQuery = historyQuery.eq('sections.academic_year', schoolYear)
         const [totals, history] = await Promise.all([
           supabase.rpc('attendance_totals', { p_student_id: user.student_id, p_school_year: schoolYear || null }),
-          supabase.from('attendance').select('attendance_date,status').eq('student_id', user.student_id).order('attendance_date', { ascending: false }).limit(20)
+          historyQuery.order('attendance_date', { ascending: false }).limit(20)
         ])
-        document.getElementById('attendance-summary').textContent = totals.error ? describeError(totals.error, 'Load attendance totals') : attendanceSummaryLine(totals.data)
+        document.getElementById('attendance-summary').textContent = totals.error ? describeError(totals.error, 'Load attendance totals') : `${schoolYear ? `S.Y. ${schoolYear}: ` : ''}${attendanceSummaryLine(totals.data)}`
         if (history.error) return table.innerHTML = errorRow(2, history.error, 'Load attendance')
         table.innerHTML = (history.data || []).map(a => `<tr><td>${formatDate(a.attendance_date)}</td><td>${escape(a.status)}</td></tr>`).join('') || '<tr><td colspan="2">No attendance recorded yet.</td></tr>'
       }

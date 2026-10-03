@@ -53,9 +53,10 @@ Deno.serve(async (req) => {
 async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
-    const { user_id, action = 'provision', request_id } = await req.json()
-    if (!user_id) return json({ error: 'user_id is required' }, 400)
-    if (!['provision', 'deactivate', 'activate', 'reset', 'delete', 'restore-account', 'approve-profile-change', 'reject-profile-change'].includes(action)) return json({ error: 'Unknown action' }, 400)
+    const body = await req.json()
+    const { user_id, action = 'provision', request_id } = body
+    if (!user_id && action !== 'create-account') return json({ error: 'user_id is required' }, 400)
+    if (!['provision', 'create-account', 'deactivate', 'activate', 'reset', 'delete', 'restore-account', 'approve-profile-change', 'reject-profile-change'].includes(action)) return json({ error: 'Unknown action' }, 400)
 
     // Verify the caller is a signed-in admin using their forwarded session token.
     const authHeader = req.headers.get('Authorization') || ''
@@ -66,6 +67,42 @@ async function handle(req: Request): Promise<Response> {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
     const { data: callerProfile } = await admin.from('users').select('user_id,role_id').eq('email', caller.email).eq('is_active', true).single()
     if (!callerProfile || Number(callerProfile.role_id) !== 1) return json({ error: 'Admin role required' }, 403)
+
+    // New staff account (admin, registrar or faculty): login + users row + the role's profile row, all or nothing.
+    // Students are not created here; they get their account when their admission application is approved.
+    if (action === 'create-account') {
+      const roleId = Number(body.role_id)
+      const text = (value: unknown) => String(value ?? '').trim()
+      const [firstName, middleName, lastName] = [text(body.first_name), text(body.middle_name), text(body.last_name)]
+      if (![1, 2, 3].includes(roleId)) return json({ error: 'Choose Administrator, Registrar or Faculty.' }, 400)
+      if (!firstName || !lastName) return json({ error: 'First and last name are required.' }, 400)
+      if (roleId === 3 && (!text(body.employee_no) || !text(body.department))) return json({ error: 'Employee No. and Department are required for faculty.' }, 400)
+      const { data: username, error: usernameError } = await admin.rpc('generate_username', { p_first_name: firstName, p_last_name: lastName })
+      if (usernameError || !username) return json({ error: usernameError?.message || 'Could not generate a username' }, 500)
+      const email = `${username}@tcs.edu.ph`
+      const password = randomPassword()
+      const created = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { username } })
+      if (created.error) return json({ error: created.error.message }, 500)
+      const undoLogin = () => admin.auth.admin.deleteUser(created.data.user.id)
+      // password_hash is a legacy NOT NULL column; Supabase Auth holds the real password.
+      const { data: account, error: insertError } = await admin.from('users')
+        .insert({ username, email, password_hash: 'supabase-auth', role_id: roleId, is_active: true }).select('user_id').single()
+      if (insertError) { await undoLogin(); return json({ error: insertError.message }, 500) }
+      const names = { first_name: firstName, last_name: lastName }
+      const code = text(body.employee_no)
+      const profile = roleId === 1
+        ? await admin.from('admins').insert({ user_id: account.user_id, employee_code: code || `ADM-${account.user_id}`, middle_name: middleName || null, ...names })
+        : roleId === 2
+          ? await admin.from('registrars').insert({ user_id: account.user_id, employee_code: code || `REG-${account.user_id}`, ...names })
+          : await admin.from('staff_profiles').insert({ user_id: account.user_id, employee_no: code, middle_name: middleName || null, department: text(body.department), specialization: text(body.specialization) || null, phone: text(body.phone) || null, ...names })
+      if (profile.error) {
+        await admin.from('users').delete().eq('user_id', account.user_id)
+        await undoLogin()
+        return json({ error: profile.error.message }, 500)
+      }
+      // Returned once so the admin can relay it; never stored.
+      return json({ user_id: account.user_id, username, email, temporary_password: password })
+    }
 
     if (action === 'approve-profile-change' || action === 'reject-profile-change') {
       const { data: request, error: requestError } = await admin.from('profile_change_requests').select('*').eq('request_id', request_id).eq('status', 'pending').single()

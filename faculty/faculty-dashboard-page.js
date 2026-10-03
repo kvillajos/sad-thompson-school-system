@@ -11,9 +11,6 @@ const context = await loadFacultyContext('dashboard')
 if (context) {
   const $ = id => document.getElementById(id)
   mountAnnouncements($('announcements-host'), 'faculty')
-  $('class-count').textContent = new Set(context.schedules.map(item => item.section_id)).size
-  $('schedule-count').textContent = context.schedules.length
-  $('student-count').textContent = context.enrollments.length
   if (context.scheduleError) $('schedule-days').innerHTML = `<p class="note" role="alert">${escapeHtml(describeError(context.scheduleError, 'Load your schedule'))}</p>`
   else if (!context.schedules.length) $('schedule-days').innerHTML = `<p class="note">No classes are assigned to you yet. Classes appear here once the administrator schedules a subject with you (${escapeHtml(context.facultyName)}) as the teacher.</p>`
   else mountDayTabs($('schedule-days'), context.schedules, {

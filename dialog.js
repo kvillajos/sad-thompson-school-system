@@ -37,10 +37,12 @@ export function confirmDialog(message, { title = 'Please confirm', confirmText =
 export function formDialog({ title, message = '', fields, confirmText = 'Submit', danger = false }) {
   return new Promise(resolve => {
     const field = f => {
-      const attrs = [f.required && 'required', f.min != null && `min="${f.min}"`, f.max != null && `max="${f.max}"`, f.step != null && `step="${f.step}"`, f.maxlength && `maxlength="${f.maxlength}"`, f.placeholder && `placeholder="${escapeHtml(f.placeholder)}"`].filter(Boolean).join(' ')
-      const control = f.multiline
-        ? `<textarea name="${f.name}" rows="3" ${attrs}>${escapeHtml(f.value ?? '')}</textarea>`
-        : `<input name="${f.name}" type="${f.type || 'text'}" value="${escapeHtml(f.value ?? '')}" ${attrs}>`
+      const attrs = [f.required && 'required', f.min != null && `min="${f.min}"`, f.max != null && `max="${f.max}"`, f.step != null && `step="${f.step}"`, (f.maxlength ?? (f.multiline ? 500 : (!f.type || f.type === 'text') ? 120 : null)) && `maxlength="${f.maxlength ?? (f.multiline ? 500 : 120)}"`, f.placeholder && `placeholder="${escapeHtml(f.placeholder)}"`].filter(Boolean).join(' ')
+      const control = f.options
+        ? `<select name="${f.name}" ${attrs}>${f.options.map(([value, label]) => `<option value="${escapeHtml(value)}"${String(value) === String(f.value ?? '') ? ' selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>`
+        : f.multiline
+          ? `<textarea name="${f.name}" rows="3" ${attrs}>${escapeHtml(f.value ?? '')}</textarea>`
+          : `<input name="${f.name}" type="${f.type || 'text'}" value="${escapeHtml(f.value ?? '')}" ${attrs}>`
       return `<label class="admin-full">${escapeHtml(f.label)}${control}${f.hint ? `<small class="dialog-hint">${escapeHtml(f.hint)}</small>` : ''}</label>`
     }
     const { modal, close } = openDialog({
@@ -60,7 +62,7 @@ export function formDialog({ title, message = '', fields, confirmText = 'Submit'
       if (bad) return form.elements[bad.name].reportValidity()
       finish(values)
     }
-    form.querySelector('input, textarea')?.focus()
+    form.querySelector('input, textarea, select')?.focus()
   })
 }
 

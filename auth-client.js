@@ -33,7 +33,7 @@ export async function requireRole(roleId) {
   const { data: { session } } = await supabase.auth.getSession()
 
   if (!session) {
-    window.location.href = '/index.html'
+    window.location.replace('/index.html')
     return null
   }
 
@@ -46,10 +46,15 @@ export async function requireRole(roleId) {
 
   if (error || !user || Number(user.role_id) !== roleId) {
     await supabase.auth.signOut()
-    window.location.href = '/index.html'
+    window.location.replace('/index.html')
     return null
   }
 
+  // Back after sign-out restores this page from the bfcache without rerunning any script,
+  // so re-check the session whenever the page is shown again.
+  window.addEventListener('pageshow', async (event) => {
+    if (event.persisted && !(await supabase.auth.getSession()).data.session) window.location.replace('/index.html')
+  })
   startInactivityTimeout()
   return user
 }
@@ -65,5 +70,5 @@ export function showConfigurationError() {
 export async function signOut() {
   sessionTimeout.stop()
   await supabase.auth.signOut()
-  window.location.href = '/index.html'
+  window.location.replace('/index.html')
 }

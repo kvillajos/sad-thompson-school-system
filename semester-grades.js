@@ -21,7 +21,11 @@ export function semesterGroups(rows = []) {
     const year = String(row.school_year || '')
     if (!groups.has(year)) groups.set(year, { schoolYear: year, semesters: new Map() })
     const group = groups.get(year)
-    semesterRows([row]).forEach(item => {
+    // A semester with no quarter scores yet (the 2nd semester in October) is left out, so it cannot repeat the
+    // 1st semester's grade; a record with no quarter scores at all (grade only) is listed once, under the 1st.
+    const items = semesterRows([row])
+    const scored = items.filter(item => item.semesterGrade != null)
+    ;(scored.length ? scored : items.slice(0, 1)).forEach(item => {
       if (!group.semesters.has(item.semester)) group.semesters.set(item.semester, [])
       group.semesters.get(item.semester).push(item)
     })
