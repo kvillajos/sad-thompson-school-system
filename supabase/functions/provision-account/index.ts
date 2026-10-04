@@ -90,10 +90,11 @@ async function handle(req: Request): Promise<Response> {
       if (insertError) { await undoLogin(); return json({ error: insertError.message }, 500) }
       const names = { first_name: firstName, last_name: lastName }
       const code = text(body.employee_no)
+      // Registrars share staff_profiles with faculty (the header, Edit Profile and its approval all read it there).
       const profile = roleId === 1
         ? await admin.from('admins').insert({ user_id: account.user_id, employee_code: code || `ADM-${account.user_id}`, middle_name: middleName || null, ...names })
         : roleId === 2
-          ? await admin.from('registrars').insert({ user_id: account.user_id, employee_code: code || `REG-${account.user_id}`, ...names })
+          ? await admin.from('staff_profiles').insert({ user_id: account.user_id, employee_no: code || `REG-${account.user_id}`, middle_name: middleName || null, department: 'Registrar Office', ...names })
           : await admin.from('staff_profiles').insert({ user_id: account.user_id, employee_no: code, middle_name: middleName || null, department: text(body.department), specialization: text(body.specialization) || null, phone: text(body.phone) || null, ...names })
       if (profile.error) {
         await admin.from('users').delete().eq('user_id', account.user_id)

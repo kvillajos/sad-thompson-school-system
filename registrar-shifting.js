@@ -83,7 +83,7 @@ $('shift-form').addEventListener('submit', async e => {
     if (error) return toast(describeError(error, 'Shift student'), 'error')
     toast('Student shift completed successfully.')
     $('shift-reason').value = ''
-    await Promise.all([loadSections(), loadEnrollments()])
+    await Promise.all([loadSections(), loadEnrollments(), loadStudents()])
     await refreshShiftSections()
   })
 })

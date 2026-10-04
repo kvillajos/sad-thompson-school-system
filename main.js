@@ -77,8 +77,10 @@ loginForm.addEventListener('submit', async (e) => {
   submitButton.disabled = true
   showLoadingScreen()
 
-  const { data: email, error: lookupError } = await supabase
-    .rpc('find_login_email', { login_username: username })
+  // find_login_email only knows usernames; an email is used as typed (stored emails are lowercase).
+  const { data: email, error: lookupError } = username.includes('@')
+    ? { data: username.toLowerCase(), error: null }
+    : await supabase.rpc('find_login_email', { login_username: username })
 
   if (isNetworkError(lookupError)) {
     failLogin(describeError(lookupError, 'Sign in'), username, password)

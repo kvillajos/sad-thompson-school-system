@@ -1,6 +1,6 @@
 import { supabase } from '../auth-client.js'
-import { loadFacultyContext, escapeHtml, classSelect } from './faculty-common.js'
-import { currentSchoolYear, derivedGrade, parseGradeCsv } from '../grades.js'
+import { loadFacultyContext, escapeHtml, classSelect, rosterFor } from './faculty-common.js'
+import { currentSchoolYear, derivedGrade, parseGradeCsv, SCORE_FIELDS } from '../grades.js'
 import { withBusy } from '../shell.js'
 import { toast } from '../ui-theme.js'
 import { describeError } from '../errors.js'
@@ -17,6 +17,19 @@ if (context) {
     const bad = rows.filter(row => row.errors.length).length
     $('save-upload').disabled = !rows.length || bad > 0
     if (bad) toast(`${bad} row(s) have problems (shown in red). Fix them in the file and choose it again.`, 'error')
+  }
+  // The CSV is keyed by the internal student_id, which faculty never see, so the template fills it in.
+  // The name goes last (commas stripped) because parseGradeCsv splits on every comma.
+  $('download-template').onclick = () => {
+    const { chosen, roster } = rosterFor(context, $('upload-class').value)
+    if (!chosen) return toast('Choose a class first.', 'error')
+    const header = ['student_id', ...SCORE_FIELDS, 'letter_grade', 'remarks', 'student_name']
+    const lines = roster.map(item => [item.student_id, ...SCORE_FIELDS.map(() => ''), '', '', `${item.students?.first_name || ''} ${item.students?.last_name || ''}`.replace(/,/g, ' ')].join(','))
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([[header.join(','), ...lines].join('\r\n')], { type: 'text/csv' }))
+    link.download = `${chosen.label.replace(/[^a-z0-9]+/gi, '-')}-grades.csv`
+    link.click()
+    URL.revokeObjectURL(link.href)
   }
   $('upload-file').onchange = async event => {
     const file = event.target.files[0]

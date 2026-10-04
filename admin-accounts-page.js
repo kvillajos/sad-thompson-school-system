@@ -146,9 +146,11 @@
     const fullName = profile ? [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' ') : ''
     const initials = (fullName || item.username).split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase()
     const roleOptions = Object.entries(roleNames).map(([id, name]) => `<option value="${id}" ${item.role_id === Number(id) ? 'selected' : ''}>${name}</option>`).join('')
-    document.getElementById('account-details-body').innerHTML = `<div class="account-hero"><div class="account-avatar">${item.profile_picture_url ? `<img src="${escape(item.profile_picture_url)}" alt="Profile picture">` : escape(initials || '?')}</div><div><p class="account-hero-name">${escape(fullName || item.username)}</p><div class="account-hero-meta"><span class="badge">${escape(account.role)}</span><span class="badge${account.status === 'Active' ? ' active' : ''}">${escape(account.status)}</span></div></div>${item.profile_picture_url ? `<button class="admin-view" data-revert-picture="${item.user_id}">Revert Picture</button>` : ''}</div><form id="account-edit-form" class="account-edit-grid"><label>Username<input id="account-edit-username" value="${escape(item.username)}" maxlength="80" required></label><label>Email<input value="${escape(item.email)}" readonly></label><label>Role<select id="account-edit-role">${roleOptions}</select></label><div class="admin-actions"><button class="admin-primary">Save Account</button></div></form><h4>Account</h4><div class="review-grid">${grid(Object.entries(account))}</div><div class="account-section-head"><h4>Profile</h4>${item.student_id && profile ? '<button class="admin-view" id="edit-student-info" type="button">Edit Student Info</button>' : ''}</div><div id="account-profile-host"><div class="review-grid">${profile ? grid(Object.entries(profile).filter(([k]) => !skip.has(k))) : '<p>No linked profile record.</p>'}</div></div>`
+    // A student's photo lives on the student record, not the account row.
+    const picture = item.profile_picture_url || (item.student_id ? profile?.profile_picture_url : null)
+    document.getElementById('account-details-body').innerHTML = `<div class="account-hero"><div class="account-avatar">${picture ? `<img src="${escape(picture)}" alt="Profile picture">` : escape(initials || '?')}</div><div><p class="account-hero-name">${escape(fullName || item.username)}</p><div class="account-hero-meta"><span class="badge">${escape(account.role)}</span><span class="badge${account.status === 'Active' ? ' active' : ''}">${escape(account.status)}</span></div></div>${picture ? `<button class="admin-view" data-revert-picture="${item.user_id}">Revert Picture</button>` : ''}</div><form id="account-edit-form" class="account-edit-grid"><label>Username<input id="account-edit-username" value="${escape(item.username)}" maxlength="80" required></label><label>Email<input value="${escape(item.email)}" readonly></label><label>Role<select id="account-edit-role">${roleOptions}</select></label><div class="admin-actions"><button class="admin-primary">Save Account</button></div></form><h4>Account</h4><div class="review-grid">${grid(Object.entries(account))}</div><div class="account-section-head"><h4>Profile</h4>${item.student_id && profile ? '<button class="admin-view" id="edit-student-info" type="button">Edit Student Info</button>' : ''}</div><div id="account-profile-host"><div class="review-grid">${profile ? grid(Object.entries(profile).filter(([k]) => !skip.has(k))) : '<p>No linked profile record.</p>'}</div></div>`
     document.getElementById('account-edit-form').onsubmit = event => saveAccount(event, item.user_id)
-    document.querySelector('[data-revert-picture]')?.addEventListener('click', () => revertPicture(userId))
+    document.querySelector('[data-revert-picture]')?.addEventListener('click', () => revertPicture(item))
     document.getElementById('edit-student-info')?.addEventListener('click', () => editStudentInfo(item, profile))
     document.getElementById('account-details-modal').classList.remove('hidden')
   }
@@ -168,9 +170,11 @@
     toast('Account saved.')
     await loadAccounts()
   }
-  async function revertPicture(userId) {
+  async function revertPicture(item) {
     if (!await confirmDialog('Remove this profile picture? The account holder can upload a new one.', { title: 'Revert picture', confirmText: 'Remove picture', danger: true })) return
-    const { data, error } = await supabase.from('users').update({ profile_picture_url: null }).eq('user_id', userId).select('user_id')
+    const { data, error } = item.student_id
+      ? await supabase.from('students').update({ profile_picture_url: null }).eq('student_id', item.student_id).select('student_id')
+      : await supabase.from('users').update({ profile_picture_url: null }).eq('user_id', item.user_id).select('user_id')
     if (error) return toast(describeError(error, 'Revert picture'), 'error')
     if (!data?.length) return toast('Revert picture failed: the change was not applied.', 'error')
     document.getElementById('account-details-modal').classList.add('hidden')

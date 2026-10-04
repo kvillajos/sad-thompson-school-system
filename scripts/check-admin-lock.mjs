@@ -27,9 +27,9 @@ const stub = `
         ? { select: () => ({ eq: () => ({ order: async () => ({ data: [] }) }) }) }
       : table === 'approval_requests'
         ? { select: () => ({ eq: () => ({ order: async () => ({ data: [] }) }) }) }
-      // Dashboard row counts (select(..., { head: true }), users also filtered with .is()); the rest is unused here.
+      // Dashboard row counts (select(..., { head: true }), users filtered with .is(), faculty with .eq()); the rest is unused here.
       : ['students', 'staff_profiles', 'users'].includes(table)
-        ? { select: (columns, options) => { const result = Promise.resolve({ count: 3, error: null }); result.is = () => result; return options?.head ? result : { in: async () => ({ data: [] }) } } }
+        ? { select: (columns, options) => { const result = Promise.resolve({ count: 3, error: null }); result.is = () => result; result.eq = () => result; return options?.head ? result : { in: async () => ({ data: [] }) } } }
       : { select: () => ({ in: () => ({ order: async () => ({ data: rows }) }) }) },
     rpc: async () => ({ data: null, error: null }),
     functions: { invoke: async () => ({ data: {}, error: null }) },

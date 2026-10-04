@@ -9,6 +9,6 @@
   <section class="admin-table-wrap audit-archive-panel" style="margin-top:18px"><div class="admin-section-title"><h3>Audit Archive</h3><div class="audit-export-controls"><label for="audit-date">Date</label><input id="audit-date" type="date"><button id="export-audit" class="admin-primary" type="button">Export PDF</button></div></div><p class="audit-export-note">Choose a date to preview its archived actions, then export the dated audit log through the browser PDF dialog.</p><div id="audit-archive-table"><p>Select a date to load archived actions.</p></div></section>
   <section class="admin-table-wrap" style="margin-top:18px"><div class="admin-section-title"><h3>Restore Changes</h3><button id="refresh-restore" class="admin-secondary" type="button">Refresh</button></div><p class="audit-export-note">Undo any edit, deletion or addition from the last 30 days. Deleted accounts can be restored until they are erased.</p><div id="restore-changes-host"><p>Loading changes…</p></div></section>
 </main>
-<section id="audit-print-area" class="audit-print-area" aria-hidden="true"></section>
+<section id="audit-print-area" class="audit-print-area" aria-hidden="true" data-no-pages></section>
 <script type="module" src="/admin-audit.js"></script>
 </body></html>

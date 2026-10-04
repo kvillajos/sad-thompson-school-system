@@ -63,6 +63,9 @@ export async function loadEnrollments() {
   const loadError = studentResult.error || enrollmentResult.error
   if (loadError) { $('enrollment-table').innerHTML = errorRow(7, loadError, 'Load enrollments'); return }
   const enrollmentByStudent = new Map((enrollmentResult.data || []).map(row => [String(row.student_id), row]))
+  // Keep the directory's Section column in step after placements and shifts.
+  state.studentSections = new Map([...enrollmentByStudent].map(([id, row]) => [id, row.sections?.section_name || 'No Section']))
+  renderStudentDirectory()
   enrollmentData = (studentResult.data || []).map(student => ({
     ...enrollmentByStudent.get(String(student.student_id)),
     student_id: student.student_id, students: student
@@ -147,7 +150,7 @@ function placementRows() {
   const grade = $('placement-grade').value
   const sections = state.sections.filter(section => Number(section.grade_level) === Number(grade)).sort((a,b)=>(a.section_name||'').localeCompare(b.section_name||''))
   const currentSection = $('placement-section').value
-  $('placement-section').innerHTML = sections.map(s=>`<option value="${s.section_id}">${escapeHtml(s.section_name)} (${s.capacity} seats)</option>`).join('')
+  $('placement-section').innerHTML = sections.map(s=>`<option value="${s.section_id}">${escapeHtml(s.section_name)} (${Math.max(0, s.capacity - (sectionCounts[s.section_id] || 0))} of ${s.capacity} seats left)</option>`).join('')
   if (sections.some(section => String(section.section_id) === currentSection)) $('placement-section').value = currentSection
   const search = $('placement-search').value.trim().toLowerCase()
   return studentsForSection(state.students, {

@@ -10,6 +10,8 @@
       import { mountAdminShell } from './admin-page.js'
 import { mountAnnouncements, pinIcon } from './announcements.js'
       const user = await mountAdminShell('dashboard')
+      // Full name with the middle name, so a middle-name-only change is visible to the approver.
+      const profileLine = data => `${[data?.first_name, data?.middle_name, data?.last_name].filter(Boolean).join(' ')} / ${data?.email || ''}`
 
       let applications = []
       let selectedApplication = null
@@ -26,7 +28,7 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
         const query = approvalFilter.value.trim().toLowerCase()
         const rows = [
           ...applications.map(application => ({ type: 'admission', at: application.created_at, html: `<td>Admission</td><td>${escape(application.first_name)} ${escape(application.last_name)} - Grade ${escape(application.grade_level)}</td><td>Registrar</td><td>${formatDate(application.created_at, true)}${isEditLocked(application) ? ' <b title="The registrar has this file open for correction.">✏️ editing</b>' : ''}</td><td><button class="admin-view" data-review="${application.id}">Review</button></td>` })),
-          ...profileRequests.map(request => ({ type: 'profile', at: request.created_at, html: `<td>Profile change</td><td>${escape(`${request.before_data.first_name} ${request.before_data.last_name} / ${request.before_data.email}`)} → ${escape(`${request.after_data.first_name} ${request.after_data.last_name} / ${request.after_data.email}`)}</td><td>${escape(request.requester)}</td><td>${formatDate(request.created_at, true)}</td><td><button class="admin-approve" data-profile-action="approve" data-request="${request.request_id}" data-user="${request.user_id}">Approve</button> <button class="admin-remove" data-profile-action="reject" data-request="${request.request_id}" data-user="${request.user_id}">Reject</button></td>` })),
+          ...profileRequests.map(request => ({ type: 'profile', at: request.created_at, html: `<td>Profile change</td><td>${escape(profileLine(request.before_data))} → ${escape(profileLine(request.after_data))}</td><td>${escape(request.requester)}</td><td>${formatDate(request.created_at, true)}</td><td><button class="admin-approve" data-profile-action="approve" data-request="${request.request_id}" data-user="${request.user_id}">Approve</button> <button class="admin-remove" data-profile-action="reject" data-request="${request.request_id}" data-user="${request.user_id}">Reject</button></td>` })),
           ...approvalRequests.map(request => ({ type: request.request_type, at: request.created_at, html: `<td>${requestLabels[request.request_type]}</td><td>${escape(request.summary)}<br><small>Reason: ${escape(request.reason)}</small></td><td>${escape(request.requester_name || '-')}</td><td>${formatDate(request.created_at, true)}</td><td><button class="admin-approve" data-request-action="approve" data-approval="${request.id}">Approve</button> <button class="admin-remove" data-request-action="reject" data-approval="${request.id}">Reject</button></td>` }))
         ].filter(row => requestLabels[row.type].toLowerCase().includes(query)).sort((x, y) => new Date(y.at) - new Date(x.at))
         approvalsTable.innerHTML = approvalErrors.map(message => `<tr class="table-state-error"><td colspan="5" role="alert">${escape(message)}</td></tr>`).join('') + (rows.map(row => `<tr>${row.html}</tr>`).join('') || `<tr><td colspan="5">${query ? 'No pending approvals of that type.' : 'No pending approvals. You are all caught up.'}</td></tr>`)
@@ -316,8 +318,17 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
             document.getElementById('announcement-date-wrap').classList.remove('hidden')
           }
         }
+        syncAudience()
         document.getElementById('announcement-modal').classList.remove('hidden')
       }
+      // Urgent notices show on the public login screen, so they always go to everyone; say so instead of ignoring the choice.
+      function syncAudience() {
+        const urgent = document.getElementById('announcement-kind').value === 'maintenance'
+        const audience = document.getElementById('announcement-audience')
+        if (urgent) audience.value = 'all'
+        audience.disabled = urgent
+      }
+      document.getElementById('announcement-kind').onchange = syncAudience
       document.getElementById('add-announcement').onclick = () => openAnnouncementForm()
       const editor = document.getElementById('announcement-message')
       document.getElementById('announcement-toolbar').addEventListener('mousedown', event => {
@@ -378,7 +389,7 @@ import { mountAnnouncements, pinIcon } from './announcements.js'
         if (error) toast(describeError(error, 'Load dashboard counts'), 'error')
       }
       countRows('count-students', supabase.from('students').select('student_id', { count: 'exact', head: true }))
-      countRows('count-faculty', supabase.from('staff_profiles').select('profile_id', { count: 'exact', head: true }))
+      countRows('count-faculty', supabase.from('staff_profiles').select('profile_id,users!inner(role_id)', { count: 'exact', head: true }).eq('users.role_id', 3)) // registrars also have staff profiles
       countRows('count-accounts', supabase.from('users').select('user_id', { count: 'exact', head: true }).is('deleted_at', null))
       await loadAnnouncements()
       mountAnnouncements(document.getElementById('announcements-host'), 'admin', { list: false })

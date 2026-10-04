@@ -1,6 +1,7 @@
 import { supabase } from './auth-client.js'
 import { toast } from './ui-theme.js'
-import { describeError } from './errors.js'
+import { describeError } from './errors.js'
+
 import { noticeDialog } from './dialog.js'
 
 // Disables a button and swaps its label (with a spinner) while an async action runs, restoring it after.
@@ -557,11 +558,14 @@ function openPasswordModal(onSignOut) {
   modal.querySelector('#tcsms-password-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const newPassword = document.getElementById('tcsms-new-password').value;
-    const confirmPassword = document.getElementById('tcsms-confirm-password').value;
+    const repeated = document.getElementById('tcsms-confirm-password').value;
     const errorLine = modal.querySelector('#tcsms-password-error');
     if (!passwordIsValid(newPassword)) return void (errorLine.textContent = 'The new password does not meet every rule above.');
-    if (newPassword !== confirmPassword) return void (errorLine.textContent = 'The two passwords do not match.');
+    if (newPassword !== repeated) return void (errorLine.textContent = 'The two passwords do not match.');
     errorLine.textContent = '';
+    // The current password is required too, so an unattended signed-in screen cannot be used to take over the account.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!await confirmPassword(session?.user?.email, 'Enter your current password to change it.')) return;
     const { error } = await withBusy(modal.querySelector('[type="submit"]'), 'Updating…', () => supabase.auth.updateUser({ password: newPassword }));
     if (error) return void (errorLine.textContent = describeError(error, 'Update password'));
     close();

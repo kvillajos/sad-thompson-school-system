@@ -27,10 +27,13 @@ function splitByGender(students) {
   }
 }
 
-// Students that may be placed into one section: exactly that grade level, and not
+// Graduated, transferred and withdrawn students have left the school and must not be placed again.
+export const isPlaceable = student => !['Graduated', 'Transferred', 'Withdrawn'].includes(student.enrollment_status)
+
+// Students that may be placed into one section: exactly that grade level, still in school, and not
 // already sitting in that same section.
 export function studentsForSection(students, { gradeLevel, sectionId, enrolledByStudent = new Map() }) {
-  return students.filter(student => Number(student.grade_level) === Number(gradeLevel)
+  return students.filter(student => Number(student.grade_level) === Number(gradeLevel) && isPlaceable(student)
     && Number(enrolledByStudent.get(student.student_id)) !== Number(sectionId))
 }
 
@@ -48,7 +51,7 @@ export function planBalancedAssignments({ students, sections, enrolledByStudent 
   const byGrade = new Map()
   students.forEach(student => {
     const grade = Number(student.grade_level)
-    if (!inScope.has(grade)) return
+    if (!inScope.has(grade) || !isPlaceable(student)) return
     if (enrolledByStudent.get(student.student_id)) return // already has a section
     if (excludedStudentIds.has(Number(student.student_id))) return // registrar excluded them
     if (!byGrade.has(grade)) byGrade.set(grade, [])

@@ -49,7 +49,10 @@ async function exportAudit() {
   await loadAuditArchive()
   const source = document.querySelector('#audit-archive-table table')
   if (!source) return
-  document.getElementById('audit-print-area').innerHTML = `<h1>Thompson Christian School</h1><h2>Audit Log - ${escape(date)}</h2>${source.outerHTML}`
+  const printArea = document.getElementById('audit-print-area')
+  printArea.innerHTML = `<h1>Thompson Christian School</h1><h2>Audit Log - ${escape(date)}</h2>${source.outerHTML}`
+  // The on-screen table is paged (rows beyond page 1 are hidden); the export must list every event.
+  printArea.querySelectorAll('tr[hidden]').forEach(row => { row.hidden = false })
   const previousTitle = document.title
   document.title = `audit-log-${date}`
   document.body.classList.add('printing-audit')

@@ -3551,3 +3551,164 @@ grant execute on function registrar_find_accounts(text) to authenticated;
 notify pgrst, 'reload schema';
 commit;
 -- END migration-v37-registrar-applications-and-account-search.sql
+
+
+-- ============================================================================
+-- BEGIN migration-v38-placement-guards-load-notices-account-audit.sql  (applied live 2026-10-04 via apply_migration; drop-if-exists lines were skipped live because those objects did not exist)
+-- 1. Placement writes the enrollment under the SECTION's school year (it used the calendar year, which is
+--    wrong from January to May) and refuses closed sections and students who left the school.
+--    (Sep 30: placements into closed 2025-2026 sections 24 and 28 created 2026-2027 enrollments.)
+-- 2. One "Teaching load updated" notice per class change, not one per weekday row.
+-- 3. Account changes (create, edit, deactivate, delete, restore) are recorded in the audit log.
+-- 4. Admission documents can be uploaded and viewed (storage policies for the private bucket).
+-- ============================================================================
+begin;
+
+-- Shared check for every placement path.
+create or replace function public.placement_guard(p_student_id integer, p_target sections)
+returns void language plpgsql stable set search_path = public as $$
+begin
+  if coalesce(p_target.status, 'active') <> 'active' then
+    raise exception '% (%) is %, so students cannot be placed in it', p_target.section_name, p_target.academic_year, p_target.status;
+  end if;
+  if exists (select 1 from students where student_id = p_student_id
+             and enrollment_status in ('Graduated', 'Transferred', 'Withdrawn')) then
+    raise exception 'This student has left the school (graduated, transferred or withdrawn) and cannot be placed';
+  end if;
+end $$;
+revoke all on function public.placement_guard(integer, sections) from public, anon, authenticated;
+
+create or replace function public.apply_section_assignments(p_assignments jsonb, p_school_year text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  r record; target sections%rowtype; seats integer; requested integer; placed integer := 0; sid integer;
+begin
+  perform registrar_workflow_actor(2);
+  if coalesce(jsonb_typeof(p_assignments), 'null') <> 'array' or jsonb_array_length(p_assignments) = 0 then
+    raise exception 'Select at least one student before placing them';
+  end if;
+  if (select count(distinct value->>'student_id') from jsonb_array_elements(p_assignments)) <> jsonb_array_length(p_assignments) then
+    raise exception 'The same student was selected more than once';
+  end if;
+
+  for r in
+    select (value->>'section_id')::integer as section_id, array_agg((value->>'student_id')::integer) as student_ids
+    from jsonb_array_elements(p_assignments)
+    group by 1
+  loop
+    select * into target from sections where section_id = r.section_id for update;
+    if not found then raise exception 'Target section % was not found', r.section_id; end if;
+    foreach sid in array r.student_ids loop perform placement_guard(sid, target); end loop;
+
+    if exists (select 1 from students s where s.student_id = any(r.student_ids) and s.grade_level is distinct from target.grade_level) then
+      raise exception 'Every selected student must belong to grade level % of %', target.grade_level, target.section_name;
+    end if;
+
+    requested := coalesce(array_length(r.student_ids, 1), 0);
+    select count(*) into seats from enrollments e
+      where e.section_id = r.section_id and e.status = 'active' and not (e.student_id = any(r.student_ids));
+    if requested > (target.capacity - seats) then
+      raise exception '% has % seat(s) left but % student(s) were selected', target.section_name, target.capacity - seats, requested;
+    end if;
+
+    -- The enrollment belongs to the section's school year, whatever today's date is.
+    insert into enrollments (student_id, school_year, grade_level, section_id, status, enrolled_at)
+    select s, target.academic_year, target.grade_level, r.section_id, 'active', now() from unnest(r.student_ids) s
+    on conflict (student_id, school_year) do update
+      set section_id = excluded.section_id, grade_level = excluded.grade_level, status = 'active';
+
+    placed := placed + requested;
+    insert into audit_logs(action, entity_type, entity_id, details)
+      values('ASSIGN_SECTIONS', 'section', r.section_id, jsonb_build_object('students', r.student_ids, 'school_year', target.academic_year));
+  end loop;
+
+  return jsonb_build_object('placed', placed);
+end $$;
+
+create or replace function public.place_with_override(p_student_id integer, p_section_id integer, p_reason text, p_actor text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare target sections%rowtype; student_grade integer; seats integer;
+begin
+  select * into target from sections where section_id = p_section_id for update;
+  if not found then raise exception 'Section not found'; end if;
+  select grade_level into student_grade from students where student_id = p_student_id;
+  if not found then raise exception 'Student not found'; end if;
+  perform placement_guard(p_student_id, target);
+  if target.grade_level <> student_grade then raise exception 'Grade level is not eligible for this section'; end if;
+  perform set_config('app.capacity_override', 'on', true);
+  insert into enrollments(student_id, school_year, grade_level, section_id, status, enrolled_at)
+  values (p_student_id, target.academic_year, student_grade, p_section_id, 'active', now())
+  on conflict (student_id, school_year) do update set section_id = excluded.section_id, grade_level = excluded.grade_level, status = 'active';
+  perform set_config('app.capacity_override', 'off', true);
+  select count(*) into seats from enrollments where section_id = p_section_id and status = 'active';
+  insert into audit_logs(action, entity_type, entity_id, details)
+  values ('OVERRIDE_PLACE', 'student', p_student_id, jsonb_build_object('section_id', p_section_id, 'section', target.section_name, 'enrolled_now', seats, 'capacity', target.capacity, 'reason', p_reason, 'approved_by', p_actor));
+  return jsonb_build_object('section_name', target.section_name, 'enrolled_now', seats, 'capacity', target.capacity);
+end $$;
+
+create or replace function public.shift_student(p_student_id integer, p_target_section_id integer, p_reason text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare old_section integer; old_name text; new_name text; student_grade integer; target sections%rowtype;
+begin
+  if coalesce((select current_app_role()), 0) not in (1, 2) then raise exception 'Not authorized'; end if;
+  if nullif(trim(p_reason),'') is null then raise exception 'Shift reason is required'; end if;
+  select grade_level into student_grade from students where student_id=p_student_id for update; if not found then raise exception 'Student not found'; end if;
+  select * into target from sections where section_id=p_target_section_id and grade_level=student_grade; if not found then raise exception 'Target section is not eligible'; end if;
+  perform placement_guard(p_student_id, target);
+  new_name := target.section_name;
+  if (select count(*) from enrollments where section_id=p_target_section_id and status='active') >= target.capacity then raise exception 'Target section is full'; end if;
+  select section_id into old_section from enrollments where student_id=p_student_id and status='active' order by created_at desc limit 1;
+  if old_section=p_target_section_id then raise exception 'Student is already in the target section'; end if;
+  if old_section is not null then select section_name into old_name from sections where section_id=old_section; end if;
+  update enrollments set section_id=p_target_section_id where student_id=p_student_id and status='active';
+  insert into shift_requests(student_id,from_section_id,target_section_id,reason) values(p_student_id,old_section,p_target_section_id,p_reason);
+  insert into notifications(title,message,entity_type,entity_id) values('Student Section Shift','Student shifted from '||coalesce(old_name,'Unassigned')||' to '||new_name||'.','student',p_student_id);
+  insert into audit_logs(action,entity_type,entity_id,details) values('SHIFT_STUDENT','student',p_student_id,jsonb_build_object('from_section',old_section,'target_section',p_target_section_id,'reason',p_reason));
+  return jsonb_build_object('student_id',p_student_id,'from_section',old_name,'to_section',new_name);
+end $$;
+
+-- 2. A Mon/Wed/Fri class is one row per weekday; tell the teacher once, not three times.
+create or replace function public.notify_faculty_load_change()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare subj text; sec text; note text;
+begin
+  select subject_name into subj from subjects where subject_id = coalesce(new.subject_id, old.subject_id);
+  select section_name into sec from sections where section_id = coalesce(new.section_id, old.section_id);
+  if old.faculty_profile_id is not null and (tg_op = 'DELETE' or (tg_op = 'UPDATE' and old.faculty_profile_id is distinct from new.faculty_profile_id)) then
+    note := format('You are no longer assigned to %s (%s).', subj, sec);
+    insert into notifications(recipient_email, recipient_user_id, title, message, entity_type, entity_id)
+    select u.email, u.user_id, 'Teaching load updated', note, 'schedule', old.schedule_id
+    from staff_profiles sp join users u on u.user_id = sp.user_id where sp.profile_id = old.faculty_profile_id
+      and not exists (select 1 from notifications n where n.recipient_user_id = u.user_id and n.message = note and n.created_at > now() - interval '1 minute');
+  end if;
+  if tg_op <> 'DELETE' and new.faculty_profile_id is not null
+     and (tg_op = 'INSERT' or (old.faculty_profile_id, old.day_of_week, old.start_time, old.end_time, old.room, old.section_id, old.subject_id)
+          is distinct from (new.faculty_profile_id, new.day_of_week, new.start_time, new.end_time, new.room, new.section_id, new.subject_id)) then
+    note := case when tg_op = 'INSERT' or old.faculty_profile_id is distinct from new.faculty_profile_id
+      then format('You were assigned to %s (%s).', subj, sec)
+      else format('Your schedule for %s (%s) was changed.', subj, sec) end;
+    insert into notifications(recipient_email, recipient_user_id, title, message, entity_type, entity_id)
+    select u.email, u.user_id, 'Teaching load updated', note, 'schedule', new.schedule_id
+    from staff_profiles sp join users u on u.user_id = sp.user_id where sp.profile_id = new.faculty_profile_id
+      and not exists (select 1 from notifications n where n.recipient_user_id = u.user_id and n.message = note and n.created_at > now() - interval '1 minute');
+  end if;
+  return coalesce(new, old);
+end $$;
+
+-- 3. audit_row_change logs only the operation (never the row), so password hashes stay out of the log.
+drop trigger if exists audit_users on users;
+create trigger audit_users after insert or update or delete on users
+  for each row execute function audit_row_change('user_id');
+
+-- 4. The private admission-documents bucket had no storage policies: registrar uploads failed (400) and
+--    signed "View" links could not be made. Admin/Registrar may upload and read; nobody else.
+drop policy if exists admission_documents_upload on storage.objects;
+create policy admission_documents_upload on storage.objects for insert to authenticated
+  with check (bucket_id = 'admission-documents' and (select current_app_role()) = any (array[1, 2]));
+drop policy if exists admission_documents_read on storage.objects;
+create policy admission_documents_read on storage.objects for select to authenticated
+  using (bucket_id = 'admission-documents' and (select current_app_role()) = any (array[1, 2]));
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v38-placement-guards-load-notices-account-audit.sql

@@ -1,10 +1,15 @@
 // Shared table sorting: tap a column header to sort by it, tap it again to reverse.
-// Every table starts on its name column, A-Z.
+// Every table starts on its name column, A-Z (a table led by a date column starts newest first).
 // The pure helpers below stay free of app imports so scripts/check-table-sort.mjs
 // can assert them in Node without a DOM.
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 const NAME_HEADERS = ['name', 'student', 'student name', 'full name']
+// "10/4/2026, 7:10 PM" or "2026-10-04": compared as dates so AM/PM and months order correctly.
+const DATE_LIKE = /^\d{1,4}[/-]\d{1,2}[/-]\d{1,4}/
+// Logs and history (When, Date, Posted...) open newest first; everything else A-Z.
+const DATE_HEADER = /^(when|date|posted|requested|sent|submitted|created|updated|last saved)\b/i
+export const defaultDirection = header => (DATE_HEADER.test(String(header ?? '').trim()) ? -1 : 1)
 
 export function compareValues(left, right) {
   const a = String(left ?? '').trim()
@@ -15,6 +20,11 @@ export function compareValues(left, right) {
   const numberA = Number(a.replace(/[,\s]/g, ''))
   const numberB = Number(b.replace(/[,\s]/g, ''))
   if (Number.isFinite(numberA) && Number.isFinite(numberB)) return numberA - numberB
+  if (DATE_LIKE.test(a) && DATE_LIKE.test(b)) {
+    const timeA = Date.parse(a)
+    const timeB = Date.parse(b)
+    if (Number.isFinite(timeA) && Number.isFinite(timeB)) return timeA - timeB
+  }
   return collator.compare(a, b)
 }
 
@@ -108,9 +118,11 @@ export function installTableSort(doc = document) {
       const state = sortState.get(table)
       if (state) sortTable(table, state.column, state.direction)
       else {
-        const column = pickDefaultColumn(headerCells(table).map(cell => cell.textContent))
-        sortState.set(table, { column, direction: 1 })
-        sortTable(table, column, 1)
+        const labels = headerCells(table).map(cell => cell.textContent)
+        const column = pickDefaultColumn(labels)
+        const direction = defaultDirection(labels[column])
+        sortState.set(table, { column, direction })
+        sortTable(table, column, direction)
       }
     })
   }

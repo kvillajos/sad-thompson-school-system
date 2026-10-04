@@ -1,6 +1,6 @@
 // Runnable check for the shared table sorter's pure helpers: npm run check:sort
 import assert from 'node:assert/strict'
-import { compareValues, pickDefaultColumn, installTableSort } from '../table-sort.js'
+import { compareValues, pickDefaultColumn, installTableSort, defaultDirection } from '../table-sort.js'
 
 // Text: case-insensitive A-Z.
 assert.ok(compareValues('apple', 'Banana') < 0)
@@ -16,6 +16,15 @@ assert.ok(compareValues('1,200', '900') > 0)
 assert.ok(compareValues('', 'apple') > 0)
 assert.ok(compareValues('apple', '') < 0)
 assert.equal(compareValues('', '  '), 0)
+
+// Dates compare as dates: PM after AM, October after September; school years are not dates.
+assert.ok(compareValues('10/4/2026, 1:00 PM', '10/4/2026, 10:00 AM') > 0)
+assert.ok(compareValues('9/30/2026', '10/1/2026') < 0)
+assert.ok(compareValues('2026-2027', '2025-2026') > 0)
+assert.equal(defaultDirection('When'), -1)
+assert.equal(defaultDirection('Date'), -1)
+assert.equal(defaultDirection('Name'), 1)
+assert.equal(defaultDirection('Status'), 1)
 
 // Default column: exact Name-ish header, else any header containing "name", else column 0.
 assert.equal(pickDefaultColumn(['Student ID', 'Name', 'Year']), 1)

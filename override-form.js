@@ -6,6 +6,7 @@ import { describeError } from './errors.js'
 import { fetchAll } from './fetch-all.js'
 import { currentSchoolYear } from './grades.js'
 import { searchPicker } from './search-picker.js'
+import { isPlaceable } from './sectioning.js'
 
 // Capacity-override form shared by the registrar (files a request) and the admin (places directly).
 // The database refuses to bypass grade-level eligibility; it only lifts the seat limit.
@@ -17,7 +18,7 @@ export async function mountOverrideForm(root, { rpc, button, done }) {
     <div class="admin-actions actions"><button type="submit" class="admin-primary btn">${button}</button></div>`
   const $ = selector => root.querySelector(selector)
   const [students, sections, enrollments] = await Promise.all([
-    fetchAll(() => supabase.from('students').select('student_id,lrn_number,first_name,last_name,grade_level').order('last_name').order('student_id')),
+    fetchAll(() => supabase.from('students').select('student_id,lrn_number,first_name,last_name,grade_level,enrollment_status').order('last_name').order('student_id')),
     supabase.from('sections').select('section_id,section_name,grade_level,capacity').gte('academic_year', currentSchoolYear()).order('section_name'),
     fetchAll(() => supabase.from('enrollments').select('section_id').eq('status', 'active').order('id'))
   ])
@@ -26,7 +27,7 @@ export async function mountOverrideForm(root, { rpc, button, done }) {
   const filled = new Map()
   ;(enrollments.data || []).forEach(row => filled.set(row.section_id, (filled.get(row.section_id) || 0) + 1))
   const label = student => `${student.lrn_number || student.student_id} — ${student.first_name} ${student.last_name}`
-  const list = students.data || []
+  const list = (students.data || []).filter(isPlaceable)
   let picked = null
   const chosen = () => picked
   const showSections = () => {

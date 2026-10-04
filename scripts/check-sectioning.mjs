@@ -105,4 +105,8 @@ const withExclusions = planBalancedAssignments({
 })
 assert.equal(withExclusions.assignments.length, 2)
 assert.ok(!withExclusions.assignments.some(row => row.student_id === 7000 || row.student_id === 7500), 'excluded students must stay unassigned')
+// Students who left the school are never offered for placement.
+const left = [{ student_id: 1, grade_level: 7, enrollment_status: 'Withdrawn' }, { student_id: 2, grade_level: 7, enrollment_status: null }]
+assert.deepEqual(studentsForSection(left, { gradeLevel: 7, sectionId: 1 }).map(s => s.student_id), [2])
+assert.equal(planBalancedAssignments({ students: left, sections, grades: [7], random: seeded(1) }).assignments.some(row => row.student_id === 1), false)
 console.log('sectioning checks passed')

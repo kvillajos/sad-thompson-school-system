@@ -15,6 +15,8 @@
     const form = document.getElementById('section-form')
     const modalTitle = document.getElementById('section-modal-title')
     let moderators = []
+    // Only faculty (role 3) can moderate a section; staff_profiles also holds registrars.
+    const loadModerators = () => supabase.from('staff_profiles').select('profile_id,employee_no,first_name,last_name,department,user_id,users!inner(profile_picture_url,role_id)').eq('users.role_id', 3).order('last_name')
     let sections = []
     let counts = {}
     const moderatorName = value => String(value || '').trim().toLowerCase()
@@ -28,7 +30,7 @@
       form.elements.section_name.value = section?.section_name || ''
       form.elements.grade_level.value = section?.grade_level ?? ''
       form.elements.capacity.value = section?.capacity || 40
-      form.elements.academic_year.value = section?.academic_year || '2025-2026'
+      form.elements.academic_year.value = section?.academic_year || currentSchoolYear()
       form.elements.room.value = section?.room || ''
       form.elements.faculty_assigned.value = section?.faculty_assigned || ''
       renderModeratorCard(section?.faculty_assigned || '')
@@ -42,7 +44,7 @@
     form.elements.grade_level.innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'Select Grade' })
     async function loadSections() {
       const table = document.getElementById('sections-table')
-      if (!moderators.length) { const moderatorResult = await supabase.from('staff_profiles').select('profile_id,employee_no,first_name,last_name,department,user_id,users(profile_picture_url)').order('last_name'); moderators = moderatorResult.data || [] }
+      if (!moderators.length) { const moderatorResult = await loadModerators(); moderators = moderatorResult.data || [] }
       const { data, error } = await supabase.from('sections').select('section_id,section_name,grade_level,capacity,academic_year,faculty_assigned,room').gte('academic_year', currentSchoolYear()).order('grade_level').order('section_name')
       if (error) return table.innerHTML = errorRow(7, error, 'Load sections')
       sections = data || []
@@ -67,6 +69,8 @@
       const name = sections.find(section => String(section.section_id) === String(id))?.section_name || 'this section'
       if (!await confirmDialog(`Remove ${name}? This cannot be undone.`, { title: 'Remove section', confirmText: 'Remove', danger: true })) return
       const { error } = await supabase.from('sections').delete().eq('section_id', id)
+      // Past enrollments, attendance and shift records keep pointing at the section, so it stays as history.
+      if (error?.code === '23503') return noticeDialog(`${name} has past enrollment, attendance or shift records, so it cannot be removed. It stays as history; it no longer appears once its school year has passed.`, { title: 'Section has history' })
       if (error) return toast(describeError(error, 'Remove section'), 'error')
       toast(`${name} removed.`)
       await loadSections()
@@ -76,6 +80,8 @@
       return withBusy(form.querySelector('button[type="submit"]'), 'Saving…', async () => {
         const values = Object.fromEntries(new FormData(form).entries())
         const payload = { section_name: values.section_name.trim(), grade_level: Number(values.grade_level), capacity: Number(values.capacity), academic_year: values.academic_year.trim(), room: values.room.trim() || null, faculty_assigned: values.faculty_assigned.trim() || null }
+        // The DB default min_capacity (10) may not exceed capacity, so small sections lower it to fit.
+        payload.min_capacity = Math.min(10, payload.capacity)
         const sectionId = values.section_id
         if (payload.faculty_assigned) {
           // Only this year's sections: advising a section last year must not block advising one now.
@@ -117,7 +123,7 @@
       document.getElementById('moderator-table').innerHTML = rows.map(item => `<tr><td>${escape(item.employee_no)}</td><td>${avatar(item)} ${escape(`${item.first_name} ${item.last_name}`)}</td><td>${escape(item.department)}</td><td><button type="button" class="admin-view" data-moderator="${item.profile_id}">Choose</button></td></tr>`).join('') || '<tr><td colspan="4">No faculty found.</td></tr>'
       document.querySelectorAll('[data-moderator]').forEach(button => button.onclick = () => { const item = moderators.find(row => String(row.profile_id) === button.dataset.moderator); form.elements.faculty_assigned.value = `${item.first_name} ${item.last_name}`; renderModeratorCard(form.elements.faculty_assigned.value); document.getElementById('moderator-modal').classList.add('hidden') })
     }
-    document.getElementById('choose-moderator').onclick = async () => { if (!moderators.length) { const result = await supabase.from('staff_profiles').select('profile_id,employee_no,first_name,last_name,department,user_id,users(profile_picture_url)').order('last_name'); if (result.error) return toast(describeError(result.error, 'Load faculty'), 'error'); moderators = result.data || [] }; document.getElementById('moderator-modal').classList.remove('hidden'); renderModerators() }
+    document.getElementById('choose-moderator').onclick = async () => { if (!moderators.length) { const result = await loadModerators(); if (result.error) return toast(describeError(result.error, 'Load faculty'), 'error'); moderators = result.data || [] }; document.getElementById('moderator-modal').classList.remove('hidden'); renderModerators() }
     document.getElementById('moderator-search').oninput = renderModerators
     document.getElementById('close-moderator').onclick = () => document.getElementById('moderator-modal').classList.add('hidden')
     document.getElementById('selected-moderator').onclick = event => { if (event.target.id === 'clear-moderator') { form.elements.faculty_assigned.value = ''; renderModeratorCard('') } }
