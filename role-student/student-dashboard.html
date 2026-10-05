@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <title>Student Dashboard | TCSMS</title>
+  </head>
+  <body>
+    <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#102a43"></div>
+    <main>
+      <section data-panel="dashboard">
+        <div class="admin-page-head"><div><h2>Dashboard</h2></div></div>
+        <div class="admin-table-wrap student-card">
+          <div id="dash-photo" class="student-card-photo" aria-hidden="true"></div>
+          <div class="student-card-body">
+            <div class="student-card-head"><h3 id="dash-name"></h3><span id="dash-status" class="badge"></span></div>
+            <p class="student-card-id">LRN <span id="dash-lrn"></span></p>
+            <dl id="dash-details" class="student-card-grid"></dl>
+          </div>
+        </div>
+        <div id="announcements-host" style="margin-top:20px"></div>
+      </section>
+
+      <section data-panel="grades" class="hidden">
+        <div class="admin-page-head"><div><h2>Grades</h2></div></div>
+        <section class="admin-table-wrap"><div class="admin-section-title"><h3 id="current-grades-title">Current Term</h3></div><div id="current-grades-table"><p>Loading grades...</p></div></section>
+        <div class="admin-page-head" style="margin-top:24px"><div><h3>All Grades</h3></div></div>
+        <p id="grades-average" class="admin-note"></p>
+        <div class="admin-actions"><button type="button" id="grades-prev-year" class="admin-secondary">‹ Prev</button><span id="grades-year-label" class="admin-note"></span><button type="button" id="grades-next-year" class="admin-secondary">Next ›</button></div>
+        <div class="admin-section-title"><h3>1st Semester</h3></div>
+        <section class="admin-table-wrap" id="grades-table-first"><p>Loading grades...</p></section>
+        <div class="admin-section-title" style="margin-top:16px"><h3>2nd Semester</h3></div>
+        <section class="admin-table-wrap" id="grades-table-second"><p>Loading grades...</p></section>
+      </section>
+
+      <section data-panel="transcript" class="hidden">
+        <div class="admin-page-head"><div><h2>Unofficial Transcript</h2></div></div>
+        <label>School Year <select id="transcript-year-filter"><option value="">All school years</option></select></label>
+        <div id="transcript-preview" class="pdf-sheet" style="width:auto;margin-top:16px;overflow-x:auto"></div>
+        <button class="admin-primary" id="print-unofficial-transcript" type="button">View PDF</button>
+      </section>
+
+      <section data-panel="schedule" class="hidden">
+        <div class="admin-page-head"><div><h2>Schedule</h2></div></div>
+        <div class="schedule-head"><h3 id="schedule-section"></h3><span id="schedule-caption" class="admin-note"></span></div>
+        <section class="admin-table-wrap" id="schedule-days"><p>Loading schedule...</p></section>
+      </section>
+
+      <section data-panel="profile" class="hidden">
+        <div class="admin-page-head"><div><h2>My Profile</h2></div></div>
+        <div class="profile-grid">
+          <section class="admin-table-wrap"><div class="admin-section-title"><h3>Student Information</h3></div>
+            <dl class="student-card-grid">
+              <div class="wide"><dt>Name</dt><dd id="profile-name"></dd></div>
+              <div><dt>Student ID</dt><dd id="profile-id"></dd></div>
+              <div><dt>Status</dt><dd id="profile-status"></dd></div>
+              <div><dt>Grade Level</dt><dd id="profile-grade"></dd></div>
+              <div><dt>Section</dt><dd id="profile-section"></dd></div>
+              <div><dt>Program</dt><dd id="profile-program"></dd></div>
+              <div><dt>Date of Birth</dt><dd id="profile-dob"></dd></div>
+              <div><dt>Contact Number</dt><dd id="profile-contact"></dd></div>
+              <div><dt>Email Address</dt><dd id="profile-email"></dd></div>
+              <div class="wide"><dt>Address</dt><dd id="profile-address"></dd></div>
+              <div><dt>Guardian</dt><dd id="profile-guardian-name"></dd></div>
+              <div><dt>Relationship</dt><dd id="profile-guardian-relationship"></dd></div>
+              <div><dt>Guardian Phone</dt><dd id="profile-guardian-phone"></dd></div>
+              <div><dt>Guardian Email</dt><dd id="profile-guardian-email"></dd></div>
+              <div class="wide"><dt>Medical Notes</dt><dd id="profile-medical-notes"></dd></div>
+            </dl>
+            <p class="admin-note" style="margin-bottom:0">To change your password, use the profile menu in the top-right corner.</p>
+          </section>
+          <div class="profile-side">
+          <section class="admin-table-wrap"><div class="admin-section-title"><h3>Profile Picture</h3></div>
+            <div class="pfp-card">
+              <div id="profile-picture-preview" class="student-card-photo pfp-big" aria-label="Profile picture"></div>
+              <input type="file" id="profile-picture-input" accept="image/png,image/jpeg,image/webp" hidden>
+              <button class="admin-secondary" type="button" id="choose-picture">Change photo</button>
+              <div id="picture-actions" class="pfp-actions hidden">
+                <button class="admin-primary" type="button" id="save-picture">Save photo</button>
+                <button class="admin-secondary" type="button" id="cancel-picture">Cancel</button>
+              </div>
+              <small class="admin-note" id="picture-hint">PNG, JPG or WEBP, up to 3 MB.</small>
+            </div>
+          </section>
+          <section class="admin-table-wrap edit-request-card"><div class="admin-section-title"><h3>Request an Edit</h3></div>
+            <p class="admin-note" id="edit-request-status" hidden></p>
+            <button class="admin-primary" type="button" id="open-edit-request">Request edit</button>
+          </section>
+          </div>
+        </div>
+        <section class="admin-table-wrap" style="margin-top:16px"><div class="admin-section-title"><h3>Attendance Record</h3></div><p id="attendance-summary" class="admin-note"></p><table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody id="attendance-table"><tr><td colspan="2">Loading attendance...</td></tr></tbody></table></section>
+      </section>
+    </main>
+    <div id="edit-request-modal" class="admin-modal hidden"><div class="admin-modal-box profile-modal-box edit-request-box"><div class="admin-modal-head"><h3>Request Profile Edit</h3><button type="button" id="edit-request-close" aria-label="Close">x</button></div>
+      <form id="edit-request-form" class="profile-form" novalidate>
+        <p class="admin-note admin-full">Change only what you need. Fields you leave alone stay as they are.</p>
+        <label>First Name<input name="first_name" maxlength="80"></label>
+        <label>Middle Name<input name="middle_name" maxlength="80"></label>
+        <label>Last Name<input name="last_name" maxlength="80"></label>
+        <label>Date of Birth<input name="date_of_birth" type="date"></label>
+        <label>Contact Number<input name="contact_number" maxlength="40"></label>
+        <label>Guardian<input name="guardian_name" maxlength="120"></label>
+        <label>Relationship<input name="guardian_relationship" maxlength="60"></label>
+        <label>Guardian Phone<input name="guardian_phone" maxlength="40"></label>
+        <label class="admin-full">Guardian Email<input name="guardian_email" type="email" maxlength="120"></label>
+        <label class="admin-full">Address<input name="address" maxlength="200"></label>
+        <label class="admin-full">Medical Notes<textarea name="medical_notes" rows="3" maxlength="1000"></textarea></label>
+        <label class="admin-full">Reason (optional)<input name="reason" maxlength="200" placeholder="e.g. We moved to a new address"></label>
+        <div class="admin-actions admin-full"><button type="button" class="admin-cancel" id="edit-request-cancel">Cancel</button><button class="admin-primary" type="submit">Submit request</button></div>
+      </form></div></div>
+    <section id="student-transcript-print" class="transcript-print-card" aria-hidden="true"></section>
+    <script type="module" src="/role-student/student-dashboard-page.js"></script>
+  </body>
+</html>
+
