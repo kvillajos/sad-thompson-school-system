@@ -125,7 +125,14 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .faculty-assign-box { width:min(100%, 620px) !important; }
 .faculty-assign-box form { grid-template-columns:1fr; }
 .assignment-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 14px; max-height:55vh; overflow:auto; border:1px solid var(--ui-border); border-radius:6px; padding:8px; }
-.assignment-list .admin-check { min-width:0; }
+.assignment-list .admin-check { min-width:0; cursor:pointer; text-align:left; font-size:13px; padding:10px 8px; }
+.assign-faculty { margin-bottom:12px; }
+.assign-faculty-head { display:flex; align-items:center; gap:12px; }
+.assign-faculty-head > div { flex:1; min-width:0; display:grid; gap:2px; }
+.assign-faculty-head small { color:var(--ui-muted); overflow-wrap:anywhere; }
+.assign-faculty .review-grid { margin-top:10px; }
+.assignment-list .admin-check:hover { background:rgba(33,97,209,.06); }
+.assignment-list .admin-check input { width:18px; height:18px; flex:none; margin:0; padding:0; }
 .moderator-box { width:min(100%, 760px) !important; }
 .moderator-box table { width:100%; min-width:0 !important; }
 .moderator-box .table-scroll { max-height:55vh; }

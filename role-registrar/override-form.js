@@ -26,7 +26,7 @@ export async function mountOverrideForm(root, { rpc, button, done }) {
   if (loadError) toast(describeError(loadError, 'Load the override form'), 'error')
   const filled = new Map()
   ;(enrollments.data || []).forEach(row => filled.set(row.section_id, (filled.get(row.section_id) || 0) + 1))
-  const label = student => `${student.lrn_number || student.student_id} — ${student.first_name} ${student.last_name}`
+  const label = student => `${student.lrn_number || student.student_id} - ${student.first_name} ${student.last_name}`
   const list = (students.data || []).filter(isPlaceable)
   let picked = null
   const chosen = () => picked
@@ -34,7 +34,7 @@ export async function mountOverrideForm(root, { rpc, button, done }) {
     const student = chosen()
     const full = student ? (sections.data || []).filter(section => Number(section.grade_level) === Number(student.grade_level) && (filled.get(section.section_id) || 0) >= section.capacity) : []
     $('.override-section').innerHTML = !student ? '<option value="">Choose a student first</option>'
-      : full.map(section => `<option value="${section.section_id}">${escapeHtml(section.section_name)} — ${escapeHtml(gradeLabel(section.grade_level))} (${filled.get(section.section_id)}/${section.capacity} seats)</option>`).join('') || '<option value="">No full section for this grade level, place the student normally</option>'
+      : full.map(section => `<option value="${section.section_id}">${escapeHtml(section.section_name)} - ${escapeHtml(gradeLabel(section.grade_level))} (${filled.get(section.section_id)}/${section.capacity} seats)</option>`).join('') || '<option value="">No full section for this grade level, place the student normally</option>'
   }
   const picker = searchPicker($('.override-student'), {
     search: query => list.filter(student => label(student).toLowerCase().includes(query.toLowerCase())).slice(0, 12),

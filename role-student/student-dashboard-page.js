@@ -148,7 +148,7 @@
       async function loadSchedule() {
         const host = document.getElementById('schedule-days')
         document.getElementById('schedule-section').textContent = sectionId ? `Section: ${sectionName}` : 'No section yet'
-        document.getElementById('schedule-caption').textContent = `Class Schedule — ${schoolYear || 'Current Term'}`
+        document.getElementById('schedule-caption').textContent = `Class Schedule - ${schoolYear || 'Current Term'}`
         if (!sectionId) { host.innerHTML = '<p>No active section enrollment found.</p>'; return }
         const { data, error } = await supabase.from('subject_schedules').select('subject_id,section_id,faculty_name,room,day_of_week,start_time,end_time,subjects(subject_name),sections(section_name)').eq('section_id', sectionId).order('day_of_week').order('start_time')
         if (error) return host.innerHTML = `<p class="note" role="alert">${escape(describeError(error, 'Load schedule'))}</p>`
@@ -182,7 +182,7 @@
         const host = document.getElementById('current-grades-table')
         if (!schoolYear || !currentSemester) { host.innerHTML = '<p>No active enrollment for this term.</p>'; return }
         const label = currentSemester === 'first' ? '1st Semester' : '2nd Semester'
-        document.getElementById('current-grades-title').textContent = `Current Term — ${label}`
+        document.getElementById('current-grades-title').textContent = `Current Term - ${label}`
         const quarterFields = currentSemester === 'first' ? ['first_sem_q1', 'first_sem_q2'] : ['second_sem_q1', 'second_sem_q2']
         const teacherFor = subject => scheduleRows.find(item => item.subjects?.subject_name === subject)?.faculty_name || '-'
         const rows = gradeRows.filter(row => row.school_year === schoolYear)

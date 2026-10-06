@@ -3,7 +3,7 @@ import { escapeHtml, formatDate } from '../shared/lib/html.js'
 
 const WEEK_MS = 7 * 86400000
 const label = key => key.replaceAll('_', ' ').replace(/^./, c => c.toUpperCase())
-const show = value => value === null || value === undefined || value === '' ? '—' : String(value)
+const show = value => value === null || value === undefined || value === '' ? '-' : String(value)
 const BELL = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>'
 
 // Bell in the student's profile bar. Notices disappear after a week (the database policy hides

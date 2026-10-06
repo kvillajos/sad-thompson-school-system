@@ -11,10 +11,13 @@
   const verify = message => confirmPassword(admin.email, message)
   const roleNames = { 1: 'Administrator', 2: 'Registrar', 3: 'Faculty', 4: 'Student' }
   let accounts = []
+  let sectionByStudent = new Map()
   async function loadAccounts() {
     const result = await fetchAll(() => supabase.from('users').select('username,email,role_id,is_active,student_id,user_id,initial_password,profile_picture_url,created_at').is('deleted_at', null).order('role_id').order('username').order('user_id'))
     const table = document.getElementById('accounts-table')
     if (result.error) return table.innerHTML = errorRow(7, result.error, 'Load accounts')
+    const enrolled = await fetchAll(() => supabase.from('enrollments').select('student_id,sections(section_name)').eq('status', 'active').order('id'))
+    sectionByStudent = new Map((enrolled.data || []).map(row => [row.student_id, row.sections?.section_name]))
     accounts = result.data || []
     renderAccounts()
   }
@@ -22,12 +25,11 @@
     const search = document.getElementById('account-search').value.trim().toLowerCase()
     const role = document.getElementById('account-role').value
     const rows = accounts.filter(item => (!role || String(item.role_id) === role) && (!search || `${item.username} ${item.email}`.toLowerCase().includes(search)))
-    document.getElementById('accounts-table').innerHTML = rows.map(item => `<tr><td>${escape(item.username)}</td><td>${escape(item.email)}</td><td>${roleNames[item.role_id] || 'Unknown'}</td><td>${activeStatus(item.is_active)}</td><td>${item.student_id ? `Student #${item.student_id}` : '-'}</td><td>${formatDate(item.created_at, true)}</td><td><button class="admin-view" data-details="${item.user_id}">View / Edit</button> ${item.initial_password ? `<button class="admin-view" data-provision="${item.user_id}">Provision Login</button> ` : ''}<button class="admin-view" data-toggle="${item.user_id}" data-active="${item.is_active}">${item.is_active ? 'Deactivate' : 'Activate'}</button> <button class="admin-view" data-reset="${item.user_id}">Reset Password</button>${item.user_id === admin.user_id ? '' : ` <button class="admin-remove" data-delete-account="${item.user_id}">Delete</button>`}</td></tr>`).join('') || '<tr><td colspan="7">No accounts found.</td></tr>'
+    document.getElementById('accounts-table').innerHTML = rows.map(item => `<tr><td>${escape(item.username)}</td><td>${escape(item.email)}</td><td>${roleNames[item.role_id] || 'Unknown'}</td><td>${activeStatus(item.is_active)}</td><td>${item.student_id ? escape(sectionByStudent.get(item.student_id) || '-') : '-'}</td><td>${formatDate(item.created_at, true)}</td><td><button class="admin-view" data-details="${item.user_id}">View / Edit</button> ${item.initial_password ? `<button class="admin-view" data-provision="${item.user_id}">Provision Login</button> ` : ''}<button class="admin-view" data-reset="${item.user_id}">Reset Password</button> <button class="admin-remove" data-manage="${item.user_id}">${item.is_active ? 'Deactivate' : 'Activate'}${item.user_id === admin.user_id ? '' : ' / Delete'}</button></td></tr>`).join('') || '<tr><td colspan="7">No accounts found.</td></tr>'
     document.querySelectorAll('[data-details]').forEach(button => button.onclick = () => showAccountDetails(button.dataset.details))
     document.querySelectorAll('[data-provision]').forEach(button => button.onclick = () => runAccountAction(button.dataset.provision, 'provision', button))
-    document.querySelectorAll('[data-toggle]').forEach(button => button.onclick = () => runAccountAction(button.dataset.toggle, button.dataset.active === 'true' ? 'deactivate' : 'activate', button))
+    document.querySelectorAll('[data-manage]').forEach(button => button.onclick = () => manageAccount(button.dataset.manage, button))
     document.querySelectorAll('[data-reset]').forEach(button => button.onclick = () => runAccountAction(button.dataset.reset, 'reset', button))
-    document.querySelectorAll('[data-delete-account]').forEach(button => button.onclick = () => deleteAccount(button.dataset.deleteAccount, button))
   }
 
   const HOLD_MS = 1500
@@ -80,6 +82,22 @@
     })
   }
 
+  // One button, two outcomes: toggle sign-in (reversible) or delete (typed confirmation + hold).
+  async function manageAccount(userId, button) {
+    const item = accounts.find(account => String(account.user_id) === String(userId))
+    if (!item) return
+    const toggle = item.is_active ? 'deactivate' : 'activate'
+    const canDelete = item.user_id !== admin.user_id
+    const choice = await new Promise(resolve => {
+      const modal = document.createElement('div')
+      modal.className = 'admin-modal stack-above'
+      modal.innerHTML = `<div class="admin-modal-box dialog-box" role="dialog" aria-modal="true"><div class="admin-modal-head"><h3>${escape(item.username)}</h3><button type="button" data-choice="" aria-label="Close">x</button></div><p class="dialog-message"><b>${toggle === 'deactivate' ? 'Deactivate' : 'Activate'}</b> ${toggle === 'deactivate' ? 'blocks sign-in but keeps the account in the list; you can activate it again any time.' : 'lets this account sign in again.'}</p>${canDelete ? '<p class="dialog-message"><b>Delete</b> removes the account from the list and can be restored from Audit Trail for 30 days.</p>' : ''}<div class="admin-actions"><button type="button" class="admin-secondary" data-choice="">Cancel</button><button type="button" class="admin-primary" data-choice="${toggle}">${toggle === 'deactivate' ? 'Deactivate' : 'Activate'}</button>${canDelete ? '<button type="button" class="admin-danger" data-choice="delete">Delete</button>' : ''}</div></div>`
+      document.body.appendChild(modal)
+      modal.querySelectorAll('[data-choice]').forEach(b => { b.onclick = () => { modal.remove(); resolve(b.dataset.choice) } })
+    })
+    if (choice === 'delete') await deleteAccount(userId, button)
+    else if (choice) await runAccountAction(userId, choice, button)
+  }
   async function deleteAccount(userId, button) {
     const item = accounts.find(account => String(account.user_id) === String(userId))
     if (!item) return

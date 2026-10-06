@@ -25,7 +25,7 @@ export function buildTranscript({ student = {}, rows = [], mode = 'official', sc
       return `
         <div class="transcript-semester" style="margin-bottom: 12px;">
           <div style="font-weight:bold; background:#e0e0e0; padding:4px 6px; border:1px solid #000; border-bottom:none; font-size:9pt;">
-            SCHOOL YEAR: ${escapeHtml(group.schoolYear)} — ${semester === 'first' ? '1st Semester' : '2nd Semester'}
+            SCHOOL YEAR: ${escapeHtml(group.schoolYear)} - ${semester === 'first' ? '1st Semester' : '2nd Semester'}
           </div>
           <table class="doc-table" data-no-sort style="margin-top:0;">
             <thead>
@@ -67,7 +67,7 @@ export function buildTranscript({ student = {}, rows = [], mode = 'official', sc
     <link rel="stylesheet" href="/css/documents.css">
     <div class="document-container${unofficial ? ' unofficial' : ''}">
       <header class="doc-header">
-        <h4>Republic of the Philippines — Department of Education</h4>
+        <h4>Republic of the Philippines - Department of Education</h4>
         <h4>Region XI • Division of Davao City</h4>
         <h3>THOMPSON CHRISTIAN SCHOOL, INC.</h3>
         <h2>${heading}</h2>

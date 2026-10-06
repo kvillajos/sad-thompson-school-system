@@ -12,7 +12,7 @@ export function renderPromotionExclusions() {
   const search = $('promotion-exclude-search').value.trim().toLowerCase()
   const grade = gradeToNumber($('promotion-grade').value)
   const students = state.students.filter(student => Number(student.grade_level) === grade && `${student.lrn_number} ${student.first_name} ${student.last_name}`.toLowerCase().includes(search))
-  $('promotion-exclude-list').innerHTML = students.map(student => `<label><input type="checkbox" value="${student.student_id}"> ${escapeHtml(student.lrn_number || student.student_id)} — ${escapeHtml(`${student.first_name} ${student.last_name}`)}</label>`).join('') || '<small>No matching students.</small>'
+  $('promotion-exclude-list').innerHTML = students.map(student => `<label><input type="checkbox" value="${student.student_id}"> ${escapeHtml(student.lrn_number || student.student_id)} - ${escapeHtml(`${student.first_name} ${student.last_name}`)}</label>`).join('') || '<small>No matching students.</small>'
 }
 $('promotion-exclude-search').oninput = renderPromotionExclusions
 $('promotion-grade').onchange = renderPromotionExclusions
@@ -59,7 +59,7 @@ export async function refreshShiftSections() {
   const currentSections = new Set((data || []).map(row => row.section_id))
   const candidates = state.sections.filter(section => Number(section.grade_level) === Number(student?.grade_level) && !currentSections.has(section.section_id))
   select.innerHTML = candidates.length
-    ? candidates.map(section => `<option value="${section.section_id}">${escapeHtml(section.section_name)} — ${escapeHtml(gradeLabel(section.grade_level))} (capacity ${section.capacity})</option>`).join('')
+    ? candidates.map(section => `<option value="${section.section_id}">${escapeHtml(section.section_name)} - ${escapeHtml(gradeLabel(section.grade_level))} (capacity ${section.capacity})</option>`).join('')
     : '<option value="">No other section for this grade level</option>'
 }
 $('shift-student').onchange = refreshShiftSections

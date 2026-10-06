@@ -16,7 +16,7 @@ export function statusBadge(s) { return `<span class="badge ${String(s).toLowerC
 const photoPlaceholder = $('application-photo-preview')?.getAttribute('src') || ''
 if ($('application-photo')) {
   $('application-photo').setAttribute('capture', 'user')
-  $('application-photo-hint')?.replaceChildren('PNG/JPG/WEBP up to 3MB — choose a file or use the device camera')
+  $('application-photo-hint')?.replaceChildren('PNG/JPG/WEBP up to 3MB - choose a file or use the device camera')
 }
 
 let cameraStream = null

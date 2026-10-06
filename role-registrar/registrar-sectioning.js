@@ -45,7 +45,7 @@ document.querySelector('#section-grade-filter').onchange = renderSections
 async function viewSectionStudents(sectionId) {
   const section = state.sections.find(item => Number(item.section_id) === sectionId)
   if (!section) return
-  $('section-students-title').textContent = `${section.section_name} — Students`
+  $('section-students-title').textContent = `${section.section_name} - Students`
   $('section-students-body').innerHTML = '<p>Loading section students…</p>'
   $('section-students-modal').classList.remove('hidden')
   const { data, error } = await supabase.from('enrollments').select('student_id,students(lrn_number,first_name,last_name,gender,grade_level,enrollment_status)').eq('section_id', sectionId).eq('status', 'active')
@@ -211,7 +211,7 @@ function renderAutoAssignExclusions() {
   const pages = Math.max(1, Math.ceil(students.length / EXCLUDE_PAGE_SIZE))
   excludePage = Math.min(Math.max(1, excludePage), pages)
   const visible = students.slice((excludePage - 1) * EXCLUDE_PAGE_SIZE, excludePage * EXCLUDE_PAGE_SIZE)
-  $('auto-assign-exclude-list').innerHTML = visible.map(student => `<label><input type="checkbox" value="${student.student_id}"${excludedIds.has(student.student_id) ? ' checked' : ''}> ${escapeHtml(student.lrn_number||student.student_id)} — ${escapeHtml(`${student.first_name||''} ${student.last_name||''}`)}</label>`).join('')
+  $('auto-assign-exclude-list').innerHTML = visible.map(student => `<label><input type="checkbox" value="${student.student_id}"${excludedIds.has(student.student_id) ? ' checked' : ''}> ${escapeHtml(student.lrn_number||student.student_id)} - ${escapeHtml(`${student.first_name||''} ${student.last_name||''}`)}</label>`).join('')
     || '<small>No students in the selected grade levels.</small>'
   $('auto-assign-exclude-page').textContent = students.length ? `Page ${excludePage} of ${pages} · ${students.length} students` : ''
   $('auto-assign-exclude-prev').disabled = excludePage <= 1
@@ -235,14 +235,14 @@ function previewAutoAssign() {
   const gradeCount = chosenGrades().length
   $('auto-assign-grade-count').textContent = `${gradeCount} grade${gradeCount === 1 ? '' : 's'} selected`
   if (!plan) {
-    $('auto-assign-summary').innerHTML = '<p class="empty-state"><b id="auto-assign-count">0</b> — select at least one grade level to auto-assign.</p>'
+    $('auto-assign-summary').innerHTML = '<p class="empty-state"><b id="auto-assign-count">0</b> - select at least one grade level to auto-assign.</p>'
     $('confirm-auto-assign').disabled = true
     return
   }
   $('confirm-auto-assign').disabled = false
   const chosen = new Set(chosenGrades())
   const excluded = state.students.filter(student => excludedIds.has(student.student_id) && chosen.has(Number(student.grade_level))).length
-  const sections = plan.summary.filter(row=>row.total).map(row=> `<small>${escapeHtml(row.section_name)} — ${row.boys} boy(s), ${row.girls} girl(s)</small>`).join('<br>')
+  const sections = plan.summary.filter(row=>row.total).map(row=> `<small>${escapeHtml(row.section_name)} - ${row.boys} boy(s), ${row.girls} girl(s)</small>`).join('<br>')
   const unplaced = plan.unplaced.length ? `<br><small class="empty-state">Unplaced: ${plan.unplaced.map(row=>escapeHtml(row.student_id)).join(', ')}</small>` : ''
   $('auto-assign-summary').innerHTML = `<p><b id="auto-assign-count">${plan.assignments.length}</b> student(s) will be placed in ${escapeHtml(chosenGrades().map(gradeLabel).join(', '))}; <b>${plan.unplaced.length}</b> cannot be placed${excluded ? `; <b>${excluded}</b> excluded` : ''}.</p>${sections}${unplaced}`
 }

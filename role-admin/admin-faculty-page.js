@@ -13,7 +13,7 @@
   let assigningProfileId = null
   async function loadFaculty() {
     const [facultyResult, subjectResult, assignmentResult] = await Promise.all([
-      supabase.from('staff_profiles').select('profile_id,employee_no,first_name,middle_name,last_name,department,specialization,phone,user_id,users(username,email,is_active)').order('last_name'),
+      supabase.from('staff_profiles').select('profile_id,employee_no,first_name,middle_name,last_name,department,specialization,phone,user_id,users(username,email,is_active,profile_picture_url)').order('last_name'),
       supabase.from('subjects').select('subject_id,subject_code,subject_name').eq('is_active', true).order('subject_code'),
       supabase.from('faculty_subjects').select('profile_id,subject_id,subjects(subject_code,subject_name)')
     ])
@@ -30,10 +30,9 @@
     const rows = faculty.filter(item => `${item.first_name} ${item.last_name} ${item.department} ${item.specialization} ${item.employee_no}`.toLowerCase().includes(search))
     document.getElementById('faculty-table').innerHTML = rows.map(item => {
       const assigned = assignments.filter(a => a.profile_id === item.profile_id).map(a => escape(a.subjects?.subject_code || '')).join(', ')
-      return `<tr><td>${escape(item.employee_no)}</td><td>${escape(`${item.first_name} ${item.middle_name || ''} ${item.last_name}`)}</td><td>${escape(item.department)}</td><td>${escape(item.specialization)}</td><td>${escape(item.phone || '-')}</td><td>${activeStatus(item.users?.is_active)}</td><td>${assigned || '-'}</td><td><button class="admin-view" data-details="${item.profile_id}">Details</button><button class="admin-view" data-assign="${item.profile_id}">Assign Subjects</button><button class="admin-view" data-edit-faculty="${item.profile_id}">Edit</button><button class="admin-remove" data-remove-faculty="${item.profile_id}">Remove</button></td></tr>`
+      return `<tr><td>${escape(item.employee_no)}</td><td>${escape(`${item.first_name} ${item.middle_name || ''} ${item.last_name}`)}</td><td>${escape(item.department)}</td><td>${escape(item.specialization)}</td><td>${escape(item.phone || '-')}</td><td>${activeStatus(item.users?.is_active)}</td><td>${assigned || '-'}</td><td><button class="admin-view" data-details="${item.profile_id}">View / Edit</button><button class="admin-view" data-assign="${item.profile_id}">Assign</button><button class="admin-remove" data-remove-faculty="${item.profile_id}">Remove</button></td></tr>`
     }).join('') || `<tr><td colspan="8">${search ? 'No faculty match your search.' : 'No faculty found.'}</td></tr>`
     document.querySelectorAll('[data-assign]').forEach(button => button.onclick = () => openAssign(button.dataset.assign))
-    document.querySelectorAll('[data-edit-faculty]').forEach(button => button.onclick = () => editFaculty(button.dataset.editFaculty))
     document.querySelectorAll('[data-remove-faculty]').forEach(button => button.onclick = () => removeFaculty(button.dataset.removeFaculty, button))
     document.querySelectorAll('[data-details]').forEach(button => button.onclick = async () => {
       if (await confirmPassword(user.email, 'Enter your password to view faculty contact details.')) openFacultyDetails(button.dataset.details)
@@ -90,13 +89,26 @@
     if (!item) return
     const assigned = assignments.filter(a => String(a.profile_id) === String(profileId)).map(a => `${escape(a.subjects?.subject_code || '')} - ${escape(a.subjects?.subject_name || '')}`)
     document.getElementById('faculty-details-title').textContent = `${item.first_name} ${item.last_name}`
-    document.getElementById('faculty-details-body').innerHTML = `<div class="review-grid"><div><small>Employee No.</small><p>${escape(item.employee_no)}</p></div><div><small>Department</small><p>${escape(item.department)}</p></div><div><small>Specialization</small><p>${escape(item.specialization || '-')}</p></div><div><small>Phone</small><p>${escape(item.phone || '-')}</p></div><div><small>Username</small><p>${escape(item.users?.username || '-')}</p></div><div><small>Email</small><p>${escape(item.users?.email || '-')}</p></div></div><h4>Assigned Subjects</h4><ul>${assigned.map(subject => `<li>${subject}</li>`).join('') || '<li>No subjects assigned.</li>'}</ul>`
+    const initials = `${item.first_name[0] || ''}${item.last_name[0] || ''}`.toUpperCase()
+    const picture = item.users?.profile_picture_url
+    document.getElementById('faculty-details-body').innerHTML = `<div style="text-align:center;margin-bottom:12px"><span class="person-avatar" style="width:96px;height:96px;font-size:32px">${picture ? `<img src="${escape(picture)}" alt="">` : escape(initials || '?')}</span></div><div class="review-grid"><div><small>Employee No.</small><p>${escape(item.employee_no)}</p></div><div><small>Department</small><p>${escape(item.department)}</p></div><div><small>Specialization</small><p>${escape(item.specialization || '-')}</p></div><div><small>Phone</small><p>${escape(item.phone || '-')}</p></div><div><small>Username</small><p>${escape(item.users?.username || '-')}</p></div><div><small>Email</small><p>${escape(item.users?.email || '-')}</p></div></div><h4>Assigned Subjects</h4><ul>${assigned.map(subject => `<li>${subject}</li>`).join('') || '<li>No subjects assigned.</li>'}</ul><div class="admin-actions"><button type="button" class="admin-primary" id="edit-from-details">Edit</button></div>`
+    document.getElementById('edit-from-details').onclick = () => { document.getElementById('faculty-details-modal').classList.add('hidden'); editFaculty(profileId) }
     document.getElementById('faculty-details-modal').classList.remove('hidden')
   }
   function openAssign(profileId) {
     assigningProfileId = profileId
     const item = faculty.find(f => String(f.profile_id) === String(profileId))
-    document.getElementById('assign-modal-title').textContent = `Assign Subjects — ${item?.first_name || ''} ${item?.last_name || ''}`
+    const picture = item?.users?.profile_picture_url
+    const initials = `${item?.first_name?.[0] || ''}${item?.last_name?.[0] || ''}`.toUpperCase()
+    document.getElementById('assign-faculty').innerHTML = `<div class="assign-faculty-head"><span class="person-avatar" style="width:56px;height:56px;font-size:20px">${picture ? `<img src="${escape(picture)}" alt="">` : escape(initials || '?')}</span><div><b>${escape(`${item?.first_name || ''} ${item?.last_name || ''}`)}</b><small>${escape(item?.employee_no || '')} · ${escape(item?.department || '-')} · ${escape(item?.specialization || '-')}</small></div><button type="button" class="admin-view" id="assign-show-details">View details</button></div><div id="assign-details" class="review-grid hidden"></div>`
+    document.getElementById('assign-show-details').onclick = async event => {
+      const box = document.getElementById('assign-details')
+      if (!box.classList.contains('hidden')) { box.classList.add('hidden'); event.target.textContent = 'View details'; return }
+      if (!await confirmPassword(user.email, 'Enter your password to view faculty contact details.')) return
+      box.innerHTML = `<div><small>Phone</small><p>${escape(item.phone || '-')}</p></div><div><small>Username</small><p>${escape(item.users?.username || '-')}</p></div><div><small>Email</small><p>${escape(item.users?.email || '-')}</p></div>`
+      box.classList.remove('hidden'); event.target.textContent = 'Hide details'
+    }
+    document.getElementById('assign-search').value = ''
     const assignedIds = new Set(assignments.filter(a => String(a.profile_id) === String(profileId)).map(a => a.subject_id))
     document.getElementById('assign-subject-list').innerHTML = subjects.map(s => `<label class="admin-check"><input type="checkbox" value="${s.subject_id}" ${assignedIds.has(s.subject_id) ? 'checked' : ''}> ${escape(s.subject_code)} - ${escape(s.subject_name)}</label>`).join('') || '<p>No active subjects to assign. Add subjects on the Subjects page first.</p>'
     document.getElementById('assign-modal').classList.remove('hidden')
@@ -123,6 +135,11 @@
       toast(added.length || removed.length ? 'Subject assignments saved.' : 'No changes to save.')
       await loadFaculty()
     })
+  }
+  // Hide, don't re-render, so ticks on filtered-out subjects are kept and still saved.
+  document.getElementById('assign-search').oninput = event => {
+    const term = event.target.value.trim().toLowerCase()
+    document.querySelectorAll('#assign-subject-list label').forEach(label => label.classList.toggle('hidden', !!term && !label.textContent.toLowerCase().includes(term)))
   }
   document.getElementById('close-assign').onclick = closeAssign
   document.getElementById('cancel-assign').onclick = closeAssign
