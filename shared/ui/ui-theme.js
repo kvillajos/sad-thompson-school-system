@@ -718,6 +718,7 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .transcript-print-card { display: none; }
 .pdf-preview-box { width:min(100%,860px) !important; max-height:92vh; display:flex; flex-direction:column; }
 .pdf-preview-scroll { overflow:auto; background:#e5eaf2; padding:16px; border-radius:8px; margin:8px 0 12px; }
+.pdf-preview-scroll .pdf-sheet { width:auto; max-width:794px; }
 .pdf-sheet { width:794px; max-width:none; margin:0 auto; background:#fff; color:#111; padding:24px; box-sizing:border-box; box-shadow:0 2px 10px rgba(15,23,42,.18); }
 @media print {
   @page { size: A4; margin: 12mm; }

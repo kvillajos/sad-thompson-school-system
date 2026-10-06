@@ -104,8 +104,12 @@ table.doc-table td {
   text-align: center;
 }
 
+/* Reset the app's navy rounded table-header style (registrar page: global th, admin theme: .main th). */
 table.doc-table th {
   font-weight: bold;
+  font-size: inherit;
+  background: transparent !important;
+  border-radius: 0 !important;
 }
 
 /* A semester block (heading + table) and any table row never split across two pages. The PDF is cut at
