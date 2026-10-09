@@ -41,7 +41,7 @@
     document.getElementById('close-section').onclick = close
     document.getElementById('cancel-section').onclick = close
     document.getElementById('section-grade').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades' })
-    form.elements.grade_level.innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'Select Grade' })
+    form.elements.grade_level.innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'Select Grade Level' })
     async function loadSections() {
       const table = document.getElementById('sections-table')
       if (!moderators.length) { const moderatorResult = await loadModerators(); moderators = moderatorResult.data || [] }

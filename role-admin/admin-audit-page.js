@@ -39,7 +39,7 @@ async function loadAuditArchive() {
   const error = archived.error || live.error
   if (error) return target.innerHTML = `<p class="note" role="alert">${escape(describeError(error, 'Load archived actions'))}</p>`
   const events = [...(archived.data?.events || []), ...(live.data || [])].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
-  target.innerHTML = `<table><thead><tr><th>When</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead><tbody>${auditRowsHtml(events)}</tbody></table>`
+  target.innerHTML = `<table><thead><tr><th>Date</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead><tbody>${auditRowsHtml(events)}</tbody></table>`
 }
 
 async function exportAudit() {

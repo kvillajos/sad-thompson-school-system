@@ -229,6 +229,10 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .faculty-details-box ul { margin:0; padding-left:20px; color:var(--ui-text); }
 .admin-modal-box label { color:var(--ui-text); font-weight:700; font-size:13px }
 .admin-modal-box input,.admin-modal-box select,.admin-modal-box textarea { width:100%; box-sizing:border-box; margin-top:6px; padding:10px 12px; border:1px solid #b9c8dc; border-radius:11px; color:var(--ui-text); background:#fff }
+#subject-form > label,#section-form > label { display:grid; align-content:start; gap:6px; min-width:0 }
+#subject-form > label input,#subject-form > label select,#subject-form > label textarea,#section-form > label input,#section-form > label select,#section-form > label textarea { margin-top:0 }
+#subject-form > .admin-full > label { display:block; margin-bottom:6px }
+#section-form .moderator-picker,#section-form #selected-moderator { margin-left:0 }
 .admin-full,.admin-actions { grid-column:1/-1 }
 .admin-actions { display:flex; justify-content:flex-end; gap:8px }
 .admin-cancel { border:1px solid var(--ui-border); border-radius:11px; padding:10px 14px; background:var(--ui-surface); color:var(--ui-text); cursor:pointer }

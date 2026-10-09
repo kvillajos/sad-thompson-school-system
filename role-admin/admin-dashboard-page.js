@@ -97,6 +97,16 @@ import { mountAnnouncements, pinIcon } from '../shared/ui/announcements.js'
         renderApprovals()
       }
 
+      async function loadRegistrarFeedback() {
+        const table = document.getElementById('registrar-feedback-table')
+        const { data, error } = await supabase.from('registrar_feedback').select('id,area,priority,pain_point,suggested_fix,submitted_by,created_at').order('created_at', { ascending: false }).limit(50)
+        if (error) {
+          table.innerHTML = errorRow(6, error, 'Load registrar feedback')
+          return
+        }
+        table.innerHTML = (data || []).map(item => `<tr><td>${escape(item.area)}</td><td>${escape(item.priority)}</td><td>${escape(item.pain_point)}</td><td>${escape(item.suggested_fix || '-')}</td><td>${escape(item.submitted_by || '-')}</td><td>${formatDate(item.created_at, true)}</td></tr>`).join('') || '<tr><td colspan="6">No feedback submitted yet.</td></tr>'
+      }
+
       async function reviewRequest(id, approve, button) {
         const request = approvalRequests.find(item => String(item.id) === String(id))
         if (!request) return
@@ -263,9 +273,11 @@ import { mountAnnouncements, pinIcon } from '../shared/ui/announcements.js'
       await loadApplications()
       await loadProfileRequests()
       await loadApprovalRequests()
+      await loadRegistrarFeedback()
       setInterval(loadApplications, 30000)
       setInterval(loadProfileRequests, 30000)
       setInterval(loadApprovalRequests, 30000)
+      setInterval(loadRegistrarFeedback, 30000)
 
       // "First Last" using only the first word of the first name; stored on the row because recipients can't read other users.
       async function currentAuthorName() {
