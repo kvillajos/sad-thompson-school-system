@@ -758,6 +758,16 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .login-notice-date { display:block; margin-top:8px; text-align:right; font-size:12px; opacity:.85; }
 .login-notice .rich { margin-top:6px; font-size:13px; line-height:1.45; }
 @media (max-width:700px) { #maintenance-notices { display:none; } }
+
+/* Mobile login announcements */
+.mobile-maintenance-notices { display:none; }
+@media (max-width:700px) {
+  .mobile-maintenance-notices { display:block; width:100%; margin:0 auto 16px; box-sizing:border-box; }
+  .mobile-maintenance-notices .login-notice-card { padding:12px 14px; border:1px solid rgba(255,255,255,.25); border-left:4px solid #f0b429; border-radius:12px; background:rgba(255,255,255,.08); color:#fff; text-shadow:none; max-height:190px; overflow-y:auto; }
+  .mobile-maintenance-notices .login-notice strong { font-size:13px; line-height:1.4; }
+  .mobile-maintenance-notices .login-notice .rich { margin-top:6px; font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
+  .mobile-maintenance-notices .login-notice-date { font-size:11px; }
+}
 .rich { overflow-wrap:anywhere; }
 .rich p, .rich div, .rich ul, .rich ol, .rich blockquote { margin:0 0 6px; }
 .rich li { margin:0 0 2px; }
