@@ -3,45 +3,100 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071b3a" />
     <link rel="icon" type="image/png" href="/assets/logo.png" />
     <title>Thompson Christian School Management System</title>
   </head>
+
   <body class="login-page">
-    <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#102a43"></div>
+    <div
+      id="tcsms-loading-screen"
+      class="loading-screen"
+      style="position:fixed;inset:0;background:#102a43"
+      aria-hidden="true"
+    ></div>
 
     <div class="login-layout">
       <section class="login-panel" aria-label="TCSMS sign in">
         <div id="login-container" class="card">
+
           <div class="brand-lockup">
+            <img
+              class="brand-logo"
+              src="/assets/logo.png"
+              alt="Thompson Christian School seal"
+              width="112"
+              height="112"
+            />
+
             <div class="brand-copy">
-    <p class="brand-name">Thompson <span>Christian</span> School</p>
-    <p class="brand-tagline">School Management System</p>
-  </div>
-            <img class="brand-logo" src="/assets/logo.png" alt="Thompson Christian School seal" />
+              <p class="brand-name">
+                Thompson <span>Christian</span> School
+              </p>
+              <p class="brand-tagline">
+                School Management System
+              </p>
+            </div>
           </div>
-          <div id="mobile-maintenance-notices"
-     class="mobile-maintenance-notices"></div>
+
+          <!-- Public announcements appear here on mobile -->
+          <div
+            id="mobile-maintenance-notices"
+            class="mobile-maintenance-notices"
+            aria-live="polite"
+          ></div>
+
+          <!-- Keep one heading for accessibility -->
           <h2>TCSMS Login</h2>
+
           <form id="login-form">
             <div class="form-group">
               <label for="username">Username or Email</label>
-              <input maxlength="150" type="text" id="username" placeholder="Username or Email" required autocomplete="username" />
+              <input
+                maxlength="150"
+                type="text"
+                id="username"
+                placeholder="Username or Email"
+                required
+                autocomplete="username"
+              />
             </div>
+
             <div class="form-group">
               <label for="password">Password</label>
-              <input maxlength="128" type="password" id="password" placeholder="Password" required autocomplete="current-password" />
+              <input
+                maxlength="128"
+                type="password"
+                id="password"
+                placeholder="Password"
+                required
+                autocomplete="current-password"
+              />
             </div>
+
             <p class="app-version" style="text-align:right;margin:-4px 0 12px">
-              <a href="/forgot-password.html" style="color:#93a7c4">Forgot password?</a>
+              <a
+                href="/forgot-password.html"
+                style="color:#93a7c4"
+              >Forgot password?</a>
             </p>
+
             <button type="submit">Sign In</button>
           </form>
-          <div id="message"></div>
+
+          <div id="message" role="status" aria-live="polite"></div>
           <p id="app-version" class="app-version"></p>
         </div>
-
       </section>
-      <aside class="login-photo" aria-label="Thompson Christian School campus"><div id="maintenance-notices"></div></aside>
+
+      <!-- Desktop campus background and announcement container -->
+      <aside
+        class="login-photo"
+        aria-label="Thompson Christian School campus"
+      >
+        <div id="maintenance-notices"></div>
+      </aside>
+    </div>
 
     <script type="module" src="/auth/login-page.js"></script>
   </body>

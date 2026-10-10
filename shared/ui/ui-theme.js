@@ -64,7 +64,10 @@ button:not(:disabled):hover { filter:brightness(0.96); }
 .brand-name { font-size:1.7rem; font-weight:700; line-height:1.1 }
 .brand-name span { color:#7da8ff }
 .brand-tagline { font-size:.9rem; color:#cbd5e1 }
-.brand-logo { position:static; order:1; width:200px; height:200px; object-fit:contain; margin-bottom:12px }
+
+body.login-page .brand-logo-picture { display:block; width:112px; height:112px; margin:0 auto 4px; }
+body.login-page .brand-logo-picture .brand-logo { display:block; width:100%; height:100%; object-fit:contain; margin:0; }
+
 .login-panel .card { width:min(100%,384px); margin:0 auto }
 .login-panel .card > h2 { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap }
 .login-panel .form-group { margin-bottom:8px }
@@ -768,6 +771,33 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
   .mobile-maintenance-notices .login-notice .rich { margin-top:6px; font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
   .mobile-maintenance-notices .login-notice-date { font-size:11px; }
 }
+
+/* Mobile login screen redesign */
+@media (max-width:700px) {
+  body.login-page { min-height:100vh; background:#071b3a; }
+  body.login-page .login-layout { display:block; min-height:100vh; min-height:100svh; background:linear-gradient(180deg,rgba(5,24,53,.88),rgba(5,24,53,.72)),url('/assets/bg.jpg') center center / cover no-repeat; }
+  body.login-page .login-panel { display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch; box-sizing:border-box; width:100%; min-height:100vh; min-height:100svh; padding:42px 24px 32px; background:transparent; }
+  body.login-page .login-photo { display:none; }
+  body.login-page #login-container { width:100%; max-width:360px; margin:0 auto; padding:0; background:transparent; border:0; border-radius:0; box-shadow:none; }
+  body.login-page .brand-lockup { display:flex; flex-direction:column; align-items:center; gap:10px; margin:0 auto 22px; text-align:center; }
+  body.login-page .brand-logo { width:112px; height:112px; object-fit:contain; margin:0 auto 4px; }
+  body.login-page .brand-copy { width:100%; text-align:center; }
+  body.login-page .brand-name { font-size:20px; line-height:1.35; font-weight:700; }
+  body.login-page .brand-tagline { margin-top:4px; font-size:13px; color:#d4e3fa; }
+  body.login-page #login-container > h2 { display:none; }
+  body.login-page .mobile-maintenance-notices { display:block; width:100%; margin:0 auto 22px; }
+  body.login-page .mobile-maintenance-notices .login-notice-card { padding:14px 15px; border:1px solid rgba(255,205,95,.85); border-left:4px solid #ffbd35; border-radius:14px; background:rgba(7,27,58,.82); color:#fff; text-shadow:none; max-height:220px; overflow-y:auto; backdrop-filter:blur(8px); }
+  body.login-page .mobile-maintenance-notices .login-notice-tag { color:#ffcf62; }
+  body.login-page .mobile-maintenance-notices .login-notice strong { font-size:14px; line-height:1.45; }
+  body.login-page .mobile-maintenance-notices .login-notice .rich { margin-top:8px; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+  body.login-page .mobile-maintenance-notices .login-notice-date { font-size:11px; color:#d6e2f4; }
+  body.login-page #login-form { width:100%; margin:0; }
+  body.login-page #login-form .form-group { margin-bottom:10px; }
+  body.login-page #login-form input { box-sizing:border-box; width:100%; min-height:46px; border-radius:11px; }
+  body.login-page #login-form button[type="submit"] { width:100%; min-height:46px; margin-top:10px; border-radius:11px; font-weight:700; }
+  body.login-page #login-container .app-version { margin-top:14px; text-align:center; color:#c8d9f2; font-size:11px; }
+}
+
 .rich { overflow-wrap:anywhere; }
 .rich p, .rich div, .rich ul, .rich ol, .rich blockquote { margin:0 0 6px; }
 .rich li { margin:0 0 2px; }
