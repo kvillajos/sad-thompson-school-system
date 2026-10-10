@@ -73,7 +73,7 @@
     const shown = own || yearSettings[0]
     lunchInputs.ls.value = hm(shown?.lunch_start); lunchInputs.le.value = hm(shown?.lunch_end)
     lunchInputs.bs.value = hm(shown?.break_start); lunchInputs.be.value = hm(shown?.break_end)
-    lunchNote.textContent = own ? `Last saved ${new Date(own.updated_at).toLocaleDateString()}${own.updated_by ? ` by ${own.updated_by}` : ''}.` : 'Not set for this school year yet. The most recent times are shown; save to set this year.'
+    lunchNote.textContent = own ? `Last saved ${new Date(own.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${own.updated_by ? ` by ${own.updated_by}` : ''}.` : 'Not set for this school year yet. The most recent times are shown; save to set this year.'
   }
   async function loadLunch() {
     const { data, error } = await supabase.from('school_year_settings').select('*').order('school_year', { ascending: false })
