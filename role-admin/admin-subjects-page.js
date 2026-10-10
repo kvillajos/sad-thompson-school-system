@@ -1,7 +1,7 @@
     import { supabase } from '../shared/lib/auth-client.js'
     import { toast } from '../shared/ui/ui-theme.js'
     import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
-    import { escapeHtml as escape, gradeLevelCheckboxes, bindExclusiveGradePicker, readGradePicker, setGradePicker, gradeLevelSummary, errorRow, activeStatus } from '../shared/lib/html.js'
+    import { escapeHtml as escape, gradeLevelCheckboxes, bindExclusiveGradePicker, readGradePicker, setGradePicker, gradeLevelSummary, errorRow, activeStatus, subjectDisplayName } from '../shared/lib/html.js'
     import { describeError } from '../shared/lib/errors.js'
     import { mountAdminShell } from './admin-page.js'
     import { confirmDialog } from '../shared/ui/dialog.js'
@@ -25,8 +25,8 @@
     function renderSubjects() {
       const search = document.getElementById('subject-search').value.trim().toLowerCase()
       const status = document.getElementById('subject-status').value
-      const visibleSubjects = subjects.filter(item => (!status || String(item.is_active) === status) && (!search || `${item.subject_code} ${item.subject_name}`.toLowerCase().includes(search)))
-      document.getElementById('subjects-table').innerHTML = visibleSubjects.map(item => `<tr><td>${escape(item.subject_code)}</td><td>${escape(item.subject_name)}</td><td>${escape(gradeLevelSummary(item.grade_level))}</td><td>${activeStatus(item.is_active)}</td><td><button class="admin-view" data-edit-subject="${item.subject_id}">Edit</button><button class="admin-remove" data-remove-subject="${item.subject_id}">Remove</button></td></tr>`).join('') || '<tr><td colspan="5">No matching subjects.</td></tr>'
+      const visibleSubjects = subjects.filter(item => (!status || String(item.is_active) === status) && (!search || `${item.subject_code} ${item.subject_name} ${subjectDisplayName(item.subject_name)}`.toLowerCase().includes(search)))
+      document.getElementById('subjects-table').innerHTML = visibleSubjects.map(item => `<tr><td>${escape(item.subject_code)}</td><td>${escape(subjectDisplayName(item.subject_name))}</td><td>${escape(gradeLevelSummary(item.grade_level))}</td><td>${activeStatus(item.is_active)}</td><td><button class="admin-view" data-edit-subject="${item.subject_id}">Edit</button><button class="admin-remove" data-remove-subject="${item.subject_id}">Remove</button></td></tr>`).join('') || '<tr><td colspan="5">No matching subjects.</td></tr>'
       document.querySelectorAll('[data-edit-subject]').forEach(button => button.onclick = () => openSubject(subjects.find(item => String(item.subject_id) === button.dataset.editSubject)))
       document.querySelectorAll('[data-remove-subject]').forEach(button => button.onclick = () => removeSubject(button.dataset.removeSubject))
     }
