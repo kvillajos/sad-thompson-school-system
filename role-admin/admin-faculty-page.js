@@ -1,7 +1,7 @@
   import { supabase } from '../shared/lib/auth-client.js'
   import { toast } from '../shared/ui/ui-theme.js'
   import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
-  import { escapeHtml as escape, errorRow, activeStatus } from '../shared/lib/html.js'
+  import { escapeHtml as escape, errorRow, activeStatus, subjectDisplayName } from '../shared/lib/html.js'
   import { describeError, describeFunctionError } from '../shared/lib/errors.js'
   import { mountAdminShell, createStaffAccount, facultyFields } from './admin-page.js'
   import { confirmPassword, withBusy } from '../shared/ui/shell.js'
@@ -87,7 +87,7 @@
   function openFacultyDetails(profileId) {
     const item = faculty.find(f => String(f.profile_id) === String(profileId))
     if (!item) return
-    const assigned = assignments.filter(a => String(a.profile_id) === String(profileId)).map(a => `${escape(a.subjects?.subject_code || '')} - ${escape(a.subjects?.subject_name || '')}`)
+    const assigned = assignments.filter(a => String(a.profile_id) === String(profileId)).map(a => `${escape(a.subjects?.subject_code || '')} - ${escape(subjectDisplayName(a.subjects?.subject_name) || '')}`)
     document.getElementById('faculty-details-title').textContent = `${item.first_name} ${item.last_name}`
     const initials = `${item.first_name[0] || ''}${item.last_name[0] || ''}`.toUpperCase()
     const picture = item.users?.profile_picture_url
@@ -110,7 +110,7 @@
     }
     document.getElementById('assign-search').value = ''
     const assignedIds = new Set(assignments.filter(a => String(a.profile_id) === String(profileId)).map(a => a.subject_id))
-    document.getElementById('assign-subject-list').innerHTML = subjects.map(s => `<label class="admin-check"><input type="checkbox" value="${s.subject_id}" ${assignedIds.has(s.subject_id) ? 'checked' : ''}> ${escape(s.subject_code)} - ${escape(s.subject_name)}</label>`).join('') || '<p>No active subjects to assign. Add subjects on the Subjects page first.</p>'
+    document.getElementById('assign-subject-list').innerHTML = subjects.map(s => `<label class="admin-check"><input type="checkbox" value="${s.subject_id}" ${assignedIds.has(s.subject_id) ? 'checked' : ''}> ${escape(s.subject_code)} - ${escape(subjectDisplayName(s.subject_name))}</label>`).join('') || '<p>No active subjects to assign. Add subjects on the Subjects page first.</p>'
     document.getElementById('assign-modal').classList.remove('hidden')
   }
   function closeAssign() { document.getElementById('assign-modal').classList.add('hidden'); assigningProfileId = null }
