@@ -1,0 +1,68 @@
+/* ADMIN POLISH - owner: admin-ui-fixes branch only.
+   One look for every admin table: the same cell spacing, one action column, and action buttons
+   that are all the same size. Loads last, so it wins ties with the other stylesheets.
+   Phones (700px and under) keep their own layout from responsive-mobile.css. */
+
+@media (min-width: 701px) {
+  :root { --admin-action-w: 104px; }
+
+  /* ---- Rows and columns: same padding everywhere, text centred in the row ---- */
+  body.role-admin .admin-table-wrap th,
+  body.role-admin .admin-table-wrap td {
+    padding: 12px 16px;
+    text-align: left;
+    vertical-align: middle;
+  }
+  body.role-admin .admin-table-wrap th { white-space: nowrap; }
+  body.role-admin .admin-table-wrap td { line-height: 1.4; }
+
+  /* ---- Action column: only tables whose last cell holds buttons ---- */
+  body.role-admin .admin-table-wrap table:has(td:last-child:not([colspan]) > button) th:last-child {
+    width: var(--admin-action-w);
+    padding-left: 0;
+    padding-right: 0;
+    text-align: center;
+  }
+  body.role-admin .admin-table-wrap td:last-child:not([colspan]):has(> button) {
+    width: var(--admin-action-w);
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Every action button (Edit, Remove, Approve, Reject, Review, Pin ...) is one size,
+     stacked, and sits on the right edge of its card. */
+  body.role-admin .admin-table-wrap td:last-child:not([colspan]) > button {
+    display: block;
+    box-sizing: border-box;
+    width: var(--admin-action-w);
+    min-height: 34px;
+    margin: 0 0 6px auto;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600 !important;
+    line-height: 1.3;
+    text-align: center;
+    white-space: nowrap;
+  }
+  body.role-admin .admin-table-wrap td:last-child:not([colspan]) > button:last-child { margin-bottom: 0; }
+
+  /* ---- "+ Add" in a card header lines up with the action buttons below it ---- */
+  body.role-admin .admin-section-title > #add-announcement {
+    box-sizing: border-box;
+    width: var(--admin-action-w) !important;
+    min-height: 34px !important;
+    margin: 0;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    text-align: center;
+  }
+
+  /* ---- Search / filter / add row: same height, Add button on the far right ---- */
+  body.role-admin .admin-filterbar { align-items: center; }
+  body.role-admin .admin-filterbar input,
+  body.role-admin .admin-filterbar select,
+  body.role-admin .admin-filterbar .admin-primary {
+    box-sizing: border-box;
+    height: 42px;
+  }
+}
