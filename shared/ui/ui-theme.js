@@ -1066,7 +1066,7 @@ export function applyUiTheme() {
     style.textContent = sharedTheme;
     document.head.appendChild(style);
     // Team stylesheets (public/css/*): one file per task so branches never edit the same lines. They load after the main theme, so they win.
-    for (const name of ['theme-dark', 'responsive-tablet', 'responsive-mobile', 'documents']) {
+    for (const name of ['theme-dark', 'responsive-tablet', 'responsive-mobile', 'documents', 'admin-polish']) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = `/css/${name}.css`;
