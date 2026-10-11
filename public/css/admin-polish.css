@@ -18,15 +18,18 @@
 
   /* ---- Action column: only tables whose last cell holds buttons ---- */
   body.role-admin .admin-table-wrap table:has(td:last-child:not([colspan]) > button) th:last-child {
-    width: var(--admin-action-w);
+    width: 1%;
     padding-left: 0;
     padding-right: 0;
     text-align: center;
   }
   body.role-admin .admin-table-wrap td:last-child:not([colspan]):has(> button) {
-    width: var(--admin-action-w);
+    width: 1%;
     padding-left: 0;
     padding-right: 0;
+     white-space: nowrap;
+     body.role-admin .admin-table-wrap .ann-table th:last-child,
+    body.role-admin .admin-table-wrap .ann-table td:last-child:not([colspan]) { width: var(--admin-action-w); }
   }
 
   /* Every action button (Edit, Remove, Approve, Reject, Review, Pin ...) is one size,
@@ -34,7 +37,7 @@
   body.role-admin .admin-table-wrap td:last-child:not([colspan]) > button {
     display: block;
     box-sizing: border-box;
-    width: var(--admin-action-w);
+    width: 100%; min-width: var(--admin-action-w);
     min-height: 34px;
     margin: 0 0 6px auto;
     padding: 6px 10px;
