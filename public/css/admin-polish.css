@@ -23,17 +23,18 @@
     padding-right: 0;
     text-align: center;
   }
-  body.role-admin .admin-table-wrap td:last-child:not([colspan]):has(> button) {
+    body.role-admin .admin-table-wrap td:last-child:not([colspan]):has(> button) {
     width: 1%;
     padding-left: 0;
     padding-right: 0;
-     white-space: nowrap;
-     body.role-admin .admin-table-wrap .ann-table th:last-child,
-    body.role-admin .admin-table-wrap .ann-table td:last-child:not([colspan]) { width: var(--admin-action-w); }
+    white-space: nowrap;
+  }
+  /* Announcements uses a fixed table layout, so give its Action column an explicit width. */
+  body.role-admin .admin-table-wrap .ann-table th:last-child,
+  body.role-admin .admin-table-wrap .ann-table td:last-child:not([colspan]) {
+    width: var(--admin-action-w) !important;
   }
 
-  /* Every action button (Edit, Remove, Approve, Reject, Review, Pin ...) is one size,
-     stacked, and sits on the right edge of its card. */
   body.role-admin .admin-table-wrap td:last-child:not([colspan]) > button {
     display: block;
     box-sizing: border-box;
