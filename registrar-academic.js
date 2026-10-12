@@ -100,21 +100,7 @@ $('print-academic-card').onclick = () => printAcademicCard(state.academicStudent
 // Report card = grades + attendance + remarks + general average, printed the same way
 // (see printAcademicCard()): the theme hides every other body child while the body
 // carries the printing-report-card class.
-async function printReportCard(studentId) {
-  const student = state.students.find(item => `${item.student_id}` === `${studentId}`)
-  if (!student) return toast('Open a student record first.', 'error')
-  const rows = academicRowsFor(studentId)
-  if (!rows.length) return toast('No academic records to print for this student.', 'error')
-  const schoolYear = rows[rows.length - 1].school_year
-  const yearRows = rows.filter(row => row.school_year === schoolYear)
-  const enrollment = await supabase.from('enrollments').select('sections(section_name)').eq('student_id', studentId).eq('school_year', schoolYear).maybeSingle()
-  const totals = await supabase.rpc('attendance_totals', { p_student_id: studentId, p_school_year: schoolYear })
-  $('report-print-card').innerHTML = buildReportCard({
-    student, gradeLevel: gradeLabel(student.grade_level), schoolYear, sectionName: enrollment.data?.sections?.section_name,
-    academicRows: yearRows, attendance: totals.data, remarks: yearRows.map(row => row.remarks).filter(Boolean).join('; ')
-  })
-  previewPdf($('report-print-card'), { title: 'Report Card', filename: pdfName('Report Card', student), printClass: 'printing-report-card' })
-}
+
 $('print-report-card').onclick = () => printReportCard(state.academicStudentId)
 // The card prints from the page itself instead of a pop-up: the theme hides every other
 // body child while body carries the printing-card class.
