@@ -701,6 +701,37 @@ th.sortable.sort-asc::after { content:'▲'; opacity:1; }
 th.sortable.sort-desc::after { content:'▼'; opacity:1; }
 th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 
+
+
+/* Align all action buttons in the Pending Approvals table */
+#approvals-table td:last-child {
+  vertical-align: middle;
+}
+
+#approvals-table td:last-child .admin-view,
+#approvals-table td:last-child .admin-approve,
+#approvals-table td:last-child .admin-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 98px;
+  min-height: 32px;
+  padding: 7px 10px;
+  margin: 2px 0 4px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+#approvals-table td:last-child .admin-approve,
+#approvals-table td:last-child .admin-remove {
+  display: flex;
+}
+
 /* Profile picture fields and previews */
 .photo-field { display:flex; align-items:center; gap:14px; margin-top:6px; }
 .photo-field input[type=file] { margin-top:0; }
