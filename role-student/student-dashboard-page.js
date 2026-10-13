@@ -188,7 +188,7 @@
         const rows = gradeRows.filter(row => row.school_year === schoolYear)
         const body = rows.map(row => {
           const semGrade = generalAverage(quarterFields.map(field => ({ grade: row[field] })))
-          return `<tr><td>${escape(row.subject)}</td><td>${escape(teacherFor(row.subject))}</td><td>${row[quarterFields[0]] ?? ''}</td><td>${row[quarterFields[1]] ?? ''}</td><td>${semGrade ?? row.grade ?? ''}</td><td>${escape(row.letter_grade || letterGrade(semGrade ?? row.grade)?.letter || '')}</td><td>${escape(row.remarks || '')}</td></tr>`
+          return `<tr><td data-label="Subject">${escape(row.subject)}</td><td data-label="Teacher">${escape(teacherFor(row.subject))}</td><td data-label="Q1">${row[quarterFields[0]] ?? ''}</td><td data-label="Q2">${row[quarterFields[1]] ?? ''}</td><td data-label="Grade">${semGrade ?? row.grade ?? ''}</td><td data-label="Letter">${escape(row.letter_grade || letterGrade(semGrade ?? row.grade)?.letter || '')}</td><td data-label="Remarks">${escape(row.remarks || '')}</td></tr>`
         }).join('')
         const { data: totals } = await supabase.rpc('attendance_totals', { p_student_id: user.student_id, p_school_year: schoolYear })
         host.innerHTML = `<table><thead><tr><th>Subject</th><th>Teacher</th><th>Q1</th><th>Q2</th><th>Grade</th><th>Letter</th><th>Remarks</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="empty-state">No academic records yet.</td></tr>'}</tbody></table><p class="admin-note">Absences this term: ${totals?.absent ?? 0}</p>`

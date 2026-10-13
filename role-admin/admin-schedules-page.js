@@ -24,19 +24,48 @@
 
   function closeModal(modal, form) { modal.classList.add('hidden'); form?.reset(); if (form?.elements.schedule_id) form.elements.schedule_id.value = '' }
   function sectionLabel(section) { return Number(section.grade_level) === 0 ? 'Kindergarten' : `Grade ${section.grade_level}` }
-  function renderSections() {
-    const search = document.getElementById('section-search').value.trim().toLowerCase()
-    const grade = document.getElementById('section-grade').value
-    const visible = sections.filter(section => (!grade || String(section.grade_level) === grade) && (!search || section.section_name.toLowerCase().includes(search)))
-    document.getElementById('sections-table').innerHTML = visible.map(section => {
-      const count = schedules.filter(item => Number(item.section_id) === Number(section.section_id)).length
-      return `<tr><td>${escape(section.section_name)}</td><td>${sectionLabel(section)}</td><td>${escape(section.academic_year || '-')}</td><td>${count}</td><td><button class="admin-view" data-section="${section.section_id}">View Subjects</button></td></tr>`
-    }).join('') || '<tr><td colspan="5">No matching sections.</td></tr>'
-    document.querySelectorAll('[data-section]').forEach(button => button.onclick = () => openSection(sections.find(section => String(section.section_id) === button.dataset.section)))
-  }
+  
+function renderSections() {
+  const search = document.getElementById('section-search').value.trim().toLowerCase()
+  const grade = document.getElementById('section-grade').value
+
+  const visible = sections.filter(section =>
+    (!grade || String(section.grade_level) === grade) &&
+    (!search || section.section_name.toLowerCase().includes(search))
+  )
+
+  document.getElementById('sections-table').innerHTML = visible.map(section => {
+    const count = schedules.filter(
+      item => Number(item.section_id) === Number(section.section_id)
+    ).length
+
+    return `
+      <tr class="section-card-row">
+        <td data-label="Section">${escape(section.section_name)}</td>
+        <td data-label="Grade">${sectionLabel(section)}</td>
+        <td data-label="Academic Year">${escape(section.academic_year || '-')}</td>
+        <td data-label="Scheduled Subjects">${count}</td>
+        <td data-label="Action">
+          <button class="admin-view" data-section="${section.section_id}">
+            View Subjects
+          </button>
+        </td>
+      </tr>
+    `
+  }).join('') || '<tr><td colspan="5">No matching sections.</td></tr>'
+
+  document.querySelectorAll('[data-section]').forEach(button => {
+    button.onclick = () => openSection(
+      sections.find(section =>
+        String(section.section_id) === button.dataset.section
+      )
+    )
+  })
+}
+
   function renderSchedules() {
     const rows = groupScheduleRows(schedules.filter(item => Number(item.section_id) === Number(selectedSection?.section_id)))
-    document.getElementById('section-schedules-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subjects?.subject_code || '')} - ${escape(item.subjects?.subject_name || '')}</td><td>${escape(item.faculty_name || '-')}</td><td>${escape(item.room || '-')}</td><td>${formatDays(item.days)}</td><td>${timeRange12(item.start_time, item.end_time)}</td><td><button class="admin-view" data-edit-schedule="${item.schedule_ids.join(',')}">Edit</button><button class="admin-remove" data-remove-schedule="${item.schedule_ids.join(',')}">Remove</button></td></tr>`).join('') || '<tr><td colspan="6">No subjects scheduled for this section.</td></tr>'
+    document.getElementById('section-schedules-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subjects?.subject_code || '')} - ${escape(item.subjects?.subject_name || '')}</td><td data-label="Faculty">${escape(item.faculty_name || '-')}</td><td data-label="Room">${escape(item.room || '-')}</td><td data-label="Days">${formatDays(item.days)}</td><td data-label="Time">${timeRange12(item.start_time, item.end_time)}</td><td data-label="Actions"><button class="admin-view" data-edit-schedule="${item.schedule_ids.join(',')}">Edit</button><button class="admin-remove" data-remove-schedule="${item.schedule_ids.join(',')}">Remove</button></td></tr>`).join('') || '<tr><td colspan="6">No subjects scheduled for this section.</td></tr>'
     document.querySelectorAll('[data-edit-schedule]').forEach(button => button.onclick = () => openSchedule(rows.find(item => button.dataset.editSchedule.split(',').includes(String(item.schedule_ids[0])))))
     document.querySelectorAll('[data-remove-schedule]').forEach(button => button.onclick = () => removeSchedule(button.dataset.removeSchedule.split(',')))
   }

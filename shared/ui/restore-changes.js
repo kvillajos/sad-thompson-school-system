@@ -29,7 +29,7 @@ export async function mountRestoreChanges(host, { includeDeletedAccounts = false
   const failure = changes.error || accounts.error
   if (failure) { host.innerHTML = `<p class="note" role="alert">${escape(describeError(failure, 'Load changes'))}</p>`; return }
 
-  const accountRows = (accounts.data || []).map(item => `<tr><td>${escape(item.username)}</td><td>${ROLE_NAMES[item.role_id] || 'Unknown'}</td><td>${formatDate(item.deleted_at, true)}</td><td>${escape(item.deleted_by || '-')}</td><td>${expiresOn(item.deleted_at)}</td><td><button type="button" class="admin-view" data-restore-account="${item.user_id}">Restore</button></td></tr>`).join('')
+  const accountRows = (accounts.data || []).map(item => `<tr><td data-label="Username">${escape(item.username)}</td><td data-label="Role">${ROLE_NAMES[item.role_id] || 'Unknown'}</td><td data-label="Deleted">${formatDate(item.deleted_at, true)}</td><td data-label="Deleted by">${escape(item.deleted_by || '-')}</td><td data-label="Erased on">${expiresOn(item.deleted_at)}</td><td data-label="Action"><button type="button" class="admin-view" data-restore-account="${item.user_id}">Restore</button></td></tr>`).join('')
   const accountsHtml = includeDeletedAccounts
     ? `<h4>Deleted Accounts</h4><table data-no-sort><thead><tr><th>Username</th><th>Role</th><th>Deleted</th><th>Deleted by</th><th>Erased on</th><th>Action</th></tr></thead><tbody>${accountRows || '<tr><td colspan="6">No deleted accounts.</td></tr>'}</tbody></table><h4>Recent Changes</h4>`
     : ''
@@ -41,7 +41,7 @@ export async function mountRestoreChanges(host, { includeDeletedAccounts = false
     const action = group.restored_at
       ? `Restored ${formatDate(group.restored_at, true)}`
       : `<button type="button" class="admin-view" data-restore-group="${group.change_group}">Restore</button><br><small>until ${expiresOn(group.changed_at)}</small>`
-    return `<tr><td>${formatDate(group.changed_at, true)}</td><td>${escape(group.changed_by || '-')}</td><td><b>${escape(group.label || '-')}</b><br><small>${escape(what)}${group.row_count > 1 ? ` · ${group.row_count} records` : ''}</small></td><td>${escape(change)}</td><td>${action}</td></tr>`
+    return `<tr><td data-label="When">${formatDate(group.changed_at, true)}</td><td data-label="By">${escape(group.changed_by || '-')}</td><td data-label="What"><b>${escape(group.label || '-')}</b><br><small>${escape(what)}${group.row_count > 1 ? ` · ${group.row_count} records` : ''}</small></td><td data-label="Change">${escape(change)}</td><td data-label="Action">${action}</td></tr>`
   }).join('')
   host.innerHTML = `${accountsHtml}<table data-no-sort><thead><tr><th>When</th><th>By</th><th>What</th><th>Change</th><th>Action</th></tr></thead><tbody>${changeRows || '<tr><td colspan="5">No changes in the last 30 days.</td></tr>'}</tbody></table>`
 

@@ -18,14 +18,155 @@ td{color:var(--ink);border-bottom:1px solid #d3dce8;font-size:13px;padding:10px 
 .modal{background:rgba(7,27,58,.5)}.modalbox{border-radius:18px;max-width:720px;padding:20px;box-shadow:0 12px 35px rgba(7,27,58,.2)}.modalhead h2{margin:0;font-size:18px;color:var(--ink)}.modalhead button{border-radius:10px;background:#eaf1ff;color:var(--ink);width:auto;height:auto;padding:5px 9px}
 .review-grid>div{background:#f8fafc;border-radius:12px}.note{border-radius:12px}
 .empty-state{text-align:center;padding:28px;color:var(--muted)}
-@media(max-width:700px){.layout{display:block}.main{padding:20px 14px}.toolbar{padding-right:0}table{min-width:700px}.card{overflow:auto}}
+
+@media (max-width: 700px) {
+  .layout {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .main {
+    width: 100%;
+    min-width: 0;
+    padding: 14px;
+    overflow-x: hidden;
+  }
+
+  .toolbar {
+    padding-right: 0;
+  }
+
+  /* Keep the enrollment table within the phone width */
+  #enrollment .card {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  
+  /* Manage Enrollment: proper mobile student cards */
+  #enrollment .card {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  #enrollment .filterbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  #enrollment .filterbar input,
+  #enrollment .filterbar select,
+  #enrollment .filterbar button {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  #enrollment table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: transparent;
+  }
+
+  #enrollment table thead {
+    display: none;
+  }
+
+  #enrollment #enrollment-table {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  #enrollment #enrollment-table tr {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(7, 27, 58, 0.06);
+  }
+
+  #enrollment #enrollment-table td {
+    display: grid;
+    grid-template-columns: minmax(100px, 40%) minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    padding: 9px 0;
+    border-bottom: 1px solid #e8edf4;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  #enrollment #enrollment-table td::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  #enrollment #enrollment-table td:last-child {
+    display: block;
+    padding-top: 12px;
+    border-bottom: 0;
+  }
+
+  #enrollment #enrollment-table td:last-child::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  #enrollment #enrollment-table td:last-child button {
+    min-height: 40px;
+    margin: 3px 6px 3px 0;
+  }
+
+  #enrollment #enrollment-table td[colspan] {
+    display: block;
+    width: 100%;
+  }
+
+  #enrollment #enrollment-table td[colspan]::before {
+    content: none;
+  }
+
+}
+
 </style></head>
 <body>
 <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#102a43"></div>
 <div class="layout">
 <main class="main">
 
-<section id="enrollment" data-panel><div class="toolbar"><h2>Manage Enrollment</h2></div><div id="announcements-host"></div><div class="card"><div class="filterbar"><input maxlength="100" id="enrollment-search" placeholder="Search Student ID or Name..."><select id="enrollment-section-filter"><option value="">All Sections</option></select><button class="btn new-enrollment-action" id="new-enrollment">+ New Admission</button></div><table><thead><tr><th>Student ID</th><th>Name</th><th>Year</th><th>Registration Date</th><th>Section</th><th>Status</th><th>Actions</th></tr></thead><tbody id="enrollment-table"></tbody></table></div></section>
+<section id="enrollment" data-panel><div class="toolbar"><h2>Manage Enrollment</h2></div><div id="announcements-host"></div><div class="card"><div class="filterbar"><input maxlength="100" id="enrollment-search" placeholder="Search Student ID or Name..."><select id="enrollment-section-filter"><option value="">All Sections</option></select><button class="btn new-enrollment-action" id="new-enrollment">+ New Admission</button></div>
+
+    <table><thead><tr><th>Student ID</th><th>Name</th><th>Year</th><th>Registration Date</th><th>Section</th><th>Status</th><th>Actions</th></tr></thead><tbody id="enrollment-table">
+<th>Student ID</th>
+<th data-sort="name">Name</th>
+<th data-sort="year">Year</th>
+<th data-sort="date">Registration Date</th>
+<th data-sort="section">Section</th>
+<th data-sort="status">Status</th>
+<th>Actions</th>
+</tbody></table></div></section>
 <section id="admission" data-panel class="hidden"><div class="toolbar"><h2>New Admission Application</h2></div><div class="card"><div class="toolbar actions-only"><div><button id="clear-application" type="button" class="btn secondary">Clear All Inputs</button> <button id="open-drafts" class="btn secondary">Resume Draft</button></div></div><form id="application-form"><input type="hidden" id="application-id"><label>First Name<input maxlength="50" name="first_name" required></label><label>Middle Name (optional)<input maxlength="50" name="middle_name"></label><label>Last Name<input maxlength="50" name="last_name" required></label><label>Birth Date<input name="birth_date" type="date" required></label><label>Sex (optional)<select name="sex"><option value="">Select</option><option>Male</option><option>Female</option></select></label><label>Grade Level<select name="grade_level" required><option value="">Select</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option></select></label><label class="full">Address (optional)<textarea data-own-counter name="address" minlength="10" maxlength="200" rows="3" style="resize:none;height:90px" placeholder="House/Lot No., Street, Barangay, City"></textarea><small id="address-hint">10 to 200 characters.</small></label><label>Contact Number (optional)<input maxlength="20" name="contact_number" placeholder="09XX XXX XXXX"></label><label>Guardian Name<input maxlength="100" name="guardian_name" required></label><label>Relationship<input maxlength="30" name="guardian_relationship" required></label><label>Guardian Phone<input maxlength="20" name="guardian_phone" required placeholder="09XX XXX XXXX"></label><label>Guardian Email<input maxlength="120" name="guardian_email" type="email" required></label><label>Prior School (optional)<input maxlength="100" name="prior_school"></label><label>Prior Grade (optional)<input maxlength="20" name="prior_grade"></label><label>Special Program (optional)<input maxlength="50" name="special_program" placeholder="e.g. STEM, SPED"></label><div class="full"><label for="application-photo">Profile Picture (optional)</label> <small id="application-photo-hint">PNG/JPG/WEBP up to 3MB</small><div class="photo-field"><img id="application-photo-preview" class="photo-preview" alt="Profile picture placeholder" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Ccircle cx='48' cy='48' r='48' fill='%23eaf1ff'/%3E%3Ccircle cx='48' cy='37' r='15' fill='%23b9c8dc'/%3E%3Cpath d='M18 88a30 30 0 0 1 60 0z' fill='%23b9c8dc'/%3E%3C/svg%3E"><button id="remove-application-photo" type="button" class="btn secondary">Remove Image</button><input type="file" id="application-photo" accept="image/png,image/jpeg,image/webp"></div></div><label class="full"><b>Supporting Documents (optional)</b><div id="application-documents" class="upload-grid"><label>Birth Certificate<input type="file" data-type="birth_certificate" data-label="Birth Certificate" accept=".pdf,.jpg,.jpeg,.png"></label><label>Report Card<input type="file" data-type="report_card" data-label="Report Card" accept=".pdf,.jpg,.jpeg,.png"></label><label>Other Document<input type="file" data-type="other" data-label="Other Document" accept=".pdf,.jpg,.jpeg,.png"></label></div></label><div class="actions"><button type="button" id="save-draft" class="btn secondary">Save Draft</button><button class="btn">Submit Application</button></div></form></div></section>
 <section id="applications" data-panel class="hidden"><div class="toolbar"><h2>Admission Applications</h2></div><div class="card"><table><thead><tr><th>Student</th><th>Grade</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody id="applications-table"></tbody></table></div></section>
 <section id="sectioning" data-panel class="hidden"><div class="toolbar"><h2>Section Students &amp; Placement</h2></div><div class="card"><div class="filterbar"><input maxlength="100" id="section-search" placeholder="Search Section Name..."><select id="section-grade-filter"><option value="">All Grades</option></select><div style="margin-left:auto;display:flex;gap:10px"><button id="auto-assign-sections" class="btn secondary" type="button">Auto-Assign Students</button><button id="open-placement" class="btn" type="button">Placement Tool</button></div></div><table><thead><tr><th>Section Name</th><th>Grade</th><th>Moderator</th><th>Students</th><th>Action</th></tr></thead><tbody id="section-table"></tbody></table></div><div class="card student-directory"><div class="toolbar"><h2>Student Directory</h2><input maxlength="100" id="student-directory-search" placeholder="Search student name or ID..."></div><table><thead><tr><th>Student ID</th><th>Name</th><th>Birth Date</th><th>Gender</th><th>Grade</th><th>Section</th><th>Enrollment Status</th><th>Actions</th></tr></thead><tbody id="student-directory-table"></tbody></table></div></section>

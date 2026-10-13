@@ -38,12 +38,14 @@ export function semesterGroups(rows = []) {
 // one per semester, showing that semester's own general average.
 export function buildSemesterTable(rows = [], { flat = false, semester = '' } = {}) {
   if (flat) {
-    const head = `<tr><th>School Year</th><th>Subject</th>${SCORE_FIELDS.map(key => `<th>${ACADEMIC_LABELS[key]}</th>`).join('')}<th>Grade</th><th>Letter</th><th>Remarks</th></tr>`
-    const body = rows.map(record => `<tr><td>${escapeHtml(record.school_year)}</td><td>${escapeHtml(record.subject)}</td>${SCORE_FIELDS.map(key => `<td>${record[key] ?? ''}</td>`).join('')}<td>${record.grade ?? ''}</td><td>${escapeHtml(record.letter_grade || '')}</td><td>${escapeHtml(record.remarks || '')}</td></tr>`).join('')
+    const labels = ['School Year', 'Subject', ...SCORE_FIELDS.map(key => ACADEMIC_LABELS[key]), 'Grade', 'Letter', 'Remarks']
+    const head = `<tr>${labels.map(label => `<th>${label}</th>`).join('')}</tr>`
+    const body = rows.map(record => `<tr><td data-label="${labels[0]}">${escapeHtml(record.school_year)}</td><td data-label="${labels[1]}">${escapeHtml(record.subject)}</td>${SCORE_FIELDS.map((key, index) => `<td data-label="${labels[index + 2]}">${record[key] ?? ''}</td>`).join('')}<td data-label="Grade">${record.grade ?? ''}</td><td data-label="Letter">${escapeHtml(record.letter_grade || '')}</td><td data-label="Remarks">${escapeHtml(record.remarks || '')}</td></tr>`).join('')
     return `<table><thead>${head}</thead><tbody>${body || `<tr><td colspan="${SCORE_FIELDS.length + 5}" class="empty-state">No academic records yet.</td></tr>`}</tbody></table>`
   }
+  const labels = ['School Year', 'Semester', 'Subject', 'Q1', 'Q2', 'Q3', 'Q4', 'Grade', 'Letter', 'Remarks']
   const body = semesterRows(rows)
     .filter(row => !semester || row.semester === semester)
-    .map(row => `<tr><td>${escapeHtml(row.school_year)}</td><td>${row.semesterLabel}</td><td>${escapeHtml(row.subject)}</td><td>${row.first_sem_q1 ?? ''}</td><td>${row.first_sem_q2 ?? ''}</td><td>${row.second_sem_q1 ?? ''}</td><td>${row.second_sem_q2 ?? ''}</td><td>${row.semesterGrade ?? row.grade ?? ''}</td><td>${escapeHtml(row.letter_grade || letterGrade(row.semesterGrade ?? row.grade)?.letter || '')}</td><td>${escapeHtml(row.remarks || '')}</td></tr>`).join('')
-  return `<table><thead><tr><th>School Year</th><th>Semester</th><th>Subject</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Grade</th><th>Letter</th><th>Remarks</th></tr></thead><tbody>${body || '<tr><td colspan="10" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`
+    .map(row => `<tr><td data-label="${labels[0]}">${escapeHtml(row.school_year)}</td><td data-label="${labels[1]}">${row.semesterLabel}</td><td data-label="${labels[2]}">${escapeHtml(row.subject)}</td><td data-label="Q1">${row.first_sem_q1 ?? ''}</td><td data-label="Q2">${row.first_sem_q2 ?? ''}</td><td data-label="Q3">${row.second_sem_q1 ?? ''}</td><td data-label="Q4">${row.second_sem_q2 ?? ''}</td><td data-label="Grade">${row.semesterGrade ?? row.grade ?? ''}</td><td data-label="Letter">${escapeHtml(row.letter_grade || letterGrade(row.semesterGrade ?? row.grade)?.letter || '')}</td><td data-label="Remarks">${escapeHtml(row.remarks || '')}</td></tr>`).join('')
+  return `<table><thead><tr>${labels.map(label => `<th>${label}</th>`).join('')}</tr></thead><tbody>${body || '<tr><td colspan="10" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`
 }

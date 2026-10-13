@@ -16,4 +16,6 @@ assert.deepEqual([...semesterGroups(rows)[1].semesters.keys()], ['first', 'secon
 assert.deepEqual([...semesterGroups([{ school_year: '2024-2025', subject: 'Art', grade: 91 }])[0].semesters.keys()], ['first'])
 assert.match(buildSemesterTable(rows), /1st Semester/)
 assert.match(buildSemesterTable(rows), /Science/)
+assert.match(buildSemesterTable(rows), /<td data-label="School Year">2025-2026<\/td>/)
+assert.match(buildSemesterTable(rows), /<td data-label="Q1">80<\/td>/)
 console.log('semester grade checks passed')

@@ -73,6 +73,52 @@ export async function loadEnrollments() {
   renderEnrollments()
 }
 let enrollmentData = []
+let enrollmentSortKey = 'name'
+let enrollmentSortAscending = true
+
+function sortEnrollmentRows(rows) {
+  const getValue = (row) => {
+    const student = row.students || {}
+
+    switch (enrollmentSortKey) {
+      case 'name':
+        return `${student.first_name || ''} ${student.last_name || ''}`.trim()
+      case 'year':
+        return row.school_year || ''
+      case 'date':
+        return row.enrolled_at || ''
+      case 'section':
+        return row.sections?.section_name || 'No Section'
+      case 'status':
+        return row.status || 'Not Enrolled'
+      default:
+        return ''
+    }
+  }
+
+  return [...rows].sort((a, b) => {
+    const first = getValue(a)
+    const second = getValue(b)
+
+    let result
+
+    if (enrollmentSortKey === 'date') {
+      result = new Date(first).getTime() - new Date(second).getTime()
+    } else if (enrollmentSortKey === 'year') {
+      result = String(first).localeCompare(String(second), undefined, {
+        numeric: true
+      })
+    } else {
+      result = String(first).localeCompare(String(second), undefined, {
+        numeric: true,
+        sensitivity: 'base'
+      })
+    }
+
+    return enrollmentSortAscending ? result : -result
+  })
+}
+
 function renderEnrollments() {
   const search = $('enrollment-search').value.trim().toLowerCase()
   const section = $('enrollment-section-filter').value
@@ -80,7 +126,36 @@ function renderEnrollments() {
     const student = row.students || {}
     return (!section || String(row.section_id) === section) && (!search || `${student.lrn_number} ${student.first_name} ${student.last_name}`.toLowerCase().includes(search))
   })
-  $('enrollment-table').innerHTML = rows.map(row => { const student = row.students || {}; return `<tr><td>${escapeHtml(student.lrn_number || row.student_id)}</td><td>${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`)}</td><td>${escapeHtml(row.school_year || '')}</td><td>${formatDate(row.enrolled_at)}</td><td>${escapeHtml(row.sections?.section_name || 'No Section')}</td><td>${statusBadge(row.status || 'Not Enrolled')}</td><td><button class="admin-view" data-view-student="${row.student_id}">View</button> ${row.id ? `<button class="admin-remove" data-remove-enrollment="${row.id}">Remove</button>` : ''}</td></tr>` }).join('') || '<tr><td colspan="7" class="empty-state">No enrollment records found.</td></tr>'
+  
+  $('enrollment-table').innerHTML = sortEnrollmentRows(rows).map(row => {
+    const student = row.students || {}
+
+    return `<tr class="enrollment-row">
+      <td data-label="Student ID">
+        <strong>${escapeHtml(student.lrn_number || row.student_id)}</strong>
+      </td>
+      <td data-label="Student Name">
+        ${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`.trim())}
+      </td>
+      <td data-label="School Year">
+        ${escapeHtml(row.school_year || '-')}
+      </td>
+      <td data-label="Registration Date">
+        ${formatDate(row.enrolled_at)}
+      </td>
+      <td data-label="Section">
+        ${escapeHtml(row.sections?.section_name || 'No Section')}
+      </td>
+      <td data-label="Status">
+        ${statusBadge(row.status || 'Not Enrolled')}
+      </td>
+      <td data-label="Actions" class="enrollment-actions">
+        <button class="admin-view" data-view-student="${row.student_id}">View</button>
+        ${row.id ? `<button class="admin-remove" data-remove-enrollment="${row.id}">Remove</button>` : ''}
+      </td>
+    </tr>`
+  }).join('') || '<tr><td colspan="7" class="empty-state">No enrollment records found.</td></tr>'
+
   bindViewStudentButtons($('enrollment-table'))
   document.querySelectorAll('[data-remove-enrollment]').forEach(button => button.onclick = () => confirmRemoveEnrollment(button.dataset.removeEnrollment, rows.find(row => String(row.id) === button.dataset.removeEnrollment)))
 }
@@ -123,6 +198,66 @@ async function removeEnrollment(id) {
 }
 $('enrollment-search').oninput = renderEnrollments
 $('enrollment-section-filter').onchange = renderEnrollments
+
+const enrollmentSort = $('enrollment-sort')
+const enrollmentSortDirection = $('enrollment-sort-direction')
+
+$('enrollment-table')
+  .closest('table')
+  ?.querySelectorAll('thead th[data-sort]')
+  .forEach(header => {
+    header.style.cursor = 'pointer'
+
+    header.addEventListener('click', () => {
+      const key = header.dataset.sort
+
+      if (enrollmentSortKey === key) {
+        enrollmentSortAscending = !enrollmentSortAscending
+      } else {
+        enrollmentSortKey = key
+        enrollmentSortAscending = true
+      }
+
+      if (enrollmentSort) enrollmentSort.value = key
+
+      if (enrollmentSortDirection) {
+        enrollmentSortDirection.textContent =
+          enrollmentSortAscending ? '↑ Ascending' : '↓ Descending'
+      }
+
+      renderEnrollments()
+    })
+  })
+
+if (enrollmentSort) {
+  enrollmentSort.addEventListener('change', () => {
+    enrollmentSortKey = enrollmentSort.value
+    renderEnrollments()
+  })
+}
+
+if (enrollmentSortDirection) {
+  enrollmentSortDirection.addEventListener('click', () => {
+    enrollmentSortAscending = !enrollmentSortAscending
+
+    enrollmentSortDirection.textContent =
+      enrollmentSortAscending ? '↑ Ascending' : '↓ Descending'
+
+    enrollmentSortDirection.setAttribute(
+      'aria-label',
+      enrollmentSortAscending ? 'Sort ascending' : 'Sort descending'
+    )
+
+    enrollmentSortDirection.setAttribute(
+      'aria-pressed',
+      String(!enrollmentSortAscending)
+    )
+
+    renderEnrollments()
+  })
+}
+
+
 
 async function openPlacement(sectionId='') {
   const [studentResult, enrollmentResult] = await Promise.all([
