@@ -25,10 +25,23 @@ if (versionLabel) versionLabel.textContent = typeof __APP_VERSION__ === 'string'
 
 hideLoadingScreen()
 
-// Maintenance announcements are public so people see them before signing in.
-loadMaintenanceNotices().then(notices => {
-  renderLoginNotices(document.getElementById('maintenance-notices'), notices)
-}).catch(() => {})
+// Load public maintenance notices for desktop and mobile login screens.
+const desktopNoticeHost = document.getElementById('maintenance-notices');
+const mobileNoticeHost = document.getElementById('mobile-maintenance-notices');
+
+async function refreshLoginNotices() {
+    const notices = await loadMaintenanceNotices();
+
+    renderLoginNotices(desktopNoticeHost, notices);
+    renderLoginNotices(mobileNoticeHost, notices);
+}
+
+// Load immediately, then refresh every 60 seconds.
+refreshLoginNotices().catch(console.error);
+
+setInterval(() => {
+    refreshLoginNotices().catch(console.error);
+}, 60_000);
 
 if (!isSupabaseConfigured) showConfigurationError()
 
