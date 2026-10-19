@@ -20,6 +20,7 @@ export function adminNav(active) {
 
 export async function mountAdminShell(active) {
   applyUiTheme()
+  document.body.classList.add('role-admin')
   const user = await requireRole(1)
   if (!user) throw new Error('Unauthorized')
   mountProfile(user, 'Administrator', signOut)

@@ -6,6 +6,11 @@ export function escapeHtml(value = '') {
   return String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
 }
 
+// Display-only full names for abbreviated subject names. The stored name is left alone because grades,
+// academic history and the report card match on it; only what the admin pages show changes.
+const SUBJECT_FULL_NAMES = { mapeh: 'Music, Arts, Physical Education, and Health', infosys: 'Information Systems' }
+export const subjectDisplayName = name => SUBJECT_FULL_NAMES[String(name ?? '').toLowerCase().replace(/[\s.]+/g, '')] || name
+
 // A table row for a failed load: readable message plus a Retry button (handled globally in ui-theme.js).
 export function errorRow(colspan, error, context = 'Load') {
   return `<tr class="table-state-error"><td colspan="${colspan}" role="alert">${escapeHtml(describeError(error, context))}<button type="button" class="table-retry">Retry</button></td></tr>`

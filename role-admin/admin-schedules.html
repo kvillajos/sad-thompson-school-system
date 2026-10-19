@@ -15,10 +15,16 @@
   <section class="admin-table-wrap lunch-card"><div class="admin-section-title"><div><h3>Lunch and break times</h3></div></div>
     <form id="lunch-form" class="lunch-form">
       <label class="lunch-year">School year<select id="lunch-year"></select></label>
-      <label>Lunch starts<input type="time" id="lunch-start" required></label>
-      <label>Lunch ends<input type="time" id="lunch-end" required></label>
-      <label>Break starts<input type="time" id="break-start"></label>
-      <label>Break ends<input type="time" id="break-end"></label>
+      <div class="lunch-group" role="group" aria-labelledby="lunch-title">
+        <span class="lunch-group-title" id="lunch-title">Lunch</span>
+        <label>Start<input type="time" id="lunch-start" required></label>
+        <label>End<input type="time" id="lunch-end" required></label>
+      </div>
+      <div class="lunch-group" role="group" aria-labelledby="break-title">
+        <span class="lunch-group-title" id="break-title">Break <small>(optional)</small></span>
+        <label>Start<input type="time" id="break-start"></label>
+        <label>End<input type="time" id="break-end"></label>
+      </div>
       <button class="admin-primary lunch-save" type="submit">Save times</button>
     </form>
     <p class="admin-note" id="lunch-note"></p>

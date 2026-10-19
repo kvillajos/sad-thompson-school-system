@@ -1,7 +1,7 @@
   import { supabase } from '../shared/lib/auth-client.js'
   import { toast } from '../shared/ui/ui-theme.js'
   import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
-  import { escapeHtml as escape, gradeLevelOptions, gradeLevelSummary, errorRow } from '../shared/lib/html.js'
+  import { escapeHtml as escape, gradeLevelOptions, gradeLevelSummary, errorRow, subjectDisplayName } from '../shared/lib/html.js'
   import { formatDays, groupScheduleRows, planDayChanges } from '../shared/lib/schedule-days.js'
   import { describeError } from '../shared/lib/errors.js'
   import { mountAdminShell } from './admin-page.js'
@@ -36,7 +36,7 @@
   }
   function renderSchedules() {
     const rows = groupScheduleRows(schedules.filter(item => Number(item.section_id) === Number(selectedSection?.section_id)))
-    document.getElementById('section-schedules-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subjects?.subject_code || '')} - ${escape(item.subjects?.subject_name || '')}</td><td>${escape(item.faculty_name || '-')}</td><td>${escape(item.room || '-')}</td><td>${formatDays(item.days)}</td><td>${timeRange12(item.start_time, item.end_time)}</td><td><button class="admin-view" data-edit-schedule="${item.schedule_ids.join(',')}">Edit</button><button class="admin-remove" data-remove-schedule="${item.schedule_ids.join(',')}">Remove</button></td></tr>`).join('') || '<tr><td colspan="6">No subjects scheduled for this section.</td></tr>'
+    document.getElementById('section-schedules-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subjects?.subject_code || '')} - ${escape(subjectDisplayName(item.subjects?.subject_name) || '')}</td><td>${escape(item.faculty_name || '-')}</td><td>${escape(item.room || '-')}</td><td>${formatDays(item.days)}</td><td>${timeRange12(item.start_time, item.end_time)}</td><td><button class="admin-view" data-edit-schedule="${item.schedule_ids.join(',')}">Edit</button><button class="admin-remove" data-remove-schedule="${item.schedule_ids.join(',')}">Remove</button></td></tr>`).join('') || '<tr><td colspan="6">No subjects scheduled for this section.</td></tr>'
     document.querySelectorAll('[data-edit-schedule]').forEach(button => button.onclick = () => openSchedule(rows.find(item => button.dataset.editSchedule.split(',').includes(String(item.schedule_ids[0])))))
     document.querySelectorAll('[data-remove-schedule]').forEach(button => button.onclick = () => removeSchedule(button.dataset.removeSchedule.split(',')))
   }
@@ -51,7 +51,7 @@
     scheduleForm.elements.schedule_id.value = item?.schedule_ids?.join(',') || ''
     scheduleForm.elements.subject_id.value = item?.subject_id || ''
     const subjectDisplay = document.getElementById('schedule-subject-display')
-    subjectDisplay.textContent = item ? `${item.subjects?.subject_code || ''} - ${item.subjects?.subject_name || ''}` : 'No subject chosen'
+    subjectDisplay.textContent = item ? `${item.subjects?.subject_code || ''} - ${subjectDisplayName(item.subjects?.subject_name) || ''}` : 'No subject chosen'
     subjectDisplay.classList.toggle('empty', !item)
     scheduleForm.elements.faculty_name.value = item?.faculty_name || ''
     scheduleForm.elements.room.value = item?.room || selectedSection?.room || ''
@@ -73,7 +73,7 @@
     const shown = own || yearSettings[0]
     lunchInputs.ls.value = hm(shown?.lunch_start); lunchInputs.le.value = hm(shown?.lunch_end)
     lunchInputs.bs.value = hm(shown?.break_start); lunchInputs.be.value = hm(shown?.break_end)
-    lunchNote.textContent = own ? `Last saved ${new Date(own.updated_at).toLocaleDateString()}${own.updated_by ? ` by ${own.updated_by}` : ''}.` : 'Not set for this school year yet. The most recent times are shown; save to set this year.'
+    lunchNote.textContent = own ? `Last saved ${new Date(own.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${own.updated_by ? ` by ${own.updated_by}` : ''}.` : 'Not set for this school year yet. The most recent times are shown; save to set this year.'
   }
   async function loadLunch() {
     const { data, error } = await supabase.from('school_year_settings').select('*').order('school_year', { ascending: false })
@@ -165,8 +165,8 @@
   }
   function renderSubjectPicker() {
     const search = document.getElementById('subject-picker-search').value.trim().toLowerCase()
-    const rows = subjects.filter(item => `${item.subject_code} ${item.subject_name} ${gradeLevelSummary(item.grade_level)}`.toLowerCase().includes(search))
-    document.getElementById('subject-picker-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subject_code)}</td><td>${escape(item.subject_name)}</td><td>${escape(gradeLevelSummary(item.grade_level))}</td><td><button type="button" class="admin-view" data-pick-subject="${item.subject_id}">Choose</button></td></tr>`).join('') || '<tr><td colspan="4">No subjects found.</td></tr>'
+    const rows = subjects.filter(item => `${item.subject_code} ${item.subject_name} ${subjectDisplayName(item.subject_name)} ${gradeLevelSummary(item.grade_level)}`.toLowerCase().includes(search))
+    document.getElementById('subject-picker-table').innerHTML = rows.map(item => `<tr><td>${escape(item.subject_code)}</td><td>${escape(subjectDisplayName(item.subject_name))}</td><td>${escape(gradeLevelSummary(item.grade_level))}</td><td><button type="button" class="admin-view" data-pick-subject="${item.subject_id}">Choose</button></td></tr>`).join('') || '<tr><td colspan="4">No subjects found.</td></tr>'
     document.querySelectorAll('[data-pick-subject]').forEach(button => button.onclick = () => { const item = subjects.find(row => String(row.subject_id) === button.dataset.pickSubject); scheduleForm.elements.subject_id.value = item.subject_id; const display = document.getElementById('schedule-subject-display'); display.textContent = `${item.subject_code} - ${item.subject_name}`; display.classList.remove('empty'); document.getElementById('subject-picker-modal').classList.add('hidden') })
   }
   function renderFacultyPicker() {

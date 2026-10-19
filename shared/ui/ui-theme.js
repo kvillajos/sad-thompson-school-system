@@ -882,12 +882,15 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .profile-grid > .admin-table-wrap { margin:0 !important; overflow:visible; }
 .lunch-card { margin-top:18px; padding:20px 22px; }
 .lunch-sub { margin:2px 0 0; font-size:13px; color:var(--ui-muted); font-weight:400; }
-.lunch-form { display:grid; grid-template-columns:minmax(140px,1.2fr) repeat(4,minmax(120px,1fr)) auto; gap:14px; align-items:end; margin-top:14px; }
-.lunch-form label { display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:var(--ui-muted); }
-.lunch-form input, .lunch-form select { width:100%; height:42px; border-radius:14px; margin:0; box-sizing:border-box; }
-.lunch-save { height:42px; padding:0 22px; }
+.lunch-form { display:grid; grid-template-columns:minmax(150px,.8fr) minmax(0,1.5fr) minmax(0,1.5fr) auto; gap:16px 24px; align-items:end; margin-top:14px; }
+.lunch-form label { display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:600; color:var(--ui-muted); letter-spacing:.02em; }
+.lunch-form input, .lunch-form select { width:100%; height:42px; margin:0; padding:0 12px; box-sizing:border-box; border-radius:10px; font:inherit; font-size:14px; font-weight:500; font-variant-numeric:tabular-nums; }
+.lunch-group { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; }
+.lunch-group-title { grid-column:1 / -1; font-size:13px; font-weight:700; color:var(--ui-blue-dark); }
+.lunch-group-title small { font-size:12px; font-weight:500; color:var(--ui-muted); }
+.lunch-save { height:42px; min-width:120px; padding:0 22px; }
 .lunch-card .admin-note { margin:12px 0 0; }
-@media (max-width:900px) { .lunch-form { grid-template-columns:1fr 1fr; } .lunch-save { grid-column:1 / -1; } }
+@media (max-width:900px) { .lunch-form { grid-template-columns:1fr; } .lunch-save { width:100%; } }
 .schedule-gap td { background:#f3f7fd; color:#64748b; font-size:13px; font-style:italic; text-align:center; letter-spacing:.02em; }
 .schedule-head { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 14px; margin:0 0 14px; }
 .schedule-head h3 { margin:0; color:var(--ui-blue-dark); font-size:20px; }
@@ -1106,7 +1109,7 @@ export function applyUiTheme() {
     style.textContent = sharedTheme;
     document.head.appendChild(style);
     // Team stylesheets (public/css/*): one file per task so branches never edit the same lines. They load after the main theme, so they win.
-    for (const name of ['theme-dark', 'responsive-tablet', 'responsive-mobile', 'documents']) {
+    for (const name of ['theme-dark', 'responsive-tablet', 'responsive-mobile', 'documents', 'admin-polish']) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = `/css/${name}.css`;
