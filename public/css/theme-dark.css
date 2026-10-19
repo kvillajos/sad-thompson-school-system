@@ -177,6 +177,25 @@ html[data-theme="dark"] .schedule-gap td {
   border-color: var(--ui-border) !important;
 }
 
+html[data-theme="dark"] .admin-table-wrap tbody tr:nth-child(even) td,
+html[data-theme="dark"] .card table tbody tr:nth-child(even) td {
+  background: #253244 !important;
+}
+
+html[data-theme="dark"] .table-action-toggle {
+  background: #27364a;
+  color: var(--ui-text);
+  border-color: #405471;
+}
+
+html[data-theme="dark"] .table-action-dropdown > button:hover,
+html[data-theme="dark"] .table-action-dropdown > button:focus-visible,
+html[data-theme="dark"] .table-action-dropdown > a:hover,
+html[data-theme="dark"] .table-action-dropdown > a:focus-visible {
+  background: #2b3a4e;
+  color: #f1f5fb;
+}
+
 html[data-theme="dark"] .main th,
 html[data-theme="dark"] .modalbox th {
   background: var(--ui-navy) !important;

@@ -114,6 +114,15 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .admin-table-wrap th:first-child { border-radius:10px 0 0 10px; }
 .admin-table-wrap th:last-child { border-radius:0 10px 10px 0; }
 .admin-table-wrap td { color:var(--ui-text); border-bottom:1px solid var(--ui-border); padding:10px; font-size:13px }
+.admin-table-wrap tbody tr:nth-child(even) td,
+.card table tbody tr:nth-child(even) td { background:#f7f9fc; }
+.table-action-menu { position:relative; display:inline-block; }
+.table-action-toggle { display:grid; place-items:center; width:32px; height:32px; padding:0 0 3px; border:1px solid #c9d5e5; border-radius:50%; background:#fff; color:var(--ui-blue-dark); cursor:pointer; font-family:Arial,'Helvetica Neue',sans-serif; font-size:20px; line-height:1; letter-spacing:2px; transition:transform .15s ease, background .15s ease, box-shadow .15s ease; }
+.table-action-toggle:hover,.table-action-toggle:focus-visible { background:#eaf1ff; outline:2px solid #9dbcf4; outline-offset:1px; transform:scale(1.12); box-shadow:0 3px 8px rgba(7,27,58,.14); }
+.table-action-dropdown { position:fixed; z-index:20; display:grid; min-width:130px; padding:5px; border:1px solid var(--ui-border); border-radius:10px; background:var(--ui-surface-strong); box-shadow:0 8px 22px rgba(7,27,58,.16); }
+.table-action-dropdown.hidden { display:none; }
+.table-action-dropdown > button,.table-action-dropdown > a { display:block !important; width:100% !important; min-width:0 !important; box-sizing:border-box; margin:0 !important; border:0; border-radius:7px; background:transparent; color:var(--ui-text); padding:8px 10px !important; text-align:left !important; text-decoration:none; white-space:nowrap; cursor:pointer; }
+.table-action-dropdown > button:hover,.table-action-dropdown > button:focus-visible,.table-action-dropdown > a:hover,.table-action-dropdown > a:focus-visible { background:#eaf1ff; color:var(--ui-blue-dark); outline:0; }
 .admin-table-wrap td { border-bottom:1px solid #d3dce8; }
 .admin-view,.admin-remove,.admin-approve { display:inline-block; border:0; border-radius:9px; padding:7px 10px; margin-right:5px; cursor:pointer; font-size:12px; font-weight:600; line-height:1.3; text-decoration:none; white-space:nowrap }
 .admin-view { background:#eaf1ff; color:var(--ui-blue-dark) }
@@ -1164,6 +1173,59 @@ export function applyUiTheme() {
   installTableSort();
   installTablePages();
   installTableCopy();
+  installTableActionMenus();
   installGlobalErrorHandler();
   installModalBehaviour();
+}
+
+function installTableActionMenus() {
+  if (window.__tcsmsTableActionMenusInstalled) return;
+  window.__tcsmsTableActionMenusInstalled = true;
+  const excluded = cell => cell.closest('#approvals-table, #applications-table');
+  const enhance = root => root.querySelectorAll?.('td[data-label="Action"], td[data-label="Actions"], td:last-child:has(> button, > a)').forEach(cell => {
+    if (excluded(cell) || cell.dataset.actionMenuReady === 'true') return;
+    const actions = [...cell.querySelectorAll('button, a')];
+    if (!actions.length) return;
+    cell.dataset.actionMenuReady = 'true';
+    const menu = document.createElement('span');
+    menu.className = 'table-action-menu';
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'table-action-toggle';
+    toggle.setAttribute('aria-label', 'Show actions');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.textContent = '⋯';
+    const dropdown = document.createElement('span');
+    dropdown.className = 'table-action-dropdown hidden';
+    actions.forEach(action => dropdown.appendChild(action));
+    menu.append(toggle, dropdown);
+    cell.replaceChildren(menu);
+    toggle.onclick = event => {
+      event.stopPropagation();
+      const open = !dropdown.classList.contains('hidden');
+      document.querySelectorAll('.table-action-dropdown').forEach(item => item.classList.add('hidden'));
+      document.querySelectorAll('.table-action-toggle').forEach(item => item.setAttribute('aria-expanded', 'false'));
+      if (!open) {
+        const rect = toggle.getBoundingClientRect();
+        dropdown.style.top = `${rect.bottom + 5}px`;
+        dropdown.style.left = `${Math.max(5, rect.right - 130)}px`;
+      }
+      dropdown.classList.toggle('hidden', open);
+      toggle.setAttribute('aria-expanded', String(!open));
+    };
+  });
+  enhance(document);
+  new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(node => {
+    if (node.nodeType === 1) enhance(node);
+  }))).observe(document.body, { childList:true, subtree:true });
+  document.addEventListener('click', event => {
+    if (event.target.closest('.table-action-menu')) return;
+    document.querySelectorAll('.table-action-dropdown').forEach(item => item.classList.add('hidden'));
+    document.querySelectorAll('.table-action-toggle').forEach(item => item.setAttribute('aria-expanded', 'false'));
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll('.table-action-dropdown').forEach(item => item.classList.add('hidden'));
+    document.querySelectorAll('.table-action-toggle').forEach(item => item.setAttribute('aria-expanded', 'false'));
+  });
 }
