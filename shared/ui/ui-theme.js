@@ -105,6 +105,8 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .student-card-grid dt { color:var(--ui-muted); font-size:12px; font-weight:700 }
 .student-card-grid dd { margin:2px 0 0; color:var(--ui-text); font-weight:600; overflow-wrap:anywhere }
 .student-card-grid .wide { grid-column:1/-1 }
+.student-card-grid > div { background:var(--ui-surface); border:1px solid var(--ui-border); border-radius:8px; padding:10px 14px }
+.student-card-grid dt { text-transform:uppercase; letter-spacing:.03em }
 @media (max-width:700px) { .admin-summary-grid { grid-template-columns:1fr } .student-card { grid-column:auto; flex-direction:column; align-items:center; text-align:center } .student-card-head { justify-content:center } .student-card-grid { text-align:left; width:100% } }
 .admin-table-wrap { overflow:auto; background:var(--ui-surface-strong); border:1px solid #e5ebf4; border-radius:16px; padding:18px; box-shadow:0 8px 24px rgba(7,27,58,.06) }
 .admin-table-wrap + .admin-table-wrap { margin-top:18px; }
