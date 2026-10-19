@@ -177,7 +177,6 @@
         renderTranscript()
       }
 
-      // Absences are recorded per student, not per subject, so the term table shows one total below it rather than a per-subject count.
       async function renderCurrentGrades() {
         const host = document.getElementById('current-grades-table')
         if (!schoolYear || !currentSemester) { host.innerHTML = '<p>No active enrollment for this term.</p>'; return }
@@ -190,8 +189,7 @@
           const semGrade = generalAverage(quarterFields.map(field => ({ grade: row[field] })))
           return `<tr><td>${escape(row.subject)}</td><td>${escape(teacherFor(row.subject))}</td><td>${row[quarterFields[0]] ?? ''}</td><td>${row[quarterFields[1]] ?? ''}</td><td>${semGrade ?? row.grade ?? ''}</td><td>${escape(row.letter_grade || letterGrade(semGrade ?? row.grade)?.letter || '')}</td><td>${escape(row.remarks || '')}</td></tr>`
         }).join('')
-        const { data: totals } = await supabase.rpc('attendance_totals', { p_student_id: user.student_id, p_school_year: schoolYear })
-        host.innerHTML = `<table><thead><tr><th>Subject</th><th>Teacher</th><th>Q1</th><th>Q2</th><th>Grade</th><th>Letter</th><th>Remarks</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="empty-state">No academic records yet.</td></tr>'}</tbody></table><p class="admin-note">Absences this term: ${totals?.absent ?? 0}</p>`
+        host.innerHTML = `<table><thead><tr><th>Subject</th><th>Teacher</th><th>Q1</th><th>Q2</th><th>Grade</th><th>Letter Grade</th><th>Remarks</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`
       }
 
       // All Grades is paged one school year at a time, most recent first, each page split into its own 1st/2nd semester tables.
