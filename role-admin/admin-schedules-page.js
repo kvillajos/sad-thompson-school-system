@@ -30,7 +30,9 @@
     const visible = sections.filter(section => (!grade || String(section.grade_level) === grade) && (!search || section.section_name.toLowerCase().includes(search)))
     document.getElementById('sections-table').innerHTML = visible.map(section => {
       const count = schedules.filter(item => Number(item.section_id) === Number(section.section_id)).length
-      return `<tr><td>${escape(section.section_name)}</td><td>${sectionLabel(section)}</td><td>${escape(section.academic_year || '-')}</td><td>${count}</td><td><button class="admin-view" data-section="${section.section_id}">View Subjects</button></td></tr>`
+      
+      
+      return `<tr><td>${escape(section.section_name)}</td><td>${sectionLabel(section)}</td><td>${escape(section.academic_year || '-')}</td><td style="text-align:center;">${count}</td><td><div style="display:flex;justify-content:flex-start;padding-left:10px;"><button class="admin-view" data-section="${section.section_id}">View Subjects</button></div></td></tr>`
     }).join('') || '<tr><td colspan="5">No matching sections.</td></tr>'
     document.querySelectorAll('[data-section]').forEach(button => button.onclick = () => openSection(sections.find(section => String(section.section_id) === button.dataset.section)))
   }
