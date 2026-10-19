@@ -23,6 +23,8 @@ const stub = `
       ? { select: () => ({ order: () => ({ order: () => ({ limit: async () => ({ data: [] }) }), limit: async () => ({ data: [] }) }) }), insert: async () => ({ error: null }) }
       : table === 'audit_logs'
         ? { select: () => ({ order: () => ({ limit: async () => ({ data: [] }) }) }) }
+      : table === 'registrar_feedback'
+        ? { select: () => ({ order: () => ({ limit: async () => ({ data: [] }) }) }) }
       : table === 'profile_change_requests'
         ? { select: () => ({ eq: () => ({ order: async () => ({ data: [] }) }) }) }
       : table === 'approval_requests'

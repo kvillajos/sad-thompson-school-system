@@ -60,7 +60,7 @@ const mobileCss = readFileSync(join(root, 'public', 'css', 'responsive-mobile.cs
 assert.ok(script.includes('save_faculty_grades'), 'grades must be saved through the validated RPC')
 assert.ok(script.includes("from '../shared/lib/grades.js'"), 'the page must reuse the grade helpers')
 assert.ok(html.includes('id="grade-table"') && html.includes('id="save-grades"'), 'the grade page must expose its controls')
-for (const label of ['Student', 'Grade', 'Letter', 'Remarks']) assert.ok(script.includes(`data-label="${label}"`), `${label} must be labeled in mobile grade cards`)
+for (const label of ['Student', 'Grade', 'Letter Grade', 'Remarks']) assert.ok(script.includes(`data-label="${label}"`), `${label} must be labeled in mobile grade cards`)
 for (const label of ['Q1', 'Q2', 'Q3', 'Q4', 'Midterm', 'Final']) assert.ok(script.includes(`'${label}'`), `${label} must be labeled in mobile grade cards`)
 assert.match(mobileCss, /#grade-table tr\[data-student-id\]\s*\{\s*display:\s*block/)
 

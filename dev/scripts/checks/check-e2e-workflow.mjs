@@ -10,7 +10,7 @@ const student = read('role-student/student-dashboard-page.js')
 assert.match(registrar, /review_admission_application|shift_student/)
 assert.match(faculty, /save_faculty_grades|save_attendance/)
 assert.match(student, /academic_history|attendance_totals/)
-for (const label of ['Subject', 'Teacher', 'Q1', 'Q2', 'Grade', 'Letter', 'Remarks']) {
+for (const label of ['Subject', 'Teacher', 'Q1', 'Q2', 'Grade', 'Letter Grade', 'Remarks']) {
   assert.ok(student.includes(`data-label="${label}"`), `student current grades expose the ${label} mobile label`)
 }
 assert.match(registrar, /buildTranscript/)
