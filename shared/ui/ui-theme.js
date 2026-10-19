@@ -64,10 +64,7 @@ button:not(:disabled):hover { filter:brightness(0.96); }
 .brand-name { font-size:1.7rem; font-weight:700; line-height:1.1 }
 .brand-name span { color:#7da8ff }
 .brand-tagline { font-size:.9rem; color:#cbd5e1 }
-
-body.login-page .brand-logo-picture { display:block; width:112px; height:112px; margin:0 auto 4px; }
-body.login-page .brand-logo-picture .brand-logo { display:block; width:100%; height:100%; object-fit:contain; margin:0; }
-
+.brand-logo { position:static; order:1; width:200px; height:200px; object-fit:contain; margin-bottom:12px }
 .login-panel .card { width:min(100%,384px); margin:0 auto }
 .login-panel .card > h2 { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap }
 .login-panel .form-group { margin-bottom:8px }
@@ -625,12 +622,21 @@ body.has-app-sidebar > .app-sidebar { position:fixed; inset:0 auto 0 0; z-index:
 .audit-export-controls { display:flex; align-items:center; gap:8px; }
 .audit-export-controls input { margin:0; padding:8px; border:1px solid #b9c8dc; border-radius:5px; color:var(--ui-text); }
 .audit-export-note { color:var(--ui-muted); font-size:12px; }
+.audit-events-table { table-layout:fixed; }
+.audit-events-table th:nth-child(1), .audit-events-table td:nth-child(1) { width:19%; }
+.audit-events-table th:nth-child(2), .audit-events-table td:nth-child(2) { width:17%; }
+.audit-events-table th:nth-child(3), .audit-events-table td:nth-child(3) { width:18%; }
+.audit-events-table th:nth-child(4), .audit-events-table td:nth-child(4) { width:46%; }
+.audit-details-desktop { overflow-wrap:anywhere; }
+.audit-details-mobile { display:none; white-space:pre-line; }
 .audit-print-area { display:none; }
 @media print {
   body.printing-audit > *:not(.audit-print-area) { display:none !important; }
   body.printing-audit .audit-print-area { display:block !important; padding:24px; color:#111; }
   body.printing-audit .audit-print-area table { width:100%; border-collapse:collapse; }
   body.printing-audit .audit-print-area th, body.printing-audit .audit-print-area td { padding:8px; border-bottom:1px solid #cbd5e1; text-align:left; font-size:11px; }
+  body.printing-audit .audit-details-mobile { display:none !important; }
+  body.printing-audit .audit-details-desktop { display:inline !important; }
 }
 .review-countdown { margin: 10px 0 0; padding: 9px 12px; background: #fff4d6; color: var(--ui-warning); border-radius: 5px; font-size: 12px; font-weight: 700; }
 .admin-actions button[disabled] { opacity: .55; cursor: not-allowed; }

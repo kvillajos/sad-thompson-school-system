@@ -199,9 +199,17 @@ export async function loadApplications() {
   const { data, error } = await fetchAll(() => supabase.from('admission_applications').select('*').order('created_at',{ascending:false}).order('id'))
   if (error) { $('applications-table').innerHTML = errorRow(5, error, 'Load applications'); return }
   state.applications = data || []
-  $('applications-table').innerHTML = state.applications.map(a => `<tr>
-    <td>${escapeHtml(`${a.first_name} ${a.last_name}`)}</td><td>${escapeHtml(gradeLabel(a.grade_level))}</td><td>${statusBadge(a.status)}</td>
-    <td>${formatDate(a.created_at)}</td><td>${a.status === 'draft' ? `<button class="admin-approve" data-resume="${a.id}">Resume</button>` : `<button class="admin-view" data-review="${a.id}">View</button>`}</td></tr>`).join('') || '<tr><td colspan="5">No applications found.</td></tr>'
+  
+$('applications-table').innerHTML = state.applications.map(a => `<tr>
+    <td data-label="Student">${escapeHtml(`${a.first_name} ${a.last_name}`)}</td>
+    <td data-label="Grade">${escapeHtml(gradeLabel(a.grade_level))}</td>
+    <td data-label="Status">${statusBadge(a.status)}</td>
+    <td data-label="Date">${formatDate(a.created_at)}</td>
+    <td data-label="Actions">${a.status === 'draft'
+      ? `<button class="admin-approve" data-resume="${a.id}">Resume</button>`
+      : `<button class="admin-view" data-review="${a.id}">View</button>`}</td>
+  </tr>`).join('') || '<tr><td colspan="5">No applications found.</td></tr>'
+
   document.querySelectorAll('[data-review]').forEach(b => b.addEventListener('click', () => openView(b.dataset.review)))
   document.querySelectorAll('[data-resume]').forEach(b => b.addEventListener('click', () => resumeApplication(b.dataset.resume)))
 }

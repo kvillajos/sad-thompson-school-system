@@ -1980,4 +1980,2858 @@ main.main > section[data-panel]:not(.hidden) > .page-title:first-child {
     z-index: 1 !important;
 }
 
+
+/* ==========================================
+   TCSMS ADMIN DASHBOARD - MOBILE REDESIGN
+   Scoped to the administrator dashboard
+   ========================================== */
+
+@media (max-width: 700px) {
+    body.admin-shell:has(#count-students) > main {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 100%;
+        padding: 18px 12px 28px;
+        margin-left: 0;
+    }
+
+    body.admin-shell:has(#count-students) .admin-page-head {
+        margin-bottom: 16px;
+        padding-right: 0;
+    }
+
+    body.admin-shell:has(#count-students) .admin-page-head h2 {
+        font-size: 23px;
+        line-height: 1.3;
+        margin: 0;
+    }
+
+    /* Compact statistics cards */
+    body.admin-shell:has(#count-students) .admin-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+
+    body.admin-shell:has(#count-students) .admin-summary-grid .card {
+        box-sizing: border-box;
+        min-width: 0;
+        padding: 14px 12px;
+        border-radius: 14px;
+    }
+
+    body.admin-shell:has(#count-students) .admin-summary-grid .card:first-child {
+        grid-column: 1 / -1;
+    }
+
+    body.admin-shell:has(#count-students) .admin-summary-grid .card small {
+        display: block;
+        font-size: 12px;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+
+    body.admin-shell:has(#count-students) .admin-summary-grid .stat {
+        font-size: 27px;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+    }
+
+    /* Approvals and announcements panels */
+    
+body.admin-shell:has(#count-students) .admin-table-wrap {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 13px 11px;
+    margin-top: 12px;
+    margin-bottom: 12px;
+    border-radius: 14px;
+}
+
+
+    body.admin-shell:has(#count-students) .admin-section-title {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    body.admin-shell:has(#count-students) .admin-section-title h3 {
+        font-size: 16px;
+        line-height: 1.4;
+    }
+
+    body.admin-shell:has(#count-students) #approval-filter {
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+    }
+
+    body.admin-shell:has(#count-students) .combo {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    body.admin-shell:has(#count-students) .admin-table-wrap > div[style*="overflow-x:auto"],
+    body.admin-shell:has(#count-students) .ann-table-scroll {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    body.admin-shell:has(#count-students) .admin-table-wrap table {
+    width: 100%;
+    min-width: 0;
+}
+
+
+    body.admin-shell:has(#count-students) #add-announcement {
+        min-height: 42px;
+        padding: 10px 14px;
+        white-space: nowrap;
+    }
+}
+
+/* Extra-narrow phones */
+@media (max-width: 360px) {
+    body.admin-shell:has(#count-students) > main {
+        padding-right: 9px;
+        padding-left: 9px;
+    }
+
+    body.admin-shell:has(#count-students) .admin-summary-grid {
+        gap: 8px;
+    }
+
+    body.admin-shell:has(#count-students) .admin-summary-grid .stat {
+        font-size: 24px;
+    }
+}
+
+
+/* Admin dashboard: stronger mobile card styling */
+@media (max-width: 700px) {
+    body.admin-shell:has(#count-students) .admin-summary-grid .card {
+        background: #ffffff;
+        border: 1px solid #dce6f2;
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 4px 14px rgba(16, 42, 67, 0.08);
+    }
+
+    body.admin-shell:has(#count-students) .admin-summary-grid .card:first-child {
+        border-top: 4px solid #2864c5;
+    }
+
+    body.admin-shell:has(#count-students) .admin-summary-grid .card:nth-child(2) {
+        border-top: 4px solid #16a085;
+    }
+
+    body.admin-shell:has(#count-students) .admin-summary-grid .card:nth-child(3) {
+        border-top: 4px solid #e5a323;
+    }
+
+    body.admin-shell:has(#count-students) .admin-summary-grid .card small {
+        color: #52647a;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    body.admin-shell:has(#count-students) .admin-summary-grid .stat {
+        color: #174ea6;
+        font-size: 30px;
+        font-weight: 800;
+        margin-top: 8px;
+    }
+
+    body.admin-shell:has(#count-students) .admin-table-wrap {
+        border: 1px solid #dce6f2;
+        box-shadow: 0 5px 18px rgba(16, 42, 67, 0.07);
+    }
+
+    body.admin-shell:has(#count-students) .admin-section-title h3 {
+        color: #102a43;
+        font-size: 17px;
+        font-weight: 700;
+    }
+}
+
+
+/* Admin Pending Approvals: mobile cards */
+@media (max-width: 700px) {
+    body.admin-shell:has(#approvals-table)
+    .admin-table-wrap:has(#approvals-table) table {
+        width: 100% !important;
+        min-width: 0 !important;
+        table-layout: auto !important;
+    }
+
+   body.admin-shell:has(#approvals-table)
+.admin-table-wrap:has(#approvals-table) table thead {
+    display: none !important;
+}
+
+    body.admin-shell:has(#approvals-table) #approvals-table tr {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box;
+        margin: 0 0 12px;
+        padding: 10px 12px;
+        border: 1px solid #dce6f2;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 3px 10px rgba(16, 42, 67, 0.05);
+    }
+
+    body.admin-shell:has(#approvals-table) #approvals-table td {
+        display: grid !important;
+        grid-template-columns: 95px minmax(0, 1fr);
+        gap: 8px;
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box;
+        padding: 9px 0;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        border-bottom: 1px solid #edf1f6;
+        font-size: 12px !important;
+        line-height: 1.5;
+    }
+
+    body.admin-shell:has(#approvals-table) #approvals-table td::before {
+        content: attr(data-label);
+        color: #52647a;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    body.admin-shell:has(#approvals-table) #approvals-table td:last-child {
+        display: block !important;
+        border-bottom: 0;
+        padding-top: 12px;
+    }
+
+    body.admin-shell:has(#approvals-table) #approvals-table td:last-child::before {
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    body.admin-shell:has(#approvals-table) #approvals-table td button {
+        min-height: 40px;
+        margin: 3px 5px 3px 0;
+    }
+
+    body.admin-shell:has(#approvals-table) #approvals-table td[colspan="5"] {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    body.admin-shell:has(#approvals-table) #approvals-table td[colspan="5"]::before {
+        content: none;
+    }
+}
+
+
+/* Admin Announcements: mobile-friendly layout */
+@media (max-width: 700px) {
+    body.admin-shell .admin-announcements {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    body.admin-shell .admin-announcements .ann-table-scroll {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: visible !important;
+    }
+
+    body.admin-shell .admin-announcements table {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+    }
+
+    body.admin-shell .admin-announcements thead {
+        display: none !important;
+    }
+
+    body.admin-shell .admin-announcements tbody tr {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        margin: 0 0 12px;
+        padding: 12px;
+        border: 1px solid #dce6f2;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 3px 10px rgba(16, 42, 67, 0.05);
+    }
+
+    body.admin-shell .admin-announcements tbody td {
+        display: block;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        padding: 8px 0;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        border-bottom: 1px solid #edf1f6;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    body.admin-shell .admin-announcements tbody td:last-child {
+        border-bottom: 0;
+    }
+
+    body.admin-shell .admin-announcements tbody td button {
+        min-height: 38px;
+        margin: 4px 6px 4px 0;
+    }
+}
+
+
+/* Admin Announcements: improve mobile readability */
+@media (max-width: 700px) {
+    body.admin-shell .admin-announcements {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        padding: 14px 11px;
+        overflow: hidden;
+    }
+
+    body.admin-shell .admin-announcements .ann-table-scroll {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden !important;
+    }
+
+    body.admin-shell .admin-announcements table.ann-table {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+    }
+
+    body.admin-shell .admin-announcements table.ann-table thead {
+        display: none !important;
+    }
+
+    body.admin-shell .admin-announcements #announcements-table tr {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        margin: 0 0 14px;
+        padding: 12px;
+        border: 1px solid #dce6f2;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 3px 10px rgba(16, 42, 67, 0.06);
+    }
+
+    body.admin-shell .admin-announcements #announcements-table td {
+        display: block;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        padding: 7px 0;
+        border: 0;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        font-size: 14px !important;
+        line-height: 1.6;
+    }
+
+    /* Announcement title */
+    body.admin-shell .admin-announcements .ann-title-cell {
+        padding-bottom: 10px !important;
+        font-size: 16px !important;
+        font-weight: 700;
+        color: #102a43;
+    }
+
+    /* Show the full announcement message */
+    body.admin-shell .admin-announcements .ann-msg {
+        display: block !important;
+        max-height: none !important;
+        overflow: visible !important;
+        color: #334e68;
+        font-size: 14px !important;
+        line-height: 1.7 !important;
+        overflow-wrap: anywhere;
+    }
+
+    /* Hide the duplicate mobile message if the full message cell is visible */
+    body.admin-shell .admin-announcements .ann-mobile-message {
+        display: none !important;
+    }
+
+    body.admin-shell .admin-announcements .ann-type-cell {
+        color: #52647a;
+        font-size: 12px !important;
+    }
+
+    /* Keep action buttons easy to tap */
+    body.admin-shell .admin-announcements .ann-actions {
+        display: flex !important;
+        flex-wrap: wrap;
+        gap: 7px;
+        padding-top: 12px !important;
+        border-top: 1px solid #edf1f6 !important;
+    }
+
+    body.admin-shell .admin-announcements .ann-actions button {
+        min-height: 40px;
+        margin: 0;
+        padding: 9px 12px;
+        font-size: 13px;
+    }
+}
+
+
+/* Make announcement headings readable on mobile */
+@media (max-width: 700px) {
+    body.admin-shell .admin-announcements .ann-title-cell {
+        font-size: 17px !important;
+        line-height: 1.5 !important;
+        font-weight: 700 !important;
+        color: #102a43 !important;
+        padding-bottom: 10px !important;
+    }
+
+    body.admin-shell .admin-announcements .ann-title-text {
+        display: block;
+        font-size: 17px !important;
+        line-height: 1.5 !important;
+        font-weight: 700 !important;
+        overflow-wrap: anywhere;
+    }
+
+    body.admin-shell .admin-announcements .ann-mobile-kind,
+    body.admin-shell .admin-announcements .ann-type-cell .badge,
+    body.admin-shell .admin-announcements .ann-type-cell .ann-notice-label {
+        font-size: 12px !important;
+        line-height: 1.5 !important;
+        font-weight: 700 !important;
+    }
+
+    body.admin-shell .admin-announcements .ann-type-cell {
+        font-size: 13px !important;
+        line-height: 1.6 !important;
+    }
+}
+
+
+/* Make NOTICE and URGENT labels prominent on mobile */
+@media (max-width: 700px) {
+    body.admin-shell .admin-announcements .ann-type-cell,
+    body.admin-shell .admin-announcements .ann-mobile-kind,
+    body.admin-shell .admin-announcements .ann-type-cell .badge,
+    body.admin-shell .admin-announcements .ann-type-cell .ann-notice-label {
+        display: inline-block;
+        font-size: 15px !important;
+        font-weight: 800 !important;
+        line-height: 1.4 !important;
+        letter-spacing: 0.7px;
+        padding: 5px 10px;
+        margin-bottom: 8px;
+        border-radius: 6px;
+    }
+
+    /* NOTICE: blue label */
+    body.admin-shell .admin-announcements .ann-type-cell:has(.ann-notice-label),
+    body.admin-shell .admin-announcements .ann-mobile-kind.notice {
+        color: #075985 !important;
+        background: #e0f2fe !important;
+    }
+
+    /* URGENT: high-contrast red label */
+    body.admin-shell .admin-announcements .ann-mobile-kind.urgent {
+        color: #991b1b !important;
+        background: #fee2e2 !important;
+    }
+}
+
+
+/* Manage Accounts: mobile account cards */
+@media (max-width: 700px) {
+    body.admin-shell .admin-accounts-table,
+    body.admin-shell .admin-accounts-table table {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        table-layout: fixed !important;
+    }
+
+    body.admin-shell .admin-accounts-table thead {
+        display: none !important;
+    }
+
+    body.admin-shell .admin-accounts-table tbody tr {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px 12px;
+        width: 100%;
+        box-sizing: border-box;
+        margin: 0 0 14px;
+        padding: 14px;
+        border: 1px solid #d8e5f7;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(16, 42, 67, 0.08);
+    }
+
+    body.admin-shell .admin-accounts-table tbody td {
+        display: block !important;
+        width: auto !important;
+        min-width: 0 !important;
+        padding: 3px 0 !important;
+        border: 0 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        font-size: 14px !important;
+        line-height: 1.5;
+        text-align: left !important;
+    }
+
+    /* Username and email */
+    body.admin-shell .admin-accounts-table tbody td:nth-child(1) {
+        grid-column: 1;
+        grid-row: 1;
+        font-size: 17px !important;
+        font-weight: 700;
+        color: #102a43;
+    }
+
+    body.admin-shell .admin-accounts-table tbody td:nth-child(2) {
+        grid-column: 1;
+        grid-row: 2;
+        color: #52647a;
+    }
+
+    /* Role and status */
+    body.admin-shell .admin-accounts-table tbody td:nth-child(3) {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: start;
+        color: #174ea6;
+        font-weight: 700;
+    }
+
+    body.admin-shell .admin-accounts-table tbody td:nth-child(4),
+    body.admin-shell .admin-accounts-table tbody td:nth-child(5),
+    body.admin-shell .admin-accounts-table tbody td:nth-child(6) {
+        grid-column: 1 / -1;
+    }
+
+    /* Actions occupy the full card width */
+    body.admin-shell .admin-accounts-table tbody td:last-child {
+        grid-column: 1 / -1;
+        display: flex !important;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+        padding-top: 12px !important;
+        border-top: 1px solid #e5edf7 !important;
+    }
+
+    body.admin-shell .admin-accounts-table tbody td:last-child button {
+        min-height: 40px;
+        max-width: 100%;
+        margin: 0;
+        padding: 9px 11px;
+        border-radius: 9px;
+        white-space: normal;
+    }
+}
+
+
+/* Manage Faculty: mobile card layout */
+@media (max-width: 700px) {
+    body.admin-shell .admin-faculty-table {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        overflow: hidden;
+        padding: 12px;
+        border-radius: 14px;
+    }
+
+    body.admin-shell .admin-faculty-table table {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    body.admin-shell .admin-faculty-table thead {
+        display: none !important;
+    }
+
+    body.admin-shell .admin-faculty-table tbody tr {
+        display: block !important;
+        width: 100%;
+        box-sizing: border-box;
+        margin: 0 0 14px;
+        padding: 14px;
+        border: 1px solid #d8e5f7;
+        border-radius: 15px;
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(16, 42, 67, 0.08);
+    }
+
+    body.admin-shell .admin-faculty-table tbody td {
+        display: block !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box;
+        padding: 7px 0 !important;
+        border: 0 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        font-size: 14px !important;
+        line-height: 1.5;
+        text-align: left !important;
+    }
+
+    /* Employee number */
+    body.admin-shell .admin-faculty-table tbody td:first-child {
+        color: #174ea6;
+        font-size: 12px !important;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+
+    /* Faculty name */
+    body.admin-shell .admin-faculty-table tbody td:nth-child(2) {
+        color: #102a43;
+        font-size: 17px !important;
+        font-weight: 700;
+        line-height: 1.5;
+    }
+
+    /* Department and other faculty details */
+    body.admin-shell .admin-faculty-table tbody td:nth-child(n+3):not(:last-child) {
+        color: #52647a;
+    }
+
+    /* Action buttons */
+    body.admin-shell .admin-faculty-table tbody td:last-child {
+        display: flex !important;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+        padding-top: 12px !important;
+        border-top: 1px solid #e5edf7 !important;
+    }
+
+    body.admin-shell .admin-faculty-table tbody td:last-child button {
+        min-height: 40px;
+        max-width: 100%;
+        margin: 0;
+        padding: 9px 12px;
+        border-radius: 9px;
+        white-space: normal;
+    }
+}
+
+
+/* Manage Sections: mobile card styling */
+@media (max-width: 700px) {
+    body.admin-shell:has(.admin-sections-list) .admin-sections-list,
+    body.admin-shell:has(.admin-moderator-list) .admin-moderator-list,
+    body.admin-shell:has(.admin-room-list) .admin-room-list,
+    body.admin-shell:has(.admin-placement-override) .admin-placement-override {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        margin-top: 14px;
+        padding: 12px;
+        border: 1px solid #dce6f2;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(16, 42, 67, 0.07);
+    }
+
+    body.admin-shell .admin-placement-override input,
+    body.admin-shell .admin-placement-override select,
+    body.admin-shell .admin-placement-override textarea {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        font-size: 16px;
+    }
+
+    body.admin-shell .admin-placement-override button {
+        min-height: 44px;
+        max-width: 100%;
+        white-space: normal;
+    }
+}
+
+
+/* Manage Sections: mobile card layout */
+@media (max-width: 700px) {
+    body.admin-shell .admin-sections-list {
+        overflow: visible;
+        padding: 10px;
+    }
+
+    body.admin-shell .admin-sections-list table {
+        width: 100%;
+        min-width: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        table-layout: fixed;
+    }
+
+    body.admin-shell .admin-sections-list thead {
+        display: none;
+    }
+
+    body.admin-shell .admin-sections-list tbody tr.section-card-row {
+        display: block;
+        margin-bottom: 14px;
+        padding: 10px 12px;
+        border: 1px solid #dce6f2;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 3px 10px rgba(16, 42, 67, 0.06);
+    }
+
+    body.admin-shell .admin-sections-list tbody td {
+        display: grid;
+        grid-template-columns: 40% minmax(0, 1fr);
+        gap: 8px;
+        width: auto;
+        padding: 10px 0;
+        border-bottom: 1px solid #edf1f6;
+        font-size: 13px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+        vertical-align: top;
+    }
+
+    body.admin-shell .admin-sections-list tbody td::before {
+        content: attr(data-label);
+        font-size: 11px;
+        font-weight: 700;
+        color: #52647a;
+        text-transform: uppercase;
+    }
+
+    body.admin-shell .admin-sections-list tbody td:last-child {
+        display: block;
+        border-bottom: 0;
+        padding-top: 12px;
+    }
+
+    body.admin-shell .admin-sections-list tbody td:last-child::before {
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    body.admin-shell .admin-sections-list tbody td button {
+        min-height: 38px;
+        margin: 3px 5px 3px 0;
+    }
+
+    body.admin-shell .admin-sections-list tbody td[colspan="7"] {
+        display: block;
+    }
+
+    body.admin-shell .admin-sections-list tbody td[colspan="7"]::before {
+        content: none;
+    }
+}
+
+/* MANAGE SECTIONS - MOBILE CARD FIX */
+@media (max-width: 700px) {
+  body:has(#sections-table) .admin-table-wrap:has(#sections-table) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 10px !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  body:has(#sections-table) .admin-table-wrap:has(#sections-table) > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  body:has(#sections-table) .admin-table-wrap:has(#sections-table) table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  body:has(#sections-table) #sections-table tr.section-card-row {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 0 12px !important;
+    padding: 8px 12px !important;
+    box-sizing: border-box !important;
+    border: 1px solid #dce6f2;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(16, 42, 67, 0.05);
+  }
+
+  body:has(#sections-table) #sections-table td {
+    display: grid !important;
+    grid-template-columns: 105px minmax(0, 1fr);
+    gap: 8px;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 9px 0 !important;
+    box-sizing: border-box !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    border-bottom: 1px solid #edf1f6;
+    font-size: 12px !important;
+    line-height: 1.5;
+  }
+
+  body:has(#sections-table) #sections-table td::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  body:has(#sections-table) #sections-table td:last-child {
+    display: block !important;
+    border-bottom: 0;
+    padding-top: 12px !important;
+  }
+
+  body:has(#sections-table) #sections-table td:last-child::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  body:has(#sections-table) #sections-table td button {
+    min-height: 38px;
+    margin: 3px 5px 3px 0;
+  }
+}
+
+/* ADMIN MANAGE SUBJECTS - MOBILE CARDS */
+body:has(#subjects-table) #subjects-table .subject-mobile-remove {
+  display: none !important;
+}
+
+@media (max-width: 700px) {
+  body:has(#subjects-table) .admin-table-wrap:has(#subjects-table) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 10px !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  body:has(#subjects-table) .admin-table-wrap:has(#subjects-table) > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  body:has(#subjects-table) .admin-table-wrap:has(#subjects-table) table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  body:has(#subjects-table) .admin-table-wrap:has(#subjects-table) thead {
+    display: none !important;
+  }
+
+  body:has(#subjects-table) #subjects-table tr {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 0 12px !important;
+    padding: 8px 14px !important;
+    box-sizing: border-box !important;
+    border: 1px solid #dce6f2 !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    box-shadow: 0 3px 10px rgba(16, 42, 67, 0.05);
+  }
+
+  body:has(#subjects-table) #subjects-table td {
+    display: grid !important;
+    grid-template-columns: minmax(0, 38%) minmax(0, 1fr) !important;
+    align-items: center;
+    gap: 8px;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 8px 0 !important;
+    box-sizing: border-box !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    word-break: normal !important;
+    border-bottom: 1px solid #edf1f6 !important;
+    font-size: 14px !important;
+    line-height: 1.45 !important;
+  }
+
+  body:has(#subjects-table) #subjects-table td::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 11px !important;
+    font-weight: 700;
+    line-height: 1.35;
+    text-transform: uppercase;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  body:has(#subjects-table) #subjects-table td:last-child {
+    display: block !important;
+    border-bottom: 0 !important;
+    padding: 10px 0 2px !important;
+  }
+
+  body:has(#subjects-table) #subjects-table td:last-child::before {
+    display: block;
+    margin-bottom: 7px;
+  }
+
+  body:has(#subjects-table) #subjects-table td button {
+    min-height: 38px;
+    margin: 3px 5px 3px 0;
+  }
+
+  body:has(#subjects-table) #subjects-table td[data-label="Status"] .badge.active {
+    display: inline-flex;
+    justify-self: start;
+    width: fit-content;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  body:has(#subjects-table) #subjects-table td[data-label="Actions"] button {
+    margin: 3px 6px 3px 0;
+  }
+
+  body:has(#subjects-table) #subjects-table td[data-label="Actions"] .subject-mobile-remove {
+    display: inline-flex !important;
+    margin-right: 0;
+  }
+
+  body:has(#subjects-table) #subjects-table .subject-desktop-remove {
+    display: none !important;
+  }
+}
+
+@media (max-width: 700px) {
+  body[data-role="student"] [data-panel="grades"] #current-grades-table table,
+  body[data-role="student"] [data-panel="grades"] #grades-table-first table,
+  body[data-role="student"] [data-panel="grades"] #grades-table-second table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: transparent;
+  }
+
+  body[data-role="student"] [data-panel="grades"] #current-grades-table thead,
+  body[data-role="student"] [data-panel="grades"] #grades-table-first thead,
+  body[data-role="student"] [data-panel="grades"] #grades-table-second thead {
+    display: none;
+  }
+
+  body[data-role="student"] [data-panel="grades"] #current-grades-table tbody,
+  body[data-role="student"] [data-panel="grades"] #grades-table-first tbody,
+  body[data-role="student"] [data-panel="grades"] #grades-table-second tbody {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+  }
+
+  body[data-role="student"] [data-panel="grades"] #current-grades-table tbody tr:not(:has(td[colspan])),
+  body[data-role="student"] [data-panel="grades"] #grades-table-first tbody tr:not(:has(td[colspan])),
+  body[data-role="student"] [data-panel="grades"] #grades-table-second tbody tr:not(:has(td[colspan])) {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 6px 12px;
+    border: 1px solid #dbe5f1;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(16, 42, 67, .05);
+  }
+
+  body[data-role="student"] [data-panel="grades"] #current-grades-table tbody tr:not(:has(td[colspan])) td,
+  body[data-role="student"] [data-panel="grades"] #grades-table-first tbody tr:not(:has(td[colspan])) td,
+  body[data-role="student"] [data-panel="grades"] #grades-table-second tbody tr:not(:has(td[colspan])) td {
+    display: grid;
+    grid-template-columns: minmax(85px, 38%) minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px 0;
+    border-bottom: 1px solid #edf1f6;
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  body[data-role="student"] [data-panel="grades"] #current-grades-table tbody tr:not(:has(td[colspan])) td:last-child,
+  body[data-role="student"] [data-panel="grades"] #grades-table-first tbody tr:not(:has(td[colspan])) td:last-child,
+  body[data-role="student"] [data-panel="grades"] #grades-table-second tbody tr:not(:has(td[colspan])) td:last-child {
+    border-bottom: 0;
+  }
+
+  body[data-role="student"] [data-panel="grades"] #current-grades-table td[data-label]::before,
+  body[data-role="student"] [data-panel="grades"] #grades-table-first td[data-label]::before,
+  body[data-role="student"] [data-panel="grades"] #grades-table-second td[data-label]::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+
+  body[data-role="student"] [data-panel="grades"] #current-grades-table tbody tr td[colspan],
+  body[data-role="student"] [data-panel="grades"] #grades-table-first tbody tr td[colspan],
+  body[data-role="student"] [data-panel="grades"] #grades-table-second tbody tr td[colspan] {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #dbe5f1;
+    border-radius: 10px;
+    background: #fff;
+    text-align: center;
+  }
+
+  body[data-role="student"] [data-panel="grades"] #current-grades-table tbody tr td[colspan]::before,
+  body[data-role="student"] [data-panel="grades"] #grades-table-first tbody tr td[colspan]::before,
+  body[data-role="student"] [data-panel="grades"] #grades-table-second tbody tr td[colspan]::before {
+    content: none;
+  }
+
+  .student-schedule table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: transparent;
+  }
+
+  .student-schedule table thead {
+    display: none;
+  }
+
+  .student-schedule table tbody {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .student-schedule table tbody tr.schedule-class {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 6px 12px;
+    border: 1px solid #dbe5f1;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(16, 42, 67, .05);
+  }
+
+  .student-schedule table tbody tr.schedule-class td {
+    display: grid;
+    grid-template-columns: minmax(72px, 32%) minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px 0;
+    border-bottom: 1px solid #edf1f6;
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .student-schedule table tbody tr.schedule-class td:last-child {
+    border-bottom: 0;
+  }
+
+  .student-schedule table tbody tr.schedule-class td::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+
+  .student-schedule table tbody tr.schedule-gap td,
+  .student-schedule table tbody tr:not(.schedule-class) td[colspan] {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #dbe5f1;
+    border-radius: 10px;
+    background: #f1f6fc;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  body.admin-shell:has(#section-schedules-table)
+  #section-schedules-table thead {
+    display: none;
+  }
+
+  body.admin-shell:has(#section-schedules-table)
+  #section-schedules-table tr {
+    display: block;
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid #dce6f2;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  body.admin-shell:has(#section-schedules-table)
+  #section-schedules-table td {
+    display: grid;
+    grid-template-columns: 105px minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px 0;
+    overflow-wrap: anywhere;
+    border-bottom: 1px solid #edf1f6;
+  }
+
+  body.admin-shell:has(#section-schedules-table)
+  #section-schedules-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 11px;
+    color: #52647a;
+  }
+
+  body.admin-shell:has(#section-schedules-table)
+  #section-schedules-table td:last-child {
+    display: block;
+    border-bottom: 0;
+  }
+}
+
+
+
+
+/* Manage Schedules: mobile section cards */
+@media (max-width: 700px) {
+    body.admin-shell .admin-table-wrap:has(#sections-table) {
+        width: 100%;
+        overflow: visible !important;
+    }
+
+    body.admin-shell .admin-table-wrap:has(#sections-table) table {
+        display: block !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+    }
+
+    body.admin-shell #sections-table thead {
+        display: none !important;
+    }
+
+    body.admin-shell #sections-table tr {
+        display: block !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        padding: 12px 14px !important;
+        margin: 0 0 12px !important;
+        border: 1px solid #dce6f2 !important;
+        border-radius: 12px !important;
+        background: #fff !important;
+    }
+
+    body.admin-shell #sections-table td {
+        display: block !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 8px 0 !important;
+        border: 0 !important;
+        white-space: normal !important;
+        overflow-wrap: break-word !important;
+        word-break: normal !important;
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+    }
+
+    body.admin-shell #sections-table td::before {
+        display: block;
+        margin-bottom: 3px;
+        color: #52647a;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    body.admin-shell #sections-table td:nth-child(1)::before {
+        content: "Section";
+    }
+
+    body.admin-shell #sections-table td:nth-child(2)::before {
+        content: "Grade";
+    }
+
+    body.admin-shell #sections-table td:nth-child(3)::before {
+        content: "Academic Year";
+    }
+
+    body.admin-shell #sections-table td:nth-child(4)::before {
+        content: "Scheduled Subjects";
+    }
+
+    body.admin-shell #sections-table td:nth-child(5)::before {
+        content: "Action";
+    }
+
+    body.admin-shell #sections-table td:last-child {
+        border-top: 1px solid #edf1f6 !important;
+        margin-top: 5px;
+        padding-top: 12px !important;
+    }
+
+    body.admin-shell #sections-table td:last-child button {
+        min-height: 40px;
+        margin: 3px 6px 3px 0;
+    }
+
+    body.admin-shell #sections-table td[colspan="5"]::before {
+        content: none;
+    }
+}
+
+
+/* Manage Schedules: readable mobile section cards */
+@media (max-width: 700px) {
+  body.admin-shell:has(#sections-table)
+  .admin-table-wrap:has(#sections-table) {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  body.admin-shell:has(#sections-table)
+  .admin-table-wrap:has(#sections-table) table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  body.admin-shell:has(#sections-table)
+  #sections-table {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  body.admin-shell:has(#sections-table)
+  #sections-table tr.section-card-row {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box;
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border: 1px solid #dce6f2;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(16, 42, 67, 0.05);
+  }
+
+  body.admin-shell:has(#sections-table)
+  #sections-table td[data-label] {
+    display: grid !important;
+    grid-template-columns: 120px minmax(0, 1fr) !important;
+    align-items: start;
+    gap: 10px;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+    padding: 9px 0;
+    border-bottom: 1px solid #edf1f6;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    font-size: 13px !important;
+    line-height: 1.5;
+  }
+
+  body.admin-shell:has(#sections-table)
+  #sections-table td[data-label]::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  body.admin-shell:has(#sections-table)
+  #sections-table td:last-child {
+    display: block !important;
+    border-bottom: 0;
+    padding-top: 12px;
+  }
+
+  body.admin-shell:has(#sections-table)
+  #sections-table td:last-child::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  body.admin-shell:has(#sections-table)
+  #sections-table td button {
+    min-height: 40px;
+    padding: 9px 12px;
+    white-space: normal;
+  }
+
+  body.admin-shell:has(#sections-table)
+  #sections-table td[colspan] {
+    display: block !important;
+    width: 100% !important;
+    white-space: normal !important;
+  }
+
+  body.admin-shell:has(#sections-table)
+  #sections-table td[colspan]::before {
+    content: none;
+  }
+}
+
+
+/* Audit Trail: polished mobile cards */
+@media (max-width: 700px) {
+  body.admin-shell .admin-table-wrap:has(#audit-table),
+  body.admin-shell .audit-archive-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+    overflow: hidden !important;
+    padding: 12px !important;
+    border: 1px solid #e0e8f2;
+    border-radius: 16px;
+    background: #fff !important;
+    box-shadow: 0 4px 14px rgba(16, 42, 67, .06);
+  }
+
+  body.admin-shell .admin-table-wrap:has(#audit-table) table,
+  body.admin-shell #audit-archive-table table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  body.admin-shell #audit-table,
+  body.admin-shell #audit-archive-table tbody {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  body.admin-shell .admin-table-wrap:has(#audit-table) thead,
+  body.admin-shell #audit-archive-table thead {
+    display: none !important;
+  }
+
+  body.admin-shell #audit-table tr.audit-card-row,
+  body.admin-shell #audit-archive-table tr.audit-card-row {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box;
+    margin: 0 0 12px;
+    padding: 12px;
+    border: 1px solid #dce6f2;
+    border-radius: 12px;
+    background: #fdfefe;
+  }
+
+  body.admin-shell #audit-table td[data-label],
+  body.admin-shell #audit-archive-table td[data-label] {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+    padding: 8px 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid #edf1f6 !important;
+    text-align: left !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    font-size: 13px !important;
+    line-height: 1.5;
+  }
+
+  body.admin-shell #audit-table td[data-label]::before,
+  body.admin-shell #audit-archive-table td[data-label]::before {
+    display: block;
+    margin-bottom: 3px;
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  body.admin-shell #audit-table td[colspan],
+  body.admin-shell #audit-archive-table td[colspan] {
+    display: block !important;
+    width: 100% !important;
+    white-space: normal !important;
+  }
+
+  body.admin-shell #audit-table td[colspan]::before,
+  body.admin-shell #audit-archive-table td[colspan]::before {
+    content: none;
+  }
+
+  body.admin-shell .audit-archive-panel .admin-section-title {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  body.admin-shell .audit-export-controls {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    width: 100%;
+  }
+
+  body.admin-shell #audit-date {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  body.admin-shell #export-audit {
+    min-height: 42px;
+    white-space: normal;
+  }
+
+  body.admin-shell .audit-export-note {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  body.admin-shell .audit-details-desktop {
+    display: none;
+  }
+
+  body.admin-shell .audit-details-mobile {
+    display: block;
+    white-space: pre-line;
+  }
+}
+
+
+/* Audit Trail: fix remaining mobile tables and panels */
+@media (max-width: 700px) {
+  body.admin-shell #audit-print-area {
+    display: none;
+  }
+
+  body.admin-shell main {
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  body.admin-shell .admin-table-wrap table,
+  body.admin-shell #audit-archive-table table {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  body.admin-shell .admin-table-wrap th,
+  body.admin-shell .admin-table-wrap td,
+  body.admin-shell #audit-archive-table th,
+  body.admin-shell #audit-archive-table td {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  body.admin-shell .admin-table-wrap section,
+  body.admin-shell .audit-archive-panel > div {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  body.admin-shell .admin-table-wrap button,
+  body.admin-shell .audit-archive-panel button {
+    min-height: 40px;
+    max-width: 100%;
+    border-radius: 9px;
+  }
+}
+
+
+/* Registrar: Manage Enrollment mobile cards */
+@media (max-width: 700px) {
+  body[data-role="registrar"] #enrollment-table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  body[data-role="registrar"] #enrollment-table thead {
+    display: none;
+  }
+
+  body[data-role="registrar"] #enrollment-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  body[data-role="registrar"] #enrollment-table tr.enrollment-row {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    background: #fff;
+    border: 1px solid #dbe5f1;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(16, 42, 67, 0.06);
+  }
+
+  body[data-role="registrar"] #enrollment-table tr.enrollment-row td {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 0;
+    border: 0;
+    border-bottom: 1px solid #edf1f6;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  body[data-role="registrar"] #enrollment-table tr.enrollment-row td::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+
+  body[data-role="registrar"] #enrollment-table tr.enrollment-row td:last-child {
+    display: block;
+    padding-top: 12px;
+    border-bottom: 0;
+  }
+
+  body[data-role="registrar"] #enrollment-table tr.enrollment-row td:last-child::before {
+    display: block;
+    margin-bottom: 9px;
+  }
+
+  body[data-role="registrar"] #enrollment-table .enrollment-actions button {
+    min-height: 40px;
+    margin: 3px 6px 3px 0;
+    padding: 9px 14px;
+    border-radius: 9px;
+  }
+
+  body[data-role="registrar"] #enrollment-table .badge.active {
+    display: inline-flex;
+    justify-self: start;
+    width: fit-content;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  body[data-role="registrar"] #enrollment-table td[colspan] {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 18px 12px;
+    text-align: center;
+  }
+
+  body[data-role="registrar"] #enrollment-table td[colspan]::before {
+    content: none;
+  }
+}
+
+/* Registrar: polished mobile enrollment sorting */
+@media (max-width: 700px) {
+  body[data-role="registrar"] .mobile-enrollment-sort {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 10px;
+    align-items: center;
+    margin: 12px 0 16px;
+    padding: 14px;
+    background: #fff;
+    border: 1px solid #dce6f2;
+    border-radius: 14px;
+    box-shadow: 0 3px 12px rgba(16, 42, 67, 0.06);
+  }
+
+  body[data-role="registrar"] .mobile-enrollment-sort label {
+    grid-column: 1 / -1;
+    color: #193b67;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  body[data-role="registrar"] #enrollment-sort {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding: 9px 12px;
+    color: #17365d;
+    background: #f8fafc;
+    border: 1px solid #cbd8e8;
+    border-radius: 9px;
+    font: inherit;
+  }
+
+  body[data-role="registrar"] #enrollment-sort-direction {
+    min-height: 42px;
+    padding: 9px 12px;
+    color: #fff;
+    background: #1758d5;
+    border: 1px solid #1758d5;
+    border-radius: 9px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  body[data-role="registrar"] #enrollment-sort-direction:active {
+    transform: scale(0.98);
+  }
+}
+
+
+/* Registrar: prevent desktop table width from creating mobile whitespace */
+@media (max-width: 700px) {
+  body[data-role="registrar"] #enrollment-table {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  body[data-role="registrar"] #enrollment-table tr {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body[data-role="registrar"] #enrollment-table td {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  body[data-role="registrar"] #enrollment-table td:last-child {
+    display: block;
+  }
+
+  body[data-role="registrar"] #enrollment-table td:last-child button {
+    min-height: 40px;
+    margin: 3px 5px 3px 0;
+  }
+
+  body[data-role="registrar"] #enrollment-table
+    td[colspan] {
+    display: table-cell;
+    width: 100%;
+  }
+
+  body[data-role="registrar"] #enrollment-table
+    td[colspan]::before {
+    content: none;
+  }
+
+  body[data-role="registrar"] #enrollment-table
+    td[data-label]::before {
+    overflow-wrap: anywhere;
+  }
+}
+
+
+/* Registrar: Admission Applications mobile cards */
+@media (max-width: 700px) {
+  body[data-role="registrar"] #applications table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  body[data-role="registrar"] #applications table thead {
+    display: none;
+  }
+
+  body[data-role="registrar"] #applications table tbody {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  body[data-role="registrar"] #applications table tbody tr {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 12px;
+    margin: 0;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(7, 27, 58, 0.06);
+  }
+
+  body[data-role="registrar"] #applications table tbody td {
+    display: grid;
+    grid-template-columns: minmax(90px, 38%) minmax(0, 1fr);
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    padding: 9px 0;
+    border-bottom: 1px solid #e8edf4;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  body[data-role="registrar"] #applications table tbody td::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  body[data-role="registrar"] #applications table tbody td[data-label="Status"] .badge {
+    display: inline-flex;
+    justify-self: start;
+    width: fit-content;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  body[data-role="registrar"] #applications table tbody td:last-child {
+    display: block;
+    border-bottom: 0;
+    padding-top: 12px;
+  }
+
+  body[data-role="registrar"] #applications table tbody td:last-child::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  body[data-role="registrar"] #applications table tbody td:last-child button {
+    min-height: 40px;
+    margin: 3px 6px 3px 0;
+  }
+
+  body[data-role="registrar"] #applications table tbody td[colspan] {
+    display: block;
+  }
+
+  body[data-role="registrar"] #applications table tbody td[colspan]::before {
+    content: none;
+  }
+}
+
+
+/* Registrar: Section Students & Placement mobile cards */
+@media (max-width: 700px) {
+  body[data-role="registrar"] #sectioning {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body[data-role="registrar"] #sectioning .admin-table-wrap,
+  body[data-role="registrar"] #sectioning .card {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  /* Search and grade filter */
+  body[data-role="registrar"] #sectioning input,
+  body[data-role="registrar"] #sectioning select {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-height: 42px;
+  }
+
+  /* Place the action buttons on separate, comfortable rows */
+  body[data-role="registrar"] #sectioning button {
+    min-height: 40px;
+    max-width: 100%;
+    white-space: normal;
+    touch-action: manipulation;
+  }
+
+  body[data-role="registrar"] #sectioning table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  body[data-role="registrar"] #sectioning table thead {
+    display: none;
+  }
+
+  body[data-role="registrar"] #sectioning table tbody {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  body[data-role="registrar"] #sectioning table tbody tr {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid #dbe5f1;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(16, 42, 67, 0.06);
+  }
+
+  body[data-role="registrar"] #sectioning table tbody td {
+    display: grid;
+    grid-template-columns: minmax(95px, 38%) minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 10px 0;
+    border-bottom: 1px solid #edf1f6;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  body[data-role="registrar"] #student-directory-table td:nth-child(7) .badge {
+    display: inline-flex;
+    justify-self: start;
+    width: fit-content;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  /* Column labels based on the current table order */
+  body[data-role="registrar"] #sectioning table tbody td:nth-child(1)::before {
+    content: "Section Name";
+  }
+
+  body[data-role="registrar"] #sectioning table tbody td:nth-child(2)::before {
+    content: "Grade";
+  }
+
+  body[data-role="registrar"] #sectioning table tbody td:nth-child(3)::before {
+    content: "Moderator";
+  }
+
+  body[data-role="registrar"] #sectioning table tbody td:nth-child(4)::before {
+    content: "Students";
+  }
+
+  body[data-role="registrar"] #sectioning table tbody td:nth-child(5)::before {
+    content: "Actions";
+  }
+
+  body[data-role="registrar"] #sectioning table tbody td::before {
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  /* Actions use the full card width */
+  body[data-role="registrar"] #sectioning table tbody td:last-child {
+    display: block;
+    padding-top: 12px;
+    border-bottom: 0;
+  }
+
+  body[data-role="registrar"] #sectioning table tbody td:last-child::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  body[data-role="registrar"] #sectioning table tbody td:last-child button {
+    margin: 3px 6px 3px 0;
+  }
+
+  /* Empty-state rows */
+  body[data-role="registrar"] #sectioning table tbody td[colspan] {
+    display: block;
+  }
+
+  body[data-role="registrar"] #sectioning table tbody td[colspan]::before {
+    content: none;
+  }
+}
+
+
+/* Registrar: Academic History — 7-column mobile card layout */
+@media (max-width: 700px) {
+  body[data-role="registrar"] #academic-history-table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  /* Remove desktop table headers on mobile */
+  body[data-role="registrar"] #academic-history-table thead {
+    display: none;
+  }
+
+  /* Each student becomes a card */
+  body[data-role="registrar"] #academic-history-table tr {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border: 1px solid #dbe5f1;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(16, 42, 67, 0.06);
+  }
+
+  /* Each field becomes a labeled row */
+  body[data-role="registrar"] #academic-history-table td {
+    display: grid;
+    grid-template-columns: minmax(105px, 40%) minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 10px 0;
+    border-bottom: 1px solid #edf1f6;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  /* Labels for all seven columns */
+  body[data-role="registrar"] #academic-history-table td:nth-child(1)::before {
+    content: "Student No.";
+  }
+
+  body[data-role="registrar"] #academic-history-table td:nth-child(2)::before {
+    content: "Student";
+  }
+
+  body[data-role="registrar"] #academic-history-table td:nth-child(3)::before {
+    content: "Grade";
+  }
+
+  body[data-role="registrar"] #academic-history-table td:nth-child(4)::before {
+    content: "Academic Records";
+  }
+
+  body[data-role="registrar"] #academic-history-table td:nth-child(5)::before {
+    content: "Latest School Year";
+  }
+
+  body[data-role="registrar"] #academic-history-table td:nth-child(6)::before {
+    content: "Section";
+  }
+
+  body[data-role="registrar"] #academic-history-table td:nth-child(7)::before {
+    content: "Actions";
+  }
+
+  body[data-role="registrar"] #academic-history-table td::before {
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+
+  /* Keep action buttons readable and tappable */
+  body[data-role="registrar"] #academic-history-table td:nth-child(7) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    padding-top: 12px;
+    border-bottom: 0;
+  }
+
+  body[data-role="registrar"] #academic-history-table td:nth-child(7)::before {
+    flex: 0 0 100%;
+  }
+
+  body[data-role="registrar"] #academic-history-table td:nth-child(7) button {
+    min-height: 40px;
+    margin: 0;
+    padding: 9px 11px;
+    border-radius: 9px;
+    white-space: normal;
+  }
+
+  /* Keep empty/error messages readable */
+  body[data-role="registrar"] #academic-history-table td[colspan] {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body[data-role="registrar"] #academic-history-table td[colspan]::before {
+    content: none;
+  }
+}
+
+
+@media screen and (max-width: 700px) {
+  body[data-role="registrar"] #academic table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  body[data-role="registrar"] #academic table thead {
+    display: none !important;
+  }
+
+  body[data-role="registrar"] #academic-table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  body[data-role="registrar"] #academic-table tr {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box;
+    margin: 0 0 14px;
+    padding: 12px;
+    border: 1px solid #dbe5f1;
+    border-radius: 14px;
+    background: white;
+    box-shadow: 0 4px 12px rgba(16, 42, 67, .06);
+  }
+
+  body[data-role="registrar"] #academic-table td {
+    display: grid !important;
+    grid-template-columns: minmax(105px, 40%) minmax(0, 1fr);
+    gap: 10px;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+    padding: 10px 0;
+    border-bottom: 1px solid #edf1f6;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  body[data-role="registrar"] #academic-table td:nth-child(1)::before { content: "Student No."; }
+  body[data-role="registrar"] #academic-table td:nth-child(2)::before { content: "Student"; }
+  body[data-role="registrar"] #academic-table td:nth-child(3)::before { content: "Grade"; }
+  body[data-role="registrar"] #academic-table td:nth-child(4)::before { content: "Academic Records"; }
+  body[data-role="registrar"] #academic-table td:nth-child(5)::before { content: "Latest School Year"; }
+  body[data-role="registrar"] #academic-table td:nth-child(6)::before { content: "Section"; }
+  body[data-role="registrar"] #academic-table td:nth-child(7)::before { content: "Actions"; }
+
+  body[data-role="registrar"] #academic-table td::before {
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  body[data-role="registrar"] #academic-table td:nth-child(7) {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 7px;
+    border-bottom: 0;
+  }
+
+  body[data-role="registrar"] #academic-table .academic-actions-main {
+    display: inline-flex;
+    gap: 7px;
+  }
+
+  body[data-role="registrar"] #academic-table .academic-actions-transcript {
+    flex: 0 0 100%;
+  }
+
+  body[data-role="registrar"] #academic-table td[colspan] {
+    display: block !important;
+  }
+
+  body[data-role="registrar"] #academic-table td[colspan]::before {
+    content: none;
+  }
+}
+
+/* Registrar: Promotion & Transfers mobile layout */
+@media (max-width: 700px) {
+  body[data-role="registrar"] #promotion,
+  body[data-role="registrar"] #promotion > [data-subpanel] {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body[data-role="registrar"] #promotion > .subtabs {
+    gap: 8px;
+    margin: 0 0 12px;
+    padding: 0 2px;
+    overflow-x: visible;
+  }
+
+  body[data-role="registrar"] #promotion > .subtabs .subtab {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 10px 8px;
+    border: 1px solid #dbe3ef;
+    border-radius: 11px;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.3;
+  }
+
+  body[data-role="registrar"] #promotion .card {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 14px;
+  }
+
+  body[data-role="registrar"] #promotion #promotion-form,
+  body[data-role="registrar"] #promotion #shift-form {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    min-width: 0;
+  }
+
+  body[data-role="registrar"] #promotion #promotion-form label,
+  body[data-role="registrar"] #promotion #shift-form > label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    line-height: 1.4;
+  }
+
+  body[data-role="registrar"] #promotion #promotion-form input,
+  body[data-role="registrar"] #promotion #promotion-form select,
+  body[data-role="registrar"] #promotion #shift-form input,
+  body[data-role="registrar"] #promotion #shift-form select,
+  body[data-role="registrar"] #promotion #shift-form textarea {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+  }
+
+  body[data-role="registrar"] #promotion #promotion-form .note-inline {
+    display: block;
+    line-height: 1.5;
+  }
+
+  body[data-role="registrar"] #promotion #promotion-form .actions,
+  body[data-role="registrar"] #promotion #shift-form .actions {
+    display: flex;
+    justify-content: stretch;
+    min-width: 0;
+  }
+
+  body[data-role="registrar"] #promotion #promotion-form .actions button,
+  body[data-role="registrar"] #promotion #shift-form .actions button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  body[data-role="registrar"] #promotion #promotion-exclude-search {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    min-height: 44px;
+  }
+
+  body[data-role="registrar"] #promotion #promotion-exclude-list {
+    display: grid;
+    gap: 2px;
+    max-height: 40vh;
+    overflow-y: auto;
+    min-width: 0;
+    margin-top: 10px;
+  }
+
+  body[data-role="registrar"] #promotion #promotion-exclude-list label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    padding: 10px 4px;
+    border-bottom: 1px solid #edf1f6;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  body[data-role="registrar"] #promotion #promotion-exclude-list input[type="checkbox"] {
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    min-height: 18px;
+    margin: 1px 0 0;
+  }
+
+  body[data-role="registrar"] #promotion .shift-student-picker {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body[data-role="registrar"] #promotion .shift-student-picker > label {
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  body[data-role="registrar"] #promotion .shift-student-picker .filterbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    min-width: 0;
+  }
+
+  body[data-role="registrar"] #promotion .shift-student-picker .filterbar input,
+  body[data-role="registrar"] #promotion .shift-student-picker .filterbar select {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    min-height: 44px;
+  }
+
+  body[data-role="registrar"] #promotion .shift-student-picker .table-scroll {
+    width: 100%;
+    max-width: 100%;
+    max-height: min(42vh, 340px) !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body[data-role="registrar"] #promotion .shift-student-picker table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  body[data-role="registrar"] #promotion .shift-student-picker table thead {
+    display: none;
+  }
+
+  body[data-role="registrar"] #promotion #shift-student-table {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  body[data-role="registrar"] #promotion #shift-student-table tr {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 12px;
+    border: 1px solid #dbe5f1;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  body[data-role="registrar"] #promotion #shift-student-table td {
+    display: grid;
+    grid-template-columns: minmax(76px, 32%) minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 9px 0;
+    border-bottom: 1px solid #edf1f6;
+    font-size: 13px;
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  body[data-role="registrar"] #promotion #shift-student-table td:nth-child(1)::before { content: "Student ID"; }
+  body[data-role="registrar"] #promotion #shift-student-table td:nth-child(2)::before { content: "Name"; }
+  body[data-role="registrar"] #promotion #shift-student-table td:nth-child(3)::before { content: "Grade"; }
+  body[data-role="registrar"] #promotion #shift-student-table td:nth-child(4)::before { content: "Section"; }
+  body[data-role="registrar"] #promotion #shift-student-table td:nth-child(5)::before { content: "Action"; }
+
+  body[data-role="registrar"] #promotion #shift-student-table td::before {
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  body[data-role="registrar"] #promotion #shift-student-table td:last-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 0;
+  }
+
+  body[data-role="registrar"] #promotion #shift-student-table td:last-child button {
+    min-width: 82px;
+    min-height: 40px;
+  }
+
+  body[data-role="registrar"] #promotion #shift-student-table td[colspan] {
+    display: block;
+    text-align: center;
+  }
+
+  body[data-role="registrar"] #promotion #shift-student-table td[colspan]::before {
+    content: none;
+  }
+}
+
+@media (max-width: 700px) {
+  body.admin-shell:has(#grade-table) section.admin-table-wrap {
+    min-width: 0;
+    overflow: visible !important;
+  }
+
+  body.admin-shell:has(#grade-table) section.admin-table-wrap > div[style] {
+    width: 100%;
+    overflow: visible !important;
+  }
+
+  body.admin-shell:has(#grade-table) section.admin-table-wrap table {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+  }
+
+  body.admin-shell:has(#grade-table) section.admin-table-wrap table thead {
+    display: none;
+  }
+
+  body.admin-shell #grade-table {
+    display: grid;
+    width: 100% !important;
+    min-width: 0 !important;
+    gap: 12px;
+  }
+
+  body.admin-shell #grade-table tr[data-student-id] {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(7, 27, 58, .06);
+  }
+
+  body.admin-shell #grade-table td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(78px, 30%) minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px 0;
+    border-bottom: 1px solid #edf1f6 !important;
+    font-size: 13px !important;
+    line-height: 1.45;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+
+  body.admin-shell #grade-table td[data-label]::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+
+  body.admin-shell #grade-table td[data-label="Student"] {
+    align-items: start;
+  }
+
+  body.admin-shell #grade-table td[data-label] input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    margin: 0;
+  }
+
+  body.admin-shell #grade-table td[data-label="Remarks"] {
+    align-items: start;
+    border-bottom: 0 !important;
+  }
+
+  body.admin-shell #grade-table td[data-label="Remarks"] button {
+    grid-column: 2;
+    justify-self: start;
+    min-height: 40px;
+  }
+
+  body.admin-shell #grade-table td[colspan] {
+    display: block;
+    width: 100%;
+    text-align: center;
+    white-space: normal !important;
+  }
+
+  body.admin-shell #grade-table td[colspan]::before {
+    content: none;
+  }
+
+  body.admin-shell:has(#roster-table) section.admin-table-wrap {
+    min-width: 0;
+    overflow: visible !important;
+  }
+
+  body.admin-shell:has(#roster-table) section.admin-table-wrap > div[style] {
+    width: 100%;
+    overflow: visible !important;
+  }
+
+  body.admin-shell:has(#roster-table) section.admin-table-wrap table {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+  }
+
+  body.admin-shell:has(#roster-table) section.admin-table-wrap table thead {
+    display: none;
+  }
+
+  body.admin-shell #roster-table {
+    display: grid;
+    width: 100% !important;
+    min-width: 0 !important;
+    gap: 12px;
+  }
+
+  body.admin-shell #roster-table tr {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(7, 27, 58, .06);
+  }
+
+  body.admin-shell #roster-table td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(90px, 36%) minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 9px 0;
+    border-bottom: 1px solid #edf1f6 !important;
+    font-size: 13px !important;
+    line-height: 1.45;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+
+  body.admin-shell #roster-table td[data-label]::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+
+  body.admin-shell #roster-table td[data-label="Actions"] {
+    display: block;
+    border-bottom: 0 !important;
+  }
+
+  body.admin-shell #roster-table td[data-label="Actions"]::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  body.admin-shell #roster-table td[data-label="Actions"] a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    margin: 0 8px 0 0;
+    text-decoration: none;
+  }
+
+  body.admin-shell #roster-table td[colspan] {
+    display: block;
+    width: 100%;
+    text-align: center;
+    white-space: normal !important;
+  }
+
+  body.admin-shell #roster-table td[colspan]::before {
+    content: none;
+  }
+
+  /* Keep every Restore Changes column visible as a labeled mobile card field. */
+  #restore-changes-host > table {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  #restore-changes-host > table thead {
+    display: none;
+  }
+
+  #restore-changes-host > table tbody {
+    display: grid;
+    width: 100%;
+    gap: 12px;
+  }
+
+  #restore-changes-host > table tbody tr {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    border: 1px solid #dbe3ef;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(7, 27, 58, .06);
+  }
+
+  #restore-changes-host > table tbody td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(82px, 34%) minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 9px 0;
+    border-bottom: 1px solid #edf1f6;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  #restore-changes-host > table tbody td[data-label]::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+
+  #restore-changes-host > table tbody td[data-label="Action"] {
+    display: block;
+    padding-top: 12px;
+    border-bottom: 0;
+  }
+
+  #restore-changes-host > table tbody td[data-label="Action"]::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  #restore-changes-host > table tbody td[data-label="Action"] button {
+    min-height: 40px;
+    margin: 0 6px 0 0;
+  }
+
+  #restore-changes-host > table tbody td[colspan] {
+    display: block;
+    width: 100%;
+    white-space: normal;
+  }
+
+  #restore-changes-host > table tbody td[colspan]::before {
+    content: none;
+  }
+}
+
+body.admin-shell:has(#sections-table) .admin-sections-list #sections-table td[data-label] {
+  grid-template-columns: minmax(96px, 38%) minmax(0, 1fr);
+  gap: 10px;
+  font-size: 13px !important;
+  line-height: 1.45;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+body.admin-shell:has(#sections-table) .admin-sections-list #sections-table td[data-label]::before {
+  font-size: 10px;
+  line-height: 1.4;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+body.admin-shell:has(#sections-table) .admin-sections-list #sections-table td[data-label="Moderator"] {
+  align-items: center;
+}
+
+body.admin-shell:has(#sections-table) .admin-sections-list #sections-table .section-moderator-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+body.admin-shell:has(#sections-table) .admin-sections-list #sections-table .section-moderator-value > span:last-child {
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+body.admin-shell:has(#sections-table) .admin-sections-list #sections-table .section-capacity-value {
+  white-space: nowrap;
+}
+
+body.admin-shell .schedule-sections-list {
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 10px !important;
+  overflow: visible !important;
+  box-sizing: border-box;
+}
+
+body.admin-shell .schedule-sections-list table {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+body.admin-shell .schedule-sections-list thead {
+  display: none !important;
+}
+
+body.admin-shell .schedule-sections-list #sections-table {
+  display: grid !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  gap: 10px;
+}
+
+body.admin-shell .schedule-sections-list #sections-table tr.section-card-row {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 8px 14px !important;
+  box-sizing: border-box;
+  border: 1px solid #dce6f2;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(16, 42, 67, .05);
+}
+
+body.admin-shell .schedule-sections-list #sections-table td[data-label] {
+  display: grid !important;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr) !important;
+  align-items: center;
+  gap: 8px;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 8px 0 !important;
+  box-sizing: border-box !important;
+  border: 0 !important;
+  border-bottom: 1px solid #edf1f6 !important;
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+}
+
+body.admin-shell .schedule-sections-list #sections-table td[data-label]::before {
+  display: block;
+  color: #52647a;
+  font-size: 11px !important;
+  font-weight: 700;
+  line-height: 1.35;
+  text-transform: uppercase;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+body.admin-shell .schedule-sections-list #sections-table td[data-label="Action"] {
+  display: block !important;
+  padding: 10px 0 2px !important;
+  border-bottom: 0 !important;
+}
+
+body.admin-shell .schedule-sections-list #sections-table td[data-label="Action"]::before {
+  margin-bottom: 7px;
+}
+
+body.admin-shell .schedule-sections-list #sections-table td[data-label="Action"] button {
+  min-height: 40px;
+  margin: 0;
+}
+
+body.admin-shell .schedule-sections-list #sections-table td[colspan] {
+  display: block !important;
+  width: 100% !important;
+  text-align: center;
+}
+
+body.admin-shell .schedule-sections-list #sections-table td[colspan]::before {
+  content: none !important;
+}
+
+body.admin-shell .admin-announcements .ann-mobile-kind {
+  display: block !important;
+  margin: 0 0 10px !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+body.admin-shell .admin-announcements .ann-mobile-kind .badge,
+body.admin-shell .admin-announcements .ann-mobile-kind .ann-notice-label,
+body.admin-shell .admin-announcements .ann-type-cell .badge,
+body.admin-shell .admin-announcements .ann-type-cell .ann-notice-label {
+  display: inline-flex !important;
+  align-items: center;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 6px 12px !important;
+  border-radius: 8px;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+body.admin-shell .admin-announcements .ann-mobile-kind .ann-notice-label,
+body.admin-shell .admin-announcements .ann-type-cell .ann-notice-label {
+  background: #e0f2fe !important;
+  color: #075985 !important;
+}
+
+body.admin-shell .admin-announcements .ann-mobile-kind .urgent-badge,
+body.admin-shell .admin-announcements .ann-type-cell .urgent-badge {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+}
+
 }

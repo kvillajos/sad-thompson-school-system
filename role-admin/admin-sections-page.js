@@ -58,7 +58,44 @@
       const search = document.getElementById('section-search').value.trim().toLowerCase()
       const grade = document.getElementById('section-grade').value
       const visibleSections = sections.filter(section => (!grade || String(section.grade_level) === grade) && (!search || section.section_name.toLowerCase().includes(search)))
-      table.innerHTML = visibleSections.map(section => { const moderator = moderatorByName(section.faculty_assigned); return `<tr><td>${escape(section.section_name)}</td><td>${Number(section.grade_level) === 0 ? 'Kindergarten' : `Grade ${section.grade_level}`}</td><td>${escape(section.academic_year || '-')}</td><td>${moderator ? `${avatar(moderator, 32)} ` : ''}${escape(section.faculty_assigned || 'Unassigned')}</td><td>${escape(section.room || '-')}</td><td>${counts[section.section_id] || 0} / ${Number(section.capacity) || 0}</td><td><button class="admin-view" data-edit="${section.section_id}">Edit</button><button class="admin-remove" data-remove="${section.section_id}">Remove</button></td></tr>` }).join('') || '<tr><td colspan="7">No matching sections.</td></tr>'
+
+table.innerHTML = visibleSections.map(section => {
+    const moderator = moderatorByName(section.faculty_assigned);
+
+    return `
+        <tr class="section-card-row">
+            <td data-label="Section Name">
+                <strong>${escape(section.section_name)}</strong>
+            </td>
+            <td data-label="Grade">
+                ${Number(section.grade_level) === 0
+                    ? 'Kindergarten'
+                    : `Grade ${section.grade_level}`}
+            </td>
+            <td data-label="Academic Year">
+                ${escape(section.academic_year || '-')}
+            </td>
+            <td data-label="Moderator">
+                <span class="section-moderator-value">
+                    ${moderator ? avatar(moderator, 32) : ''}
+                    <span>${escape(section.faculty_assigned || 'Unassigned')}</span>
+                </span>
+            </td>
+            <td data-label="Room">
+                ${escape(section.room || '-')}
+            </td>
+            <td data-label="Students / Capacity">
+                <span class="section-capacity-value">${counts[section.section_id] || 0} / ${Number(section.capacity) || 0}</span>
+            </td>
+            <td data-label="Actions">
+                <button class="admin-view"
+                    data-edit="${section.section_id}">Edit</button>
+                <button class="admin-remove"
+                    data-remove="${section.section_id}">Remove</button>
+            </td>
+        </tr>`;
+}).join('') || '<tr><td colspan="7">No matching sections.</td></tr>';
+
       document.querySelectorAll('[data-remove]').forEach(button => button.onclick = () => removeSection(button.dataset.remove))
       document.querySelectorAll('[data-edit]').forEach(button => button.onclick = () => openForm(sections.find(item => String(item.section_id) === String(button.dataset.edit))))
     }
@@ -129,4 +166,3 @@
     document.getElementById('selected-moderator').onclick = event => { if (event.target.id === 'clear-moderator') { form.elements.faculty_assigned.value = ''; renderModeratorCard('') } }
     await loadSections()
     hideLoadingScreen()
-  

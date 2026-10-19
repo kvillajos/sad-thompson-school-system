@@ -11,13 +11,14 @@ await mountAdminShell('audit')
 
 // "field: value" lines instead of a raw JSON blob; nested objects stay compact.
 const detailText = details => Object.entries(details || {}).map(([key, value]) => `${key.replaceAll('_', ' ')}: ${value !== null && typeof value === 'object' ? JSON.stringify(value) : value ?? '-'}`).join('\n') || '-'
-const auditRow = row => `<tr><td>${formatDate(row.created_at, true)}</td><td>${escape(row.action)}</td><td>${escape(`${row.entity_type || ''} ${row.entity_id || ''}`)}</td><td style="white-space:pre-line">${escape(detailText(row.details))}</td></tr>`
+const auditRow = row => `<tr class="audit-card-row"><td data-label="When">${formatDate(row.created_at, true)}</td><td data-label="Action">${escape(row.action)}</td><td data-label="Entity">${escape(`${row.entity_type || ''} ${row.entity_id || ''}`)}</td><td data-label="Details"><span class="audit-details-desktop">${escape(JSON.stringify(row.details || {}))}</span><span class="audit-details-mobile">${escape(detailText(row.details))}</span></td></tr>`
 
 async function loadAudit() {
   const table = document.getElementById('audit-table')
   const { data, error } = await supabase.from('audit_logs').select('created_at,action,entity_type,entity_id,details').order('created_at', { ascending: false }).limit(50)
   if (error) return table.innerHTML = errorRow(4, error, 'Load audit log')
   table.innerHTML = (data || []).map(auditRow).join('') || '<tr><td colspan="4">No audit events recorded.</td></tr>'
+
 }
 
 function auditRowsHtml(rows) {
@@ -39,7 +40,7 @@ async function loadAuditArchive() {
   const error = archived.error || live.error
   if (error) return target.innerHTML = `<p class="note" role="alert">${escape(describeError(error, 'Load archived actions'))}</p>`
   const events = [...(archived.data?.events || []), ...(live.data || [])].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
-  target.innerHTML = `<table><thead><tr><th>Date</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead><tbody>${auditRowsHtml(events)}</tbody></table>`
+  target.innerHTML = `<table class="audit-events-table"><thead><tr><th>Date</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead><tbody>${auditRowsHtml(events)}</tbody></table>`
 }
 
 async function exportAudit() {
