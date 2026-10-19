@@ -5,7 +5,9 @@ const git = (command) => {
   try { return execSync(command, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() }
   catch { return '' }
 }
-const branch = process.env.VERCEL_GIT_COMMIT_REF || git('git rev-parse --abbrev-ref HEAD')
+// Commit messages start "<work-branch>/<target> - ..." (e.g. "TuesdayFixes/main - ..."); use that work-branch name so a push to main still shows it.
+const prefix = (process.env.VERCEL_GIT_COMMIT_MESSAGE || git('git log -1 --format=%s')).match(/^([w.-]+)/[w.-]+ - /)?.[1]
+const branch = prefix || process.env.VERCEL_GIT_COMMIT_REF || git('git rev-parse --abbrev-ref HEAD')
 const builtAt = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 const buildLabel = branch ? `${branch} · ${builtAt}` : builtAt
 
