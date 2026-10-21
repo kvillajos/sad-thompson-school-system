@@ -12,16 +12,22 @@ function world({ hidden = false } = {}) {
   let timeouts = 0
   const timers = new Map()
   const store = new Map()
-  const register = (repeat) => (fn, delay) => {
+  const register = repeat => (fn, delay) => {
     const id = nextId
     nextId += 1
     timers.set(id, { fn, at: clock + delay, repeat })
     return id
   }
   const runner = {
-    get clock() { return clock },
-    get timeouts() { return timeouts },
-    setHidden(value) { hidden = value },
+    get clock() {
+      return clock
+    },
+    get timeouts() {
+      return timeouts
+    },
+    setHidden(value) {
+      hidden = value
+    },
     // Simulates a starved background timeout so the minute watch has to catch it.
     dropOnce() {
       const entry = [...timers.entries()].find(([, timer]) => !timer.repeat)
@@ -43,18 +49,20 @@ function world({ hidden = false } = {}) {
     }
   }
   const sessionTimeout = createSessionTimeout({
-    onTimeout: () => { timeouts += 1 },
+    onTimeout: () => {
+      timeouts += 1
+    },
     isHidden: () => hidden,
     store: {
-      getItem: (key) => (store.has(key) ? store.get(key) : null),
+      getItem: key => (store.has(key) ? store.get(key) : null),
       setItem: (key, value) => store.set(key, String(value)),
-      removeItem: (key) => store.delete(key)
+      removeItem: key => store.delete(key)
     },
     now: () => clock,
     schedule: register(false),
-    cancel: (id) => timers.delete(id),
+    cancel: id => timers.delete(id),
     watch: register(true),
-    unwatch: (id) => timers.delete(id)
+    unwatch: id => timers.delete(id)
   })
   return { runner, store, sessionTimeout }
 }

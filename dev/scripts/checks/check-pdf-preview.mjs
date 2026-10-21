@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 
 const root = resolve(import.meta.dirname, '../../..')
 const read = name => readFileSync(join(root, name), 'utf8')
-const theme = read('shared/ui/ui-theme.js').match(/const sharedTheme = (?:\/\* css \*\/ )?`([\s\S]*?)`;/)[1]
+const theme = read('shared/ui/ui-theme.js').match(/const sharedTheme = (?:\/\* css \*\/ )?`([\s\S]*?)`;?\s/)[1]
 const strip = source => source.replace(/^import .*$/gm, '').replace(/^export (async )?(function|const)/gm, '$1$2')
 const pdfPreview = strip(read('shared/documents/pdf-preview.js'))
 const dayTabs = strip(read('shared/ui/day-tabs.js'))
@@ -73,7 +73,22 @@ const out = {}
 const folder = mkdtempSync(join(tmpdir(), 'pdf-preview-'))
 const file = join(folder, 'fixture.html')
 writeFileSync(file, fixture)
-const result = spawnSync(browserPath(), ['--headless', '--disable-gpu', '--no-first-run', '--disable-extensions', '--allow-file-access-from-files', `--user-data-dir=${join(folder, 'profile')}`, '--window-size=1200,900', '--virtual-time-budget=4000', '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 40000, maxBuffer: 4e6 })
+const result = spawnSync(
+  browserPath(),
+  [
+    '--headless',
+    '--disable-gpu',
+    '--no-first-run',
+    '--disable-extensions',
+    '--allow-file-access-from-files',
+    `--user-data-dir=${join(folder, 'profile')}`,
+    '--window-size=1200,900',
+    '--virtual-time-budget=4000',
+    '--dump-dom',
+    pathToFileURL(file).href
+  ],
+  { encoding: 'utf8', timeout: 40000, maxBuffer: 4e6 }
+)
 if (result.error) throw result.error
 const match = result.stdout.match(/<pre id="result">(.*?)<\/pre>/s)
 assert.ok(match?.[1], `browser produced no result: ${result.stderr.slice(-1500)}`)
@@ -95,7 +110,10 @@ assert.equal(out.closed, true, 'Close removes the window')
 assert.equal(out.mondayRows[0], 'English | 7:30 AM - 8:15 AM', 'first row is the first class, in 12-hour time')
 assert.ok(out.mondayRows.includes('Break \u00b7 9:45 AM - 10:00 AM'), 'break shows between classes')
 assert.ok(out.mondayRows.includes('Lunch break \u00b7 11:00 AM - 12:00 PM'), 'lunch shows in 12-hour time')
-assert.ok(out.mondayRows.some(row => row.includes('1:45 PM - 2:30 PM')), 'afternoon classes use PM')
+assert.ok(
+  out.mondayRows.some(row => row.includes('1:45 PM - 2:30 PM')),
+  'afternoon classes use PM'
+)
 assert.ok(!out.mondayRows.some(row => /\b1[3-9]:\d\d|\b0\d:\d\d/.test(row)), 'no 24-hour times anywhere')
 assert.deepEqual(out.mondayFieldLabels, ['Subject', 'Time'], 'class cells expose labels for mobile cards')
 assert.deepEqual(out.tuesdayRows, ['Late start | 10:00 AM - 10:45 AM'], 'no break above the first class, no lunch after the last')

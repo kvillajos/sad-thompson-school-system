@@ -5,7 +5,15 @@ import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { SCORE_FIELDS, classOptions, currentSchoolYear, derivedGrade, generalAverage, gradeRecord, letterGrade } from '../../../shared/lib/grades.js'
+import {
+  SCORE_FIELDS,
+  classOptions,
+  currentSchoolYear,
+  derivedGrade,
+  generalAverage,
+  gradeRecord,
+  letterGrade
+} from '../../../shared/lib/grades.js'
 
 // --- the grade sheet helpers ---------------------------------------------
 assert.equal(currentSchoolYear(new Date(2026, 8, 18)), '2026-2027', 'September opens a school year')
@@ -18,15 +26,26 @@ const schedules = [
   { section_id: 4, subject_id: 8, sections: { section_name: 'St. Luke' }, subjects: { subject_name: 'Science' } }
 ]
 const options = classOptions(schedules)
-assert.deepEqual(options.map(option => option.key), ['3:7', '4:8'], 'repeated weekday schedules collapse into one class')
+assert.deepEqual(
+  options.map(option => option.key),
+  ['3:7', '4:8'],
+  'repeated weekday schedules collapse into one class'
+)
 assert.equal(options[0].subject_name, 'Mathematics')
 assert.equal(options[1].label, 'St. Luke - Science')
 
 assert.equal(gradeRecord(11, {}), null, 'an untouched row is not submitted')
 assert.equal(gradeRecord(11, { first_sem_q1: '   ' }), null, 'blank scores are ignored')
 assert.deepEqual(gradeRecord(11, { final: '88.5', remarks: ' Good progress ' }), {
-  student_id: 11, first_sem_q1: null, first_sem_q2: null, second_sem_q1: null, second_sem_q2: null,
-  midterm: null, final: 88.5, letter_grade: null, remarks: 'Good progress'
+  student_id: 11,
+  first_sem_q1: null,
+  first_sem_q2: null,
+  second_sem_q1: null,
+  second_sem_q2: null,
+  midterm: null,
+  final: 88.5,
+  letter_grade: null,
+  remarks: 'Good progress'
 })
 assert.deepEqual(gradeRecord(11, { midterm: 'abc' }), null, 'a row with only an unparseable score is treated as untouched')
 assert.equal(gradeRecord(11, { final: '90', midterm: 'abc' }).midterm, null, 'unparseable scores are dropped instead of sent as NaN')
@@ -60,15 +79,17 @@ const mobileCss = readFileSync(join(root, 'public', 'css', 'responsive-mobile.cs
 assert.ok(script.includes('save_faculty_grades'), 'grades must be saved through the validated RPC')
 assert.ok(script.includes("from '../shared/lib/grades.js'"), 'the page must reuse the grade helpers')
 assert.ok(html.includes('id="grade-table"') && html.includes('id="save-grades"'), 'the grade page must expose its controls')
-for (const label of ['Student', 'Grade', 'Letter Grade', 'Remarks']) assert.ok(script.includes(`data-label="${label}"`), `${label} must be labeled in mobile grade cards`)
-for (const label of ['Q1', 'Q2', 'Q3', 'Q4', 'Midterm', 'Final']) assert.ok(script.includes(`'${label}'`), `${label} must be labeled in mobile grade cards`)
+for (const label of ['Student', 'Grade', 'Letter Grade', 'Remarks'])
+  assert.ok(script.includes(`data-label="${label}"`), `${label} must be labeled in mobile grade cards`)
+for (const label of ['Q1', 'Q2', 'Q3', 'Q4', 'Midterm', 'Final'])
+  assert.ok(script.includes(`'${label}'`), `${label} must be labeled in mobile grade cards`)
 assert.match(mobileCss, /#grade-table tr\[data-student-id\]\s*\{\s*display:\s*block/)
 
 // Tag balance catches a broken hand edit without a browser.
 const tags = ['div', 'section', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'select', 'button', 'p', 'small']
 tags.forEach(tag => {
   const open = (html.match(new RegExp(`<${tag}[\\s>]`, 'g')) || []).length
-  const close = (html.match(new RegExp(`</${tag}>`, 'g')) || []).length
+  const close = (html.match(new RegExp(`</${tag}\\s*>`, 'g')) || []).length
   assert.equal(open, close, `unbalanced ${tag} in faculty-grades.html`)
 })
 
@@ -81,5 +102,16 @@ try {
 } finally {
   rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }
+
+// A correction names the score it changes, so the quarter-built transcript follows an approved correction (v39).
+const sql = readFileSync(join(root, 'dev', 'database', 'backupsqlmigration.sql'), 'utf8')
+const v39 = sql.slice(sql.indexOf('BEGIN migration-v39'))
+assert.ok(script.includes('p_field: answer.field'), 'the correction request must send which score it corrects')
+assert.ok(v39.includes("p_field text default 'final'"), 'request_grade_correction must take the score to correct')
+assert.ok(v39.includes("execute format('update academic_history set %I"), 'approval must update the named score and recalculate')
+assert.ok(
+  v39.includes('A promotion request for this grade level is already awaiting approval'),
+  'only one pending promotion per grade level'
+)
 
 console.log('faculty grade checks passed')

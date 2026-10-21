@@ -10,15 +10,25 @@ import { mountRestoreChanges } from '../shared/ui/restore-changes.js'
 await mountAdminShell('audit')
 
 // "field: value" lines instead of a raw JSON blob; nested objects stay compact.
-const detailText = details => Object.entries(details || {}).map(([key, value]) => `${key.replaceAll('_', ' ')}: ${value !== null && typeof value === 'object' ? JSON.stringify(value) : value ?? '-'}`).join('\n') || '-'
-const auditRow = row => `<tr class="audit-card-row"><td data-label="When">${formatDate(row.created_at, true)}</td><td data-label="Action">${escape(row.action)}</td><td data-label="Entity">${escape(`${row.entity_type || ''} ${row.entity_id || ''}`)}</td><td data-label="Details"><span class="audit-details-desktop">${escape(JSON.stringify(row.details || {}))}</span><span class="audit-details-mobile">${escape(detailText(row.details))}</span></td></tr>`
+const detailText = details =>
+  Object.entries(details || {})
+    .map(
+      ([key, value]) =>
+        `${key.replaceAll('_', ' ')}: ${value !== null && typeof value === 'object' ? JSON.stringify(value) : (value ?? '-')}`
+    )
+    .join('\n') || '-'
+const auditRow = row =>
+  `<tr class="audit-card-row"><td data-label="When">${formatDate(row.created_at, true)}</td><td data-label="Action">${escape(row.action)}</td><td data-label="Entity">${escape(`${row.entity_type || ''} ${row.entity_id || ''}`)}</td><td data-label="Details"><span class="audit-details-desktop">${escape(JSON.stringify(row.details || {}))}</span><span class="audit-details-mobile">${escape(detailText(row.details))}</span></td></tr>`
 
 async function loadAudit() {
   const table = document.getElementById('audit-table')
-  const { data, error } = await supabase.from('audit_logs').select('created_at,action,entity_type,entity_id,details').order('created_at', { ascending: false }).limit(50)
-  if (error) return table.innerHTML = errorRow(4, error, 'Load audit log')
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('created_at,action,entity_type,entity_id,details')
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error) return (table.innerHTML = errorRow(4, error, 'Load audit log'))
   table.innerHTML = (data || []).map(auditRow).join('') || '<tr><td colspan="4">No audit events recorded.</td></tr>'
-
 }
 
 function auditRowsHtml(rows) {
@@ -35,25 +45,38 @@ async function loadAuditArchive() {
   nextDay.setUTCDate(nextDay.getUTCDate() + 1)
   const [archived, live] = await Promise.all([
     supabase.from('audit_log_archives').select('events').eq('archive_date', date).maybeSingle(),
-    supabase.from('audit_logs').select('created_at,action,entity_type,entity_id,details').gte('created_at', `${date}T00:00:00Z`).lt('created_at', nextDay.toISOString()).order('created_at')
+    supabase
+      .from('audit_logs')
+      .select('created_at,action,entity_type,entity_id,details')
+      .gte('created_at', `${date}T00:00:00Z`)
+      .lt('created_at', nextDay.toISOString())
+      .order('created_at')
   ])
   const error = archived.error || live.error
-  if (error) return target.innerHTML = `<p class="note" role="alert">${escape(describeError(error, 'Load archived actions'))}</p>`
-  const events = [...(archived.data?.events || []), ...(live.data || [])].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+  if (error) return (target.innerHTML = `<p class="note" role="alert">${escape(describeError(error, 'Load archived actions'))}</p>`)
+  const events = [...(archived.data?.events || []), ...(live.data || [])].sort((a, b) =>
+    String(b.created_at).localeCompare(String(a.created_at))
+  )
   target.innerHTML = `<table class="audit-events-table"><thead><tr><th>Date</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead><tbody>${auditRowsHtml(events)}</tbody></table>`
 }
 
 async function exportAudit() {
   const dateInput = document.getElementById('audit-date')
   const date = dateInput.value
-  if (!date) { dateInput.setCustomValidity('Choose an audit date first.'); dateInput.reportValidity(); return dateInput.addEventListener('input', () => dateInput.setCustomValidity(''), { once: true }) }
+  if (!date) {
+    dateInput.setCustomValidity('Choose an audit date first.')
+    dateInput.reportValidity()
+    return dateInput.addEventListener('input', () => dateInput.setCustomValidity(''), { once: true })
+  }
   await loadAuditArchive()
   const source = document.querySelector('#audit-archive-table table')
   if (!source) return
   const printArea = document.getElementById('audit-print-area')
   printArea.innerHTML = `<h1>Thompson Christian School</h1><h2>Audit Log - ${escape(date)}</h2>${source.outerHTML}`
   // The on-screen table is paged (rows beyond page 1 are hidden); the export must list every event.
-  printArea.querySelectorAll('tr[hidden]').forEach(row => { row.hidden = false })
+  printArea.querySelectorAll('tr[hidden]').forEach(row => {
+    row.hidden = false
+  })
   const previousTitle = document.title
   document.title = `audit-log-${date}`
   document.body.classList.add('printing-audit')
@@ -68,7 +91,8 @@ document.getElementById('audit-date').value = todayDateValue()
 document.getElementById('audit-date').onchange = loadAuditArchive
 document.getElementById('export-audit').onclick = exportAudit
 const restoreHost = document.getElementById('restore-changes-host')
-document.getElementById('refresh-restore').onclick = event => withBusy(event.currentTarget, 'Refreshing…', () => mountRestoreChanges(restoreHost, { includeDeletedAccounts: true }))
+document.getElementById('refresh-restore').onclick = event =>
+  withBusy(event.currentTarget, 'Refreshing…', () => mountRestoreChanges(restoreHost, { includeDeletedAccounts: true }))
 await loadAudit()
 await loadAuditArchive()
 await mountRestoreChanges(restoreHost, { includeDeletedAccounts: true })

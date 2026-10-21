@@ -40,7 +40,7 @@ function showStrength() {
 }
 newPasswordInput.addEventListener('input', showStrength)
 
-form.addEventListener('submit', async (e) => {
+form.addEventListener('submit', async e => {
   e.preventDefault()
 
   if (!supabase) {
@@ -76,10 +76,14 @@ form.addEventListener('submit', async (e) => {
     return
   }
 
-  try { sessionStorage.removeItem('tcsms_reset_email') } catch {}
+  try {
+    sessionStorage.removeItem('tcsms_reset_email')
+  } catch {}
   await supabase.auth.signOut()
 
   messageDiv.style.color = ''
   messageDiv.textContent = 'Password updated. Redirecting to sign in...'
-  window.setTimeout(() => { window.location.href = '/index.html' }, 1800)
+  window.setTimeout(() => {
+    window.location.href = '/index.html'
+  }, 1800)
 })

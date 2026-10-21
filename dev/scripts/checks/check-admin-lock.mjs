@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 const root = resolve(import.meta.dirname, '../../..')
 const html = readFileSync(join(root, 'role-admin/admin-dashboard.html'), 'utf8')
-const theme = readFileSync(join(root, 'shared/ui/ui-theme.js'), 'utf8').match(/const sharedTheme = (?:\/\* css \*\/ )?`([\s\S]*?)`;/)[1]
+const theme = readFileSync(join(root, 'shared/ui/ui-theme.js'), 'utf8').match(/const sharedTheme = (?:\/\* css \*\/ )?`([\s\S]*?)`;?\s/)[1]
 const script = readFileSync(join(root, 'role-admin/admin-dashboard-page.js'), 'utf8')
 // Replace the module imports with an in-page supabase/auth stub.
 const stub = `
@@ -53,13 +53,14 @@ const stub = `
   const mountAdminShell = async () => requireRole(1)
   const mountAnnouncements = async () => {}
   window.addEventListener('error', event => { const el = document.getElementById('result'); if (el && !el.textContent) el.textContent = 'PAGE_ERROR: ' + (event.message || 'unknown') })`
-const body = script
-  .replace(/^\s*import[^\n]*\n/gm, '')
+const body = script.replace(/^\s*import[^\n]*\n/gm, '')
 
 const fixture = html
   .replace(/<script[\s\S]*?<\/script>/g, '')
   .replace('</head>', `<style>${theme}</style></head>`)
-  .replace('</body>', `<pre id="result"></pre><script>(async () => {
+  .replace(
+    '</body>',
+    `<pre id="result"></pre><script>(async () => {
   ${stub}
   ${body}
   try {
@@ -78,13 +79,27 @@ const fixture = html
   const openEnabledAfterCountdown = !document.getElementById('approve-application').disabled && !document.getElementById('decline-application').disabled
   document.getElementById('result').textContent = JSON.stringify({ markerOnLocked, noMarkerOnOpen, lockedDisabledAfterCountdown, lockNoticeShown, openEnabledAfterCountdown })
   } catch (error) { document.getElementById('result').textContent = 'PAGE_ERROR: ' + (error && error.message || error) }
-  })().catch(error => { document.getElementById('result').textContent = 'PAGE_ERROR: ' + (error && error.message || error) });</script></body>`)
+  })().catch(error => { document.getElementById('result').textContent = 'PAGE_ERROR: ' + (error && error.message || error) });</script></body>`
+  )
 const folder = mkdtempSync(join(tmpdir(), 'admin-lock-'))
 try {
   const file = join(folder, 'fixture.html')
   writeFileSync(file, fixture)
   const edge = browserPath()
-  const result = spawnSync(edge, ['--headless', '--disable-gpu', '--no-first-run', '--disable-extensions', `--user-data-dir=${join(folder, 'profile')}`, '--virtual-time-budget=12000', '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 40000, maxBuffer: 4e6 })
+  const result = spawnSync(
+    edge,
+    [
+      '--headless',
+      '--disable-gpu',
+      '--no-first-run',
+      '--disable-extensions',
+      `--user-data-dir=${join(folder, 'profile')}`,
+      '--virtual-time-budget=12000',
+      '--dump-dom',
+      pathToFileURL(file).href
+    ],
+    { encoding: 'utf8', timeout: 40000, maxBuffer: 4e6 }
+  )
   if (result.error) throw result.error
   const match = result.stdout.match(/<pre id="result">(.*?)<\/pre>/)
   assert.ok(match?.[1], `Browser produced no result: ${result.stderr.slice(-1500)}`)
@@ -96,4 +111,6 @@ try {
   assert.equal(data.lockNoticeShown, true)
   assert.equal(data.openEnabledAfterCountdown, true)
   console.log('admin lock-surface checks passed')
-} finally { rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }) }
+} finally {
+  rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+}

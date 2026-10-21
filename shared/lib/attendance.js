@@ -1,5 +1,5 @@
 // Attendance sheet helpers: same contract as grades.js (pure, no app imports) so
-// scripts/check-attendance.mjs can assert it in Node. Reuses grades.js for the shared
+// dev/scripts/checks/check-attendance.mjs can assert it in Node. Reuses grades.js for the shared
 // per-class grouping and school-year math instead of duplicating them.
 import { classOptions, currentSchoolYear } from './grades.js'
 
@@ -16,7 +16,7 @@ export function attendanceRecord(studentId, values = {}) {
 
 // Today's date as the input[type=date] value the attendance sheet defaults to.
 export function todayDateValue(now = new Date()) {
-  const pad = (n) => String(n).padStart(2, '0')
+  const pad = n => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
 

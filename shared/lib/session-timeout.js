@@ -1,4 +1,4 @@
-// The two logout clocks, kept free of app imports so scripts/check-session-timeout.mjs
+// The two logout clocks, kept free of app imports so dev/scripts/checks/check-session-timeout.mjs
 // can drive them with a fake clock in Node.
 //
 // Why two: a backgrounded tab fires no activity events, so the 30-minute inactivity
@@ -14,16 +14,16 @@ export function createSessionTimeout({
   store = sessionStorage,
   now = Date.now,
   schedule = (fn, ms) => setTimeout(fn, ms),
-  cancel = (id) => clearTimeout(id),
+  cancel = id => clearTimeout(id),
   watch = (fn, ms) => setInterval(fn, ms),
-  unwatch = (id) => clearInterval(id)
+  unwatch = id => clearInterval(id)
 }) {
   let inactivityTimer
   let backgroundTimer
   let backgroundWatch
 
   // Markers are epoch millis, so they are read back as null (missing) or a number.
-  const marker = (key) => {
+  const marker = key => {
     const raw = store.getItem(key)
     return raw == null ? null : Number(raw)
   }
@@ -37,7 +37,10 @@ export function createSessionTimeout({
     store.removeItem('tcsms_background_since')
   }
 
-  const endSession = () => { stop(); onTimeout() }
+  const endSession = () => {
+    stop()
+    onTimeout()
+  }
 
   // A hidden tab never fires activity events, so activity must not touch either clock.
   const resetInactivity = () => {
@@ -49,7 +52,7 @@ export function createSessionTimeout({
 
   // Hidden tabs clamp timers to roughly one tick a minute, so the timeout lands the exact
   // 4-hour boundary and the minute watch is the safety net if the browser starves it.
-  const startBackground = (since) => {
+  const startBackground = since => {
     cancel(backgroundTimer)
     unwatch(backgroundWatch)
     store.setItem('tcsms_background_since', String(since))

@@ -9,14 +9,24 @@ import { spawnSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 const root = resolve(import.meta.dirname, '../../..')
 const html = readFileSync(join(root, 'role-registrar/student-records.html'), 'utf8')
-const registrarModules = ['role-registrar/registrar.js', 'role-registrar/registrar-admissions.js', 'role-registrar/registrar-sectioning.js', 'role-registrar/registrar-academic.js', 'role-registrar/registrar-shifting.js', 'role-registrar/registrar-requests.js']
+const registrarModules = [
+  'role-registrar/registrar.js',
+  'role-registrar/registrar-admissions.js',
+  'role-registrar/registrar-sectioning.js',
+  'role-registrar/registrar-academic.js',
+  'role-registrar/registrar-shifting.js',
+  'role-registrar/registrar-requests.js'
+]
 const js = registrarModules.map(name => readFileSync(join(root, name), 'utf8')).join('\n')
 const entryJs = readFileSync(join(root, 'role-registrar/registrar.js'), 'utf8')
 const sectioningJs = readFileSync(join(root, 'role-registrar/registrar-sectioning.js'), 'utf8')
 const admissionsJs = readFileSync(join(root, 'role-registrar/registrar-admissions.js'), 'utf8')
-const theme = readFileSync(join(root, 'shared/ui/ui-theme.js'), 'utf8').match(/const sharedTheme = (?:\/\* css \*\/ )?`([\s\S]*?)`;/)[1]
-const handler = sectioningJs.slice(sectioningJs.indexOf('let removeEnrollmentCountdown'), sectioningJs.indexOf('async function removeEnrollment('))
-const landing = entryJs.slice(entryJs.indexOf('mountSidebar(['), entryJs.indexOf('async function init('))
+const theme = readFileSync(join(root, 'shared/ui/ui-theme.js'), 'utf8').match(/const sharedTheme = (?:\/\* css \*\/ )?`([\s\S]*?)`;?\s/)[1]
+const handler = sectioningJs.slice(
+  sectioningJs.indexOf('let removeEnrollmentCountdown'),
+  sectioningJs.indexOf('async function removeEnrollment(')
+)
+const landing = entryJs.slice(entryJs.search(/mountSidebar\(\s*\[/), entryJs.indexOf('async function init('))
 assert.ok(!js.includes('loadDashboard'))
 assert.ok(!html.includes('id="dashboard"'))
 // Every id the registrar modules read must exist in the page or in a JS-rendered template.
@@ -25,7 +35,12 @@ const missing = [...new Set([...js.matchAll(/\$\('([\w-]+)'\)/g)].map(m => m[1])
 assert.deepEqual(missing, [], `registrar modules reference missing element ids: ${missing.join(', ')}`)
 const folder = mkdtempSync(join(tmpdir(), 'registrar-ui-'))
 try {
-  const fixture = html.replace(/<script[\s\S]*?<\/script>/g, '').replace('</head>', `<style>${theme}</style></head>`).replace('</body>', `<button id="test-remove">Remove</button><pre id="result"></pre><script>
+  const fixture = html
+    .replace(/<script[\s\S]*?<\/script>/g, '')
+    .replace('</head>', `<style>${theme}</style></head>`)
+    .replace(
+      '</body>',
+      `<button id="test-remove">Remove</button><pre id="result"></pre><script>
   const $ = id => document.getElementById(id);
   const escapeHtml = value => String(value);
   const toast = () => {};
@@ -56,11 +71,25 @@ try {
   $('confirm-remove-enrollment').click();
   const earlyWrites = writes;
   setTimeout(() => { const after = snapshot(); $('confirm-remove-enrollment').click(); $('result').textContent = JSON.stringify({initial,after,earlyWrites,writes,landingPanels,admissionPanels,returnPanels}); }, 3500);
-  </script></body>`)
+  </script></body>`
+    )
   const file = join(folder, 'fixture.html')
   writeFileSync(file, fixture)
   const edge = browserPath()
-  const result = spawnSync(edge, ['--headless', '--disable-gpu', '--no-first-run', '--disable-extensions', `--user-data-dir=${join(folder, 'profile')}`, '--virtual-time-budget=4500', '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 30000, maxBuffer: 4e6 })
+  const result = spawnSync(
+    edge,
+    [
+      '--headless',
+      '--disable-gpu',
+      '--no-first-run',
+      '--disable-extensions',
+      `--user-data-dir=${join(folder, 'profile')}`,
+      '--virtual-time-budget=4500',
+      '--dump-dom',
+      pathToFileURL(file).href
+    ],
+    { encoding: 'utf8', timeout: 30000, maxBuffer: 4e6 }
+  )
   if (result.error) throw result.error
   const match = result.stdout.match(/<pre id="result">(.*?)<\/pre>/)
   assert.ok(match?.[1], `Browser produced no result: ${result.stderr.slice(-1500)}`)
@@ -70,8 +99,10 @@ try {
   assert.deepEqual(data.admissionPanels, ['admission'])
   assert.deepEqual(data.returnPanels, ['enrollment'])
   for (const s of [data.initial, data.after]) {
-    assert.notEqual(s.display, 'none'); assert.notEqual(s.visibility, 'hidden')
-    assert.ok(s.width > 0 && s.height > 0); assert.ok(Number(s.opacity) > 0)
+    assert.notEqual(s.display, 'none')
+    assert.notEqual(s.visibility, 'hidden')
+    assert.ok(s.width > 0 && s.height > 0)
+    assert.ok(Number(s.opacity) > 0)
   }
   assert.equal(data.initial.background, 'rgb(185, 28, 28)', 'confirmation must have a visible red background')
   assert.equal(data.earlyWrites, 0)
@@ -83,7 +114,12 @@ try {
   const reviewEnd = admissionsJs.indexOf('})', admissionsJs.indexOf("'Saving…', saveReviewEdits)")) + 3
   const reviewSlice = admissionsJs.slice(reviewStart, reviewEnd)
   const folder2 = mkdtempSync(join(tmpdir(), 'review-flow-'))
-  const fixture2 = html.replace(/<script[\s\S]*?<\/script>/g, '').replace('</head>', `<style>${theme}</style></head>`).replace('</body>', `<pre id="result"></pre><script>
+  const fixture2 = html
+    .replace(/<script[\s\S]*?<\/script>/g, '')
+    .replace('</head>', `<style>${theme}</style></head>`)
+    .replace(
+      '</body>',
+      `<pre id="result"></pre><script>
   const $ = id => document.getElementById(id);
   const escapeHtml = value => String(value ?? '');
   const toast = () => {};
@@ -107,10 +143,24 @@ try {
     const save = calls.find(call => call.name === 'save_application_edit');
     $('result').textContent = JSON.stringify({ duringEdit, released, modalClosed: $('review-modal').classList.contains('hidden'), savedToken: save?.params.p_token, savedName: save?.params.p_payload?.last_name, savedId: save?.params.p_application_id });
   })();
-  </script></body>`)
+  </script></body>`
+    )
   const file2 = join(folder2, 'fixture.html')
   writeFileSync(file2, fixture2)
-  const result2 = spawnSync(edge, ['--headless', '--disable-gpu', '--no-first-run', '--disable-extensions', `--user-data-dir=${join(folder2, 'profile')}`, '--virtual-time-budget=3000', '--dump-dom', pathToFileURL(file2).href], { encoding: 'utf8', timeout: 30000, maxBuffer: 4e6 })
+  const result2 = spawnSync(
+    edge,
+    [
+      '--headless',
+      '--disable-gpu',
+      '--no-first-run',
+      '--disable-extensions',
+      `--user-data-dir=${join(folder2, 'profile')}`,
+      '--virtual-time-budget=3000',
+      '--dump-dom',
+      pathToFileURL(file2).href
+    ],
+    { encoding: 'utf8', timeout: 30000, maxBuffer: 4e6 }
+  )
   if (result2.error) throw result2.error
   const match2 = result2.stdout.match(/<pre id="result">(.*?)<\/pre>/)
   assert.ok(match2?.[1], `Review fixture produced no result: ${result2.stderr.slice(-1500)}`)
@@ -125,4 +175,6 @@ try {
   assert.equal(review.savedName, 'Santos-Cruz', 'edits must reach save_application_edit')
   assert.equal(review.modalClosed, true)
   console.log('review flow checks passed')
-} finally { rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }) }
+} finally {
+  rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+}

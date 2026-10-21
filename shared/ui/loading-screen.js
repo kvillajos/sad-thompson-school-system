@@ -23,7 +23,8 @@ if (!loadingScreen.children.length) {
 
 const loadingStyles = document.getElementById('tcsms-loading-styles') || document.createElement('style')
 loadingStyles.id = 'tcsms-loading-styles'
-if (!loadingStyles.isConnected) loadingStyles.textContent = `
+if (!loadingStyles.isConnected)
+  loadingStyles.textContent = `
   .loading-screen {
     position: fixed;
     inset: 0;

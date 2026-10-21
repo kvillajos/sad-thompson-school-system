@@ -8,7 +8,8 @@ const passwordMode = process.env.SEED_STUDENT_PASSWORD || 'initials'
 if (!url || !serviceRoleKey) {
   throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running this script.')
 }
-if (passwordMode !== 'initials' && passwordMode.length < 8) throw new Error('SEED_STUDENT_PASSWORD must be "initials" or a password with at least 8 characters.')
+if (passwordMode !== 'initials' && passwordMode.length < 8)
+  throw new Error('SEED_STUDENT_PASSWORD must be "initials" or a password with at least 8 characters.')
 
 const supabase = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } })
 const students = [
@@ -55,7 +56,11 @@ const students = [
 ]
 
 function getStudentUsername(firstName, lastName) {
-  const firstNameInitials = firstName.split(/\s+/).filter(Boolean).map(name => name[0]).join('')
+  const firstNameInitials = firstName
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(name => name[0])
+    .join('')
   const surname = lastName.replace(/[^a-z]/gi, '').toLowerCase()
   return `${firstNameInitials}${surname}`.toLowerCase()
 }
@@ -76,11 +81,21 @@ async function getOrCreateAuthUser(email, username, password) {
   if (listError) throw listError
   const existing = users.users.find(user => user.email?.toLowerCase() === email.toLowerCase() || user.user_metadata?.username === username)
   if (existing) {
-    const { data, error } = await supabase.auth.admin.updateUserById(existing.id, { email, password, email_confirm: true, user_metadata: { username, role: 'student' } })
+    const { data, error } = await supabase.auth.admin.updateUserById(existing.id, {
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { username, role: 'student' }
+    })
     if (error) throw error
     return data.user
   }
-  const { data, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { username, role: 'student' } })
+  const { data, error } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { username, role: 'student' }
+  })
   if (error) throw error
   return data.user
 }
@@ -91,7 +106,11 @@ for (const [lrn, firstName, lastName, dateOfBirth, gender, gradeLevel] of studen
   const password = getStudentPassword(firstName, lastName)
   const passwordHash = hashPassword(password)
   const authUser = await getOrCreateAuthUser(email, username, password)
-  const { data: existingStudent, error: studentLookupError } = await supabase.from('students').select('student_id').eq('lrn_number', lrn).maybeSingle()
+  const { data: existingStudent, error: studentLookupError } = await supabase
+    .from('students')
+    .select('student_id')
+    .eq('lrn_number', lrn)
+    .maybeSingle()
   if (studentLookupError) throw studentLookupError
   const studentId = existingStudent?.student_id || null
   const { data: linkedAccount, error: linkedAccountError } = studentId
@@ -113,13 +132,32 @@ for (const [lrn, firstName, lastName, dateOfBirth, gender, gradeLevel] of studen
     const accountResult = await supabase.from('users').update(baseAccountPayload).eq('user_id', accountId)
     if (accountResult.error) throw accountResult.error
   }
-  const studentPayload = { lrn_number: lrn, first_name: firstName, last_name: lastName, date_of_birth: dateOfBirth, gender, grade_level: gradeLevel }
+  const studentPayload = {
+    lrn_number: lrn,
+    first_name: firstName,
+    last_name: lastName,
+    date_of_birth: dateOfBirth,
+    gender,
+    grade_level: gradeLevel
+  }
   const studentResult = existingStudent
-    ? await supabase.from('students').update({ ...studentPayload, user_id: accountId }).eq('student_id', existingStudent.student_id).select('student_id').single()
-    : await supabase.from('students').insert({ ...studentPayload, user_id: accountId }).select('student_id').single()
+    ? await supabase
+        .from('students')
+        .update({ ...studentPayload, user_id: accountId })
+        .eq('student_id', existingStudent.student_id)
+        .select('student_id')
+        .single()
+    : await supabase
+        .from('students')
+        .insert({ ...studentPayload, user_id: accountId })
+        .select('student_id')
+        .single()
   if (studentResult.error) throw studentResult.error
   const savedStudentId = studentResult.data.student_id
-  const accountResult = await supabase.from('users').update({ ...baseAccountPayload, student_id: savedStudentId }).eq('user_id', accountId)
+  const accountResult = await supabase
+    .from('users')
+    .update({ ...baseAccountPayload, student_id: savedStudentId })
+    .eq('user_id', accountId)
   if (accountResult.error) throw accountResult.error
   console.log(`${username} | ${email} | Password ${password} | Auth ID ${authUser.id} | Student ID ${savedStudentId}`)
 }

@@ -1,4 +1,4 @@
-// Pure helpers for the student "Request an Edit" flow (asserted by scripts/check-edit-request.mjs).
+// Pure helpers for the student "Request an Edit" flow (asserted by dev/scripts/checks/check-edit-request.mjs).
 const norm = value => String(value ?? '').trim()
 
 // Only the boxes the student really changed: { field: newValue }. Untouched boxes are left out so they never change.

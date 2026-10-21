@@ -4,7 +4,9 @@
    Phones (700px and under) keep their own layout from responsive-mobile.css. */
 
 @media (min-width: 701px) {
-  :root { --admin-action-w: 104px; }
+  :root {
+    --admin-action-w: 104px;
+  }
 
   /* ---- Rows and columns: same padding everywhere, text centred in the row ---- */
   body.role-admin .admin-table-wrap th,
@@ -13,19 +15,26 @@
     text-align: left;
     vertical-align: middle;
   }
-  body.role-admin .admin-table-wrap th { white-space: nowrap; }
-  body.role-admin .admin-table-wrap td { line-height: 1.4; }
+  body.role-admin .admin-table-wrap th {
+    white-space: nowrap;
+  }
+  body.role-admin .admin-table-wrap td {
+    line-height: 1.4;
+  }
 
   /* ---- Action column: only tables whose last cell holds actions ---- */
-  body.role-admin .admin-table-wrap table:has(td[data-label="Action"], td[data-label="Actions"], td:last-child:has(> .table-action-menu)) th:last-child {
+  body.role-admin
+    .admin-table-wrap
+    table:has(td[data-label='Action'], td[data-label='Actions'], td:last-child:has(> .table-action-menu))
+    th:last-child {
     width: 1%;
     padding-left: 0;
     padding-right: 0;
     text-align: center;
   }
-    body.role-admin .admin-table-wrap td[data-label="Action"],
-      body.role-admin .admin-table-wrap td[data-label="Actions"],
-      body.role-admin .admin-table-wrap td:last-child:has(> .table-action-menu) {
+  body.role-admin .admin-table-wrap td[data-label='Action'],
+  body.role-admin .admin-table-wrap td[data-label='Actions'],
+  body.role-admin .admin-table-wrap td:last-child:has(> .table-action-menu) {
     width: 1%;
     padding-left: 0;
     padding-right: 0;
@@ -37,15 +46,15 @@
     width: var(--admin-action-w) !important;
   }
 
-  body.role-admin .admin-table-wrap td[data-label="Action"] .table-action-menu,
-  body.role-admin .admin-table-wrap td[data-label="Actions"] .table-action-menu,
+  body.role-admin .admin-table-wrap td[data-label='Action'] .table-action-menu,
+  body.role-admin .admin-table-wrap td[data-label='Actions'] .table-action-menu,
   body.role-admin .admin-table-wrap td:last-child:has(> .table-action-menu) .table-action-menu {
     display: block;
     width: var(--admin-action-w);
     margin-inline: auto;
   }
-  body.role-admin .admin-table-wrap td[data-label="Action"] .table-action-toggle,
-  body.role-admin .admin-table-wrap td[data-label="Actions"] .table-action-toggle,
+  body.role-admin .admin-table-wrap td[data-label='Action'] .table-action-toggle,
+  body.role-admin .admin-table-wrap td[data-label='Actions'] .table-action-toggle,
   body.role-admin .admin-table-wrap td:last-child:has(> .table-action-menu) .table-action-toggle {
     margin-inline: auto;
   }
@@ -62,7 +71,9 @@
   }
 
   /* ---- Search / filter / add row: same height, Add button on the far right ---- */
-  body.role-admin .admin-filterbar { align-items: center; }
+  body.role-admin .admin-filterbar {
+    align-items: center;
+  }
   body.role-admin .admin-filterbar input,
   body.role-admin .admin-filterbar select,
   body.role-admin .admin-filterbar .admin-primary {

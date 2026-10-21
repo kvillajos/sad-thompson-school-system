@@ -27,5 +27,8 @@ export function groupScheduleRows(rows) {
 }
 
 export function formatDays(days) {
-  return [...daySet(days)].sort((a, b) => a - b).map(day => dayNames[day].slice(0, 3)).join(', ')
+  return [...daySet(days)]
+    .sort((a, b) => a - b)
+    .map(day => dayNames[day].slice(0, 3))
+    .join(', ')
 }

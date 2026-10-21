@@ -6,13 +6,16 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const passwordMode = process.env.SEED_STAFF_PASSWORD || 'initials'
 
 if (!url || !serviceRoleKey) throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running this script.')
-if (passwordMode !== 'initials' && passwordMode.length < 8) throw new Error('SEED_STAFF_PASSWORD must be "initials" or a password with at least 8 characters.')
+if (passwordMode !== 'initials' && passwordMode.length < 8)
+  throw new Error('SEED_STAFF_PASSWORD must be "initials" or a password with at least 8 characters.')
 
 const supabase = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } })
 
 function requireMigrationTable(error, tableName) {
   if (error?.code === 'PGRST205') {
-    throw new Error(`Supabase table "${tableName}" is missing from the schema cache. Run database/backupsqlmigration.sql, wait a few seconds, and rerun npm run seed:staff.`)
+    throw new Error(
+      `Supabase table "${tableName}" is missing from the schema cache. Run dev/database/backupsqlmigration.sql, wait a few seconds, and rerun npm run seed:staff.`
+    )
   }
   throw error
 }
@@ -33,7 +36,7 @@ const registrars = [
   ['REG-002', 'Leonardo Jose', 'Bautista', 'Registrar Office', 'Student Records', '09170000012'],
   ['REG-003', 'Monica Claire', 'Flores', 'Registrar Office', 'Sectioning and Scheduling', '09170000013']
 ]
-// DepEd titles and codes, matching migration v27 in database/backupsqlmigration.sql (upserted by code).
+// DepEd titles and codes, matching migration v27 in dev/database/backupsqlmigration.sql (upserted by code).
 const subjects = [
   ['ENG', 'English', 'Language, reading and literature', null],
   ['FIL', 'Filipino', 'Wika at panitikan', null],
@@ -50,7 +53,10 @@ const subjects = [
 ]
 
 function usernameFor(firstName, lastName) {
-  return `${firstName.split(/\s+/).map(part => part[0]).join('')}${lastName.replace(/[^a-z]/gi, '')}`.toLowerCase()
+  return `${firstName
+    .split(/\s+/)
+    .map(part => part[0])
+    .join('')}${lastName.replace(/[^a-z]/gi, '')}`.toLowerCase()
 }
 function passwordFor(firstName, lastName) {
   if (passwordMode !== 'initials') return passwordMode
@@ -89,7 +95,16 @@ async function seedStaff(rows, roleId, roleName) {
       : await supabase.from('users').insert(accountPayload).select('user_id').single()
     if (accountResult.error) throw accountResult.error
     const userId = accountResult.data.user_id
-    const profilePayload = { user_id: userId, employee_no: employeeNo, first_name: firstName, last_name: lastName, department, specialization, phone, updated_at: new Date().toISOString() }
+    const profilePayload = {
+      user_id: userId,
+      employee_no: employeeNo,
+      first_name: firstName,
+      last_name: lastName,
+      department,
+      specialization,
+      phone,
+      updated_at: new Date().toISOString()
+    }
     const profileResult = await supabase.from('staff_profiles').upsert(profilePayload, { onConflict: 'user_id' })
     if (profileResult.error) requireMigrationTable(profileResult.error, 'staff_profiles')
     console.log(`${roleName} | ${username} | ${email} | Password ${password} | Auth ID ${authUser.id}`)
@@ -97,7 +112,17 @@ async function seedStaff(rows, roleId, roleName) {
 }
 
 for (const [subjectCode, subjectName, description, gradeLevel] of subjects) {
-  const result = await supabase.from('subjects').upsert({ subject_code: subjectCode, subject_name: subjectName, description, grade_level: gradeLevel, is_active: true, updated_at: new Date().toISOString() }, { onConflict: 'subject_code' })
+  const result = await supabase.from('subjects').upsert(
+    {
+      subject_code: subjectCode,
+      subject_name: subjectName,
+      description,
+      grade_level: gradeLevel,
+      is_active: true,
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: 'subject_code' }
+  )
   if (result.error) requireMigrationTable(result.error, 'subjects')
 }
 await seedStaff(faculty, 3, 'faculty')

@@ -4,8 +4,12 @@ import { confirmDialog } from '../shared/ui/dialog.js'
 export function guardUnsaved(message = 'You have changes that are not saved yet. Discard them?') {
   const state = {
     dirty: false,
-    mark() { state.dirty = true },
-    clear() { state.dirty = false },
+    mark() {
+      state.dirty = true
+    },
+    clear() {
+      state.dirty = false
+    },
     async confirmDiscard() {
       if (!state.dirty) return true
       const discard = await confirmDialog(message, { title: 'Unsaved changes', confirmText: 'Discard changes', danger: true })
@@ -13,6 +17,11 @@ export function guardUnsaved(message = 'You have changes that are not saved yet.
       return discard
     }
   }
-  window.addEventListener('beforeunload', event => { if (state.dirty) { event.preventDefault(); event.returnValue = '' } })
+  window.addEventListener('beforeunload', event => {
+    if (state.dirty) {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+  })
   return state
 }

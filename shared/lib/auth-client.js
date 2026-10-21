@@ -13,11 +13,15 @@ export const supabase = isSupabaseConfigured
 
 // Activity events only reach a visible tab, so the visibility listener hands the session
 // over to the 4-hour background clock while the tab is hidden.
-const sessionTimeout = createSessionTimeout({ onTimeout: () => { signOut() } })
+const sessionTimeout = createSessionTimeout({
+  onTimeout: () => {
+    signOut()
+  }
+})
 const ACTIVITY_EVENTS = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart']
 
 function startInactivityTimeout() {
-  ACTIVITY_EVENTS.forEach((eventName) => {
+  ACTIVITY_EVENTS.forEach(eventName => {
     window.addEventListener(eventName, () => sessionTimeout.resetInactivity(), { passive: true })
   })
   document.addEventListener('visibilitychange', () => sessionTimeout.visibilityChanged())
@@ -30,7 +34,9 @@ export async function requireRole(roleId) {
     return null
   }
 
-  const { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { session }
+  } = await supabase.auth.getSession()
 
   if (!session) {
     window.location.replace('/index.html')
@@ -52,7 +58,7 @@ export async function requireRole(roleId) {
 
   // Back after sign-out restores this page from the bfcache without rerunning any script,
   // so re-check the session whenever the page is shown again.
-  window.addEventListener('pageshow', async (event) => {
+  window.addEventListener('pageshow', async event => {
     if (event.persisted && !(await supabase.auth.getSession()).data.session) window.location.replace('/index.html')
   })
   startInactivityTimeout()
@@ -62,7 +68,8 @@ export async function requireRole(roleId) {
 export function showConfigurationError() {
   const message = document.createElement('div')
   message.setAttribute('role', 'alert')
-  message.style.cssText = 'position:fixed;inset:1rem 1rem auto;z-index:10000;padding:1rem;background:#fff4d6;color:#5f4300;border:1px solid #e6c15a;border-radius:8px;font:600 14px/1.5 Arial,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.12)'
+  message.style.cssText =
+    'position:fixed;inset:1rem 1rem auto;z-index:10000;padding:1rem;background:#fff4d6;color:#5f4300;border:1px solid #e6c15a;border-radius:8px;font:600 14px/1.5 Arial,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.12)'
   message.textContent = 'Supabase is not configured. Copy .env.example to .env, add the project values, and restart Vite.'
   document.body.appendChild(message)
 }

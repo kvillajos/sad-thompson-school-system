@@ -11,7 +11,19 @@ import { browserPath } from './browser-path.mjs'
 
 const root = resolve(import.meta.dirname, '../../..')
 const folder = mkdtempSync(join(tmpdir(), 'ux-check-'))
-for (const f of ['ui/ui-theme.js', 'ui/dialog.js', 'lib/html.js', 'lib/errors.js', 'ui/table-sort.js', 'ui/table-pages.js', 'ui/table-copy.js']) { const dest = join(folder, 'shared', f); mkdirSync(dirname(dest), { recursive: true }); copyFileSync(join(root, 'shared', f), dest) }
+for (const f of [
+  'ui/ui-theme.js',
+  'ui/dialog.js',
+  'lib/html.js',
+  'lib/errors.js',
+  'ui/table-sort.js',
+  'ui/table-pages.js',
+  'ui/table-copy.js'
+]) {
+  const dest = join(folder, 'shared', f)
+  mkdirSync(dirname(dest), { recursive: true })
+  copyFileSync(join(root, 'shared', f), dest)
+}
 
 const driver = `
 import { applyUiTheme, toast } from './shared/ui/ui-theme.js'
@@ -108,34 +120,58 @@ try {
 document.getElementById('result').textContent = JSON.stringify(out)
 `
 writeFileSync(join(folder, 'driver.js'), driver)
-writeFileSync(join(folder, 'fixture.html'), `<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="result"></pre><script type="module" src="./driver.js"></script></body></html>`)
+writeFileSync(
+  join(folder, 'fixture.html'),
+  `<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="result"></pre><script type="module" src="./driver.js"></script></body></html>`
+)
 try {
-const result = spawnSync(browserPath(), ['--headless', '--disable-gpu', '--no-first-run', '--disable-extensions', '--allow-file-access-from-files', `--user-data-dir=${join(folder, 'profile')}`, '--virtual-time-budget=8000', '--dump-dom', pathToFileURL(join(folder, 'fixture.html')).href], { encoding: 'utf8', timeout: 60000, maxBuffer: 6e6 })
-const match = result.stdout.match(/<pre id="result">([\s\S]*?)<\/pre>/)
-assert.ok(match?.[1], 'no result: ' + String(result.stderr).slice(-800))
-const out = JSON.parse(match[1].replaceAll('&quot;', '"').replaceAll('&amp;', '&').replaceAll('&lt;', '<').replaceAll('&gt;', '>'))
-console.log(out)
-assert.equal(out.failure, undefined)
-assert.equal(out.escapedText, true, 'dialog text is escaped')
-assert.equal(out.errorRowColor, 'rgb(192, 57, 43)', 'error rows use the danger colour, not the empty-state grey')
-assert.equal(out.dangerClass, 'admin-danger')
-assert.equal(out.focusOnCancel, 'Cancel', 'danger dialogs focus Cancel first')
-assert.equal(out.dialogRole, 'dialog')
-assert.equal(out.okResult, true); assert.equal(out.removedAfterOk, true)
-assert.equal(out.warningShown, 'Heads up'); assert.equal(out.escResult, false)
-assert.equal(out.blockedOutOfRange, true, 'grade 150 is blocked by native validation')
-assert.equal(out.blockedBlankReason, true, 'whitespace-only reason is blocked')
-assert.deepEqual(out.formResult, { grade: '95', reason: 'fixed typo' })
-assert.equal(out.formEscResult, null)
-assert.equal(out.copyShown, 'Xy7!pass'); assert.equal(out.noticeClosed, true)
-assert.equal(out.staticLabel, 'Close'); assert.equal(out.staticRole, 'dialog'); assert.equal(out.staticClosedByEsc, true)
-assert.equal(out.stackedResult, false); assert.equal(out.staticStillOpen, true, 'Escape closes only the top modal')
-assert.equal(out.toastStillVisible, true, 'an earlier toast timer does not hide a newer toast')
-assert.equal(out.toastRole, 'alert'); assert.equal(out.toastClickHides, true)
-assert.match(out.errorRowText, /Load audit log failed: your session has expired\. Sign in again\.Retry/)
-assert.equal(out.emptyRowStyle, 'italic|center')
-assert.equal(out.spinner, 'tcsms-spin')
-console.log('dialog, toast and modal checks passed')
+  const result = spawnSync(
+    browserPath(),
+    [
+      '--headless',
+      '--disable-gpu',
+      '--no-first-run',
+      '--disable-extensions',
+      '--allow-file-access-from-files',
+      `--user-data-dir=${join(folder, 'profile')}`,
+      '--virtual-time-budget=8000',
+      '--dump-dom',
+      pathToFileURL(join(folder, 'fixture.html')).href
+    ],
+    { encoding: 'utf8', timeout: 60000, maxBuffer: 6e6 }
+  )
+  const match = result.stdout.match(/<pre id="result">([\s\S]*?)<\/pre>/)
+  assert.ok(match?.[1], 'no result: ' + String(result.stderr).slice(-800))
+  const out = JSON.parse(match[1].replaceAll('&quot;', '"').replaceAll('&amp;', '&').replaceAll('&lt;', '<').replaceAll('&gt;', '>'))
+  console.log(out)
+  assert.equal(out.failure, undefined)
+  assert.equal(out.escapedText, true, 'dialog text is escaped')
+  assert.equal(out.errorRowColor, 'rgb(192, 57, 43)', 'error rows use the danger colour, not the empty-state grey')
+  assert.equal(out.dangerClass, 'admin-danger')
+  assert.equal(out.focusOnCancel, 'Cancel', 'danger dialogs focus Cancel first')
+  assert.equal(out.dialogRole, 'dialog')
+  assert.equal(out.okResult, true)
+  assert.equal(out.removedAfterOk, true)
+  assert.equal(out.warningShown, 'Heads up')
+  assert.equal(out.escResult, false)
+  assert.equal(out.blockedOutOfRange, true, 'grade 150 is blocked by native validation')
+  assert.equal(out.blockedBlankReason, true, 'whitespace-only reason is blocked')
+  assert.deepEqual(out.formResult, { grade: '95', reason: 'fixed typo' })
+  assert.equal(out.formEscResult, null)
+  assert.equal(out.copyShown, 'Xy7!pass')
+  assert.equal(out.noticeClosed, true)
+  assert.equal(out.staticLabel, 'Close')
+  assert.equal(out.staticRole, 'dialog')
+  assert.equal(out.staticClosedByEsc, true)
+  assert.equal(out.stackedResult, false)
+  assert.equal(out.staticStillOpen, true, 'Escape closes only the top modal')
+  assert.equal(out.toastStillVisible, true, 'an earlier toast timer does not hide a newer toast')
+  assert.equal(out.toastRole, 'alert')
+  assert.equal(out.toastClickHides, true)
+  assert.match(out.errorRowText, /Load audit log failed: your session has expired\. Sign in again\.Retry/)
+  assert.equal(out.emptyRowStyle, 'italic|center')
+  assert.equal(out.spinner, 'tcsms-spin')
+  console.log('dialog, toast and modal checks passed')
 } finally {
   rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }

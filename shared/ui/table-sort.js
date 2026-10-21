@@ -1,6 +1,6 @@
 // Shared table sorting: tap a column header to sort by it, tap it again to reverse.
 // Every table starts on its name column, A-Z (a table led by a date column starts newest first).
-// The pure helpers below stay free of app imports so scripts/check-table-sort.mjs
+// The pure helpers below stay free of app imports so dev/scripts/checks/check-table-sort.mjs
 // can assert them in Node without a DOM.
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
@@ -31,7 +31,11 @@ export function compareValues(left, right) {
 // Prefers an exact "Name"/"Student" header, then any header containing "name",
 // then the first column. So "Student No." loses to the "Student" name column.
 export function pickDefaultColumn(headers) {
-  const labels = headers.map(header => String(header ?? '').trim().toLowerCase())
+  const labels = headers.map(header =>
+    String(header ?? '')
+      .trim()
+      .toLowerCase()
+  )
   const exact = labels.findIndex(label => NAME_HEADERS.includes(label))
   if (exact !== -1) return exact
   const fuzzy = labels.findIndex(label => label.includes('name'))

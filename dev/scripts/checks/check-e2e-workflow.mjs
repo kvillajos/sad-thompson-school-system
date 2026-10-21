@@ -4,7 +4,10 @@ import { join, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '../../..')
 const read = file => readFileSync(join(root, file), 'utf8')
-const registrar = ['registrar.js', 'registrar-admissions.js', 'registrar-sectioning.js', 'registrar-academic.js', 'registrar-shifting.js'].map(n => 'role-registrar/' + n).map(read).join('\n')
+const registrar = ['registrar.js', 'registrar-admissions.js', 'registrar-sectioning.js', 'registrar-academic.js', 'registrar-shifting.js']
+  .map(n => 'role-registrar/' + n)
+  .map(read)
+  .join('\n')
 const faculty = read('role-faculty/faculty-grades-page.js') + read('role-faculty/faculty-attendance-page.js')
 const student = read('role-student/student-dashboard-page.js')
 assert.match(registrar, /review_admission_application|shift_student/)

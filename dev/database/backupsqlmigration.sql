@@ -1,6 +1,6 @@
 -- TCSMS consolidated database backup.
 -- Run this file in Supabase SQL Editor as the single, complete database setup.
--- Source order: base schema, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14.
+-- Source order: base schema, then migrations v2-v39 in order (each block is wrapped in BEGIN/END markers).
 
 
 -- ============================================================
@@ -3712,3 +3712,162 @@ create policy admission_documents_read on storage.objects for select to authenti
 notify pgrst, 'reload schema';
 commit;
 -- END migration-v38-placement-guards-load-notices-account-audit.sql
+
+
+-- ============================================================================
+-- BEGIN migration-v39-quarter-corrections-one-pending-promotion.sql  (written 2026-10-21, NOT yet applied live)
+-- 1. A grade correction names the score it changes (Q1-Q4, midterm or final). Approving it changes that
+--    score and recalculates the year grade the same way save_faculty_grades() does, so the semester
+--    grades on the transcript follow the correction. (Before, only final/grade changed, so a transcript
+--    built from the quarters kept showing the old grades.) Requests sent before this have no field and
+--    are treated as final-grade corrections, exactly as before.
+-- 2. Only one pending promotion request per grade level (a student is in one grade level, so this is one
+--    per student). Older duplicates that are already pending are rejected, keeping the newest.
+-- ============================================================================
+begin;
+
+-- The added p_field changes the signature, so the old 6-argument version must go or calls become ambiguous.
+drop function if exists request_grade_correction(integer, text, integer, numeric, text, text);
+create or replace function request_grade_correction(p_subject_id integer, p_school_year text, p_student_id integer, p_new_grade numeric, p_letter text, p_reason text, p_field text default 'final')
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a record; subj text; h academic_history%rowtype; old_value numeric; sname text; rid integer;
+  label text := case p_field when 'first_sem_q1' then 'Q1' when 'first_sem_q2' then 'Q2' when 'second_sem_q1' then 'Q3'
+    when 'second_sem_q2' then 'Q4' when 'midterm' then 'Midterm' when 'final' then 'Final grade' end;
+begin
+  select * into a from approval_actor(3);
+  if label is null then raise exception 'Choose which score to correct'; end if;
+  if nullif(trim(p_reason), '') is null then raise exception 'A reason is required'; end if;
+  if p_new_grade is null or p_new_grade < 0 or p_new_grade > 100 then raise exception 'Grade must be between 0 and 100'; end if;
+  select subject_name into subj from subjects where subject_id = p_subject_id;
+  if subj is null then raise exception 'Subject not found'; end if;
+  if not faculty_teaches_subject(p_subject_id) or not faculty_teaches_student(p_student_id) then raise exception 'This class is not assigned to you'; end if;
+  select * into h from academic_history where student_id = p_student_id and school_year = p_school_year and subject = subj;
+  if not found then raise exception 'No grade on record for that student'; end if;
+  if not h.locked then raise exception 'Grades are not locked; edit them directly'; end if;
+  old_value := (to_jsonb(h)->>p_field)::numeric;
+  if old_value is not distinct from p_new_grade then raise exception '% is already %', label, p_new_grade; end if;
+  if exists (select 1 from approval_requests where status = 'pending' and request_type = 'grade_correction'
+      and (payload->>'student_id')::int = p_student_id and payload->>'subject' = subj and payload->>'school_year' = p_school_year) then
+    raise exception 'A correction for this grade is already awaiting approval';
+  end if;
+  select first_name || ' ' || last_name into sname from students where student_id = p_student_id;
+  insert into approval_requests(request_type, payload, summary, reason, requested_by, requester_name)
+  values ('grade_correction',
+    jsonb_build_object('student_id', p_student_id, 'subject', subj, 'school_year', p_school_year, 'field', p_field,
+      'old_grade', old_value, 'new_grade', p_new_grade, 'letter_grade', nullif(trim(p_letter), '')),
+    format('%s, %s (%s) %s: %s → %s', sname, subj, p_school_year, label, coalesce(old_value::text, 'blank'), p_new_grade), trim(p_reason), a.uid, a.uname)
+  returning id into rid;
+  return jsonb_build_object('request_id', rid);
+end $$;
+grant execute on function request_grade_correction(integer, text, integer, numeric, text, text, text) to authenticated;
+
+-- review_approval: as v22, except the grade_correction branch.
+create or replace function review_approval(p_id integer, p_approve boolean, p_remarks text default null)
+returns jsonb language plpgsql security definer set search_path to 'public' as $$
+declare a record; r approval_requests%rowtype; pl jsonb; requester_email text; outcome jsonb := '{}'::jsonb; ch jsonb; fld text;
+begin
+  select * into a from approval_actor(1);
+  select * into r from approval_requests where id = p_id for update;
+  if not found or r.status <> 'pending' then raise exception 'This request is no longer pending'; end if;
+  pl := r.payload;
+  if p_approve then
+    if r.request_type = 'grade_correction' then
+      fld := coalesce(pl->>'field', 'final');
+      if fld not in ('first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2', 'midterm', 'final') then
+        raise exception 'Unknown score %', fld;
+      end if;
+      -- The lock trigger allows only the lock flag to change on a locked row, so unlock, edit, relock.
+      update academic_history set locked = false where student_id = (pl->>'student_id')::int and school_year = pl->>'school_year' and subject = pl->>'subject';
+      execute format('update academic_history set %I = $1 where student_id = $2 and school_year = $3 and subject = $4', fld)
+        using (pl->>'new_grade')::numeric, (pl->>'student_id')::int, pl->>'school_year', pl->>'subject';
+      -- Same order as save_faculty_grades(): final, all four quarters, midterm, the quarters entered so far.
+      update academic_history set letter_grade = coalesce(pl->>'letter_grade', letter_grade), grade = coalesce(
+          final,
+          case when first_sem_q1 is not null and first_sem_q2 is not null and second_sem_q1 is not null and second_sem_q2 is not null
+               then round((first_sem_q1 + first_sem_q2 + second_sem_q1 + second_sem_q2) / 4, 2) end,
+          midterm,
+          (select round(avg(q), 2) from unnest(array[first_sem_q1, first_sem_q2, second_sem_q1, second_sem_q2]) q))
+        where student_id = (pl->>'student_id')::int and school_year = pl->>'school_year' and subject = pl->>'subject';
+      update academic_history set locked = true where student_id = (pl->>'student_id')::int and school_year = pl->>'school_year' and subject = pl->>'subject';
+    elsif r.request_type = 'withdrawal' then
+      perform transfer_student_out((pl->>'student_id')::int, r.reason);
+      update students set enrollment_status = pl->>'kind' where student_id = (pl->>'student_id')::int;
+    elsif r.request_type = 'promotion' then
+      outcome := batch_promote_students((pl->>'grade_level')::int, pl->>'school_year', array(select jsonb_array_elements_text(pl->'excluded')::int));
+    elsif r.request_type = 'override' then
+      perform place_with_override((pl->>'student_id')::int, (pl->>'section_id')::int, r.reason, r.requester_name);
+    elsif r.request_type = 'account_action' and pl->>'action' = 'role_change' then
+      update users set role_id = (pl->>'new_role')::int where user_id = (pl->>'target_user_id')::int;
+    elsif r.request_type = 'student_profile' then
+      ch := pl->'changes';
+      update students set
+        first_name = case when ch ? 'first_name' then ch->>'first_name' else first_name end,
+        middle_name = case when ch ? 'middle_name' then ch->>'middle_name' else middle_name end,
+        last_name = case when ch ? 'last_name' then ch->>'last_name' else last_name end,
+        date_of_birth = case when ch ? 'date_of_birth' then (ch->>'date_of_birth')::date else date_of_birth end,
+        address = case when ch ? 'address' then ch->>'address' else address end,
+        contact_number = case when ch ? 'contact_number' then ch->>'contact_number' else contact_number end,
+        guardian_name = case when ch ? 'guardian_name' then ch->>'guardian_name' else guardian_name end,
+        guardian_relationship = case when ch ? 'guardian_relationship' then ch->>'guardian_relationship' else guardian_relationship end,
+        guardian_phone = case when ch ? 'guardian_phone' then ch->>'guardian_phone' else guardian_phone end,
+        guardian_email = case when ch ? 'guardian_email' then ch->>'guardian_email' else guardian_email end,
+        medical_notes = case when ch ? 'medical_notes' then ch->>'medical_notes' else medical_notes end,
+        updated_at = now()
+      where student_id = (pl->>'student_id')::int;
+    end if;
+  end if;
+  update approval_requests set status = case when p_approve then 'approved' else 'rejected' end,
+    remarks = nullif(trim(p_remarks), ''), reviewed_by = a.uid, reviewed_at = now() where id = p_id;
+  insert into audit_logs(action, entity_type, entity_id, details)
+  values (case when p_approve then 'APPROVE_REQUEST' else 'REJECT_REQUEST' end, r.request_type, p_id,
+    jsonb_build_object('summary', r.summary, 'requested_by', r.requester_name, 'reviewed_by', a.uname, 'remarks', p_remarks));
+  select email into requester_email from users where user_id = r.requested_by;
+  insert into notifications(recipient_email, recipient_user_id, title, message, entity_type, entity_id)
+  values (requester_email, r.requested_by, 'Request ' || case when p_approve then 'approved' else 'rejected' end,
+    r.summary || coalesce(' - ' || nullif(trim(p_remarks), ''), ''), 'approval_request', p_id);
+  return outcome || jsonb_build_object('status', case when p_approve then 'approved' else 'rejected' end);
+end $$;
+
+-- 2. Reject older duplicates first (the subquery sees the rows before this update, so the newest per grade level stays).
+update approval_requests r set status = 'rejected', reviewed_at = now(),
+  remarks = 'Replaced by a newer promotion request for the same grade level'
+where r.status = 'pending' and r.request_type = 'promotion'
+  and exists (select 1 from approval_requests n where n.status = 'pending' and n.request_type = 'promotion'
+    and n.payload->>'grade_level' = r.payload->>'grade_level' and n.id > r.id);
+
+-- request_promotion: as v34, plus the one-pending-per-grade-level guard (the advisory lock stops two clicks racing past it).
+create or replace function request_promotion(p_grade_level integer, p_school_year text, p_excluded integer[], p_reason text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare a record; yr text := trim(coalesce(p_school_year, '')); graded text; total integer; graded_count integer; rid integer;
+begin
+  select * into a from approval_actor(2);
+  if yr = '' then raise exception 'A school year is required'; end if;
+  if p_grade_level is null or p_grade_level not between 0 and 12 then raise exception 'Choose a grade level'; end if;
+  perform pg_advisory_xact_lock(hashtext('request_promotion'), p_grade_level);
+  if exists (select 1 from approval_requests where status = 'pending' and request_type = 'promotion'
+      and (payload->>'grade_level')::int = p_grade_level) then
+    raise exception 'A promotion request for this grade level is already awaiting approval';
+  end if;
+  graded := promotion_graded_year(yr);
+  select count(*) into total from students
+    where grade_level = p_grade_level and coalesce(enrollment_status, 'Enrolled') not in ('Graduated', 'Transferred', 'Withdrawn')
+      and not (student_id = any(coalesce(p_excluded, '{}')));
+  if total = 0 then raise exception 'No students to promote in that grade level'; end if;
+  select count(distinct s.student_id) into graded_count from students s
+    join academic_history h on h.student_id = s.student_id and h.school_year = graded
+    where s.grade_level = p_grade_level and coalesce(s.enrollment_status, 'Enrolled') not in ('Graduated', 'Transferred', 'Withdrawn')
+      and not (s.student_id = any(coalesce(p_excluded, '{}')));
+  if graded_count = 0 then raise exception 'No grades are recorded for % in this grade level, so nobody can be promoted yet', graded; end if;
+  insert into approval_requests(request_type, payload, summary, reason, requested_by, requester_name)
+  values ('promotion', jsonb_build_object('grade_level', p_grade_level, 'school_year', yr, 'excluded', coalesce(p_excluded, '{}')),
+    format('%s to next year (%s): %s student(s), %s excluded, judged on %s grades',
+      case when p_grade_level = 0 then 'Promote Kindergarten' when p_grade_level = 12 then 'Graduate Grade 12' else 'Promote Grade ' || p_grade_level end,
+      yr, total, coalesce(array_length(p_excluded, 1), 0), graded),
+    coalesce(nullif(trim(p_reason), ''), 'Year-end promotion'), a.uid, a.uname)
+  returning id into rid;
+  return jsonb_build_object('request_id', rid, 'students', total);
+end $$;
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v39-quarter-corrections-one-pending-promotion.sql

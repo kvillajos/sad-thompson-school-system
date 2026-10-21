@@ -32,7 +32,17 @@ export function previewPdf(element, { title, filename, printClass }) {
       // floor(canvas.width * 277/190) px; at the default 718.1px width those drift ~2px a page, so a moved
       // block's top border lands on the previous page. A 717.5px-wide capture (1435px at scale 2) slices at
       // exactly 2 x 1046. ponytail: tied to A4 + 10mm margins + scale 2; recompute if any of those change.
-      const blob = await html2pdf().set({ margin: 10, filename, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, width: 717.5, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: ['.transcript-semester', '.signatures-section', 'table.doc-table tr'] } }).from(source).outputPdf('blob')
+      const blob = await html2pdf()
+        .set({
+          margin: 10,
+          filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, width: 717.5, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'], avoid: ['.transcript-semester', '.signatures-section', 'table.doc-table tr'] }
+        })
+        .from(source)
+        .outputPdf('blob')
       // A plain download link instead of .save(): the popup .save() falls back to on iOS Safari is blocked after the await.
       const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename })
       document.body.appendChild(link)
@@ -49,4 +59,5 @@ export function previewPdf(element, { title, filename, printClass }) {
   }
 }
 
-export const pdfName = (label, student) => `${label} - ${[student?.last_name, student?.first_name].filter(Boolean).join(', ') || 'Student'}.pdf`.replace(/[\\/:*?"<>|]/g, '')
+export const pdfName = (label, student) =>
+  `${label} - ${[student?.last_name, student?.first_name].filter(Boolean).join(', ') || 'Student'}.pdf`.replace(/[\\/:*?"<>|]/g, '')

@@ -1,7 +1,7 @@
 // Creates the real Supabase Auth login for students whose admission was approved
 // in the browser (admin-dashboard.html). The browser can only insert the
 // username/temp-password into the custom `users` table via a Postgres function
-// (see database/backupsqlmigration.sql); it cannot call the Auth Admin API
+// (see dev/database/backupsqlmigration.sql); it cannot call the Auth Admin API
 // directly because that requires the service-role key, which must never be
 // exposed to the browser. Run this script (with the service role key) after
 // approving applications so those accounts can actually log in.
@@ -38,7 +38,10 @@ for (const account of pending) {
       email_confirm: true,
       user_metadata: { username: account.username, role: 'student' }
     })
-    if (updateError) { console.error(`Failed to update ${account.email}: ${updateError.message}`); continue }
+    if (updateError) {
+      console.error(`Failed to update ${account.email}: ${updateError.message}`)
+      continue
+    }
   } else {
     const { error: createError } = await supabase.auth.admin.createUser({
       email: account.email,
@@ -46,10 +49,16 @@ for (const account of pending) {
       email_confirm: true,
       user_metadata: { username: account.username, role: 'student' }
     })
-    if (createError) { console.error(`Failed to create ${account.email}: ${createError.message}`); continue }
+    if (createError) {
+      console.error(`Failed to create ${account.email}: ${createError.message}`)
+      continue
+    }
   }
 
   const { error: clearError } = await supabase.from('users').update({ initial_password: null }).eq('user_id', account.user_id)
-  if (clearError) { console.error(`Provisioned ${account.email} but failed to clear temp password: ${clearError.message}`); continue }
+  if (clearError) {
+    console.error(`Provisioned ${account.email} but failed to clear temp password: ${clearError.message}`)
+    continue
+  }
   console.log(`Provisioned login for ${account.username} (${account.email}).`)
 }

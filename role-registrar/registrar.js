@@ -20,16 +20,20 @@ state.user = user
 
 mountProfile(user, 'Registrar', signOut)
 
-mountSidebar([
-  { label: 'Manage Enrollment', tab: 'enrollment', active: true, icon: '▣' },
-  { label: 'New Admission', tab: 'admission', icon: '▣' },
-  { label: 'Applications', tab: 'applications', icon: '♙' },
-  { label: 'Section Students', tab: 'sectioning', icon: '▤' },
-  { label: 'Academic History', tab: 'academic', icon: '♧' },
-  { label: 'Promotion & Transfers', tab: 'promotion', icon: '↗' },
-  { label: 'Requests & Feedback', tab: 'requests', icon: '✉' },
-  { label: 'Restore Changes', tab: 'restore', icon: '↺' }
-], 'Registry and<br>Student Records', 'registrar')
+mountSidebar(
+  [
+    { label: 'Manage Enrollment', tab: 'enrollment', active: true, icon: '▣' },
+    { label: 'New Admission', tab: 'admission', icon: '▣' },
+    { label: 'Applications', tab: 'applications', icon: '♙' },
+    { label: 'Section Students', tab: 'sectioning', icon: '▤' },
+    { label: 'Academic History', tab: 'academic', icon: '♧' },
+    { label: 'Promotion & Transfers', tab: 'promotion', icon: '↗' },
+    { label: 'Requests & Feedback', tab: 'requests', icon: '✉' },
+    { label: 'Restore Changes', tab: 'restore', icon: '↺' }
+  ],
+  'Registry and<br>Student Records',
+  'registrar'
+)
 
 const tabs = [...document.querySelectorAll('[data-tab]')]
 const panels = [...document.querySelectorAll('[data-panel]')]
@@ -43,19 +47,26 @@ function showTab(name) {
   if (name === 'restore') mountRestoreChanges($('restore-changes-host'))
 }
 $('refresh-restore').onclick = event => withBusy(event.currentTarget, 'Refreshing…', () => mountRestoreChanges($('restore-changes-host')))
-const tabFromHash = () => { const name = location.hash.slice(1); return tabs.some(t => t.dataset.tab === name) && $(name) ? name : null }
-tabs.forEach((tab) => tab.addEventListener('click', () => {
-  if (location.hash.slice(1) !== tab.dataset.tab) history.pushState(null, '', `#${tab.dataset.tab}`)
-  showTab(tab.dataset.tab)
-}))
+const tabFromHash = () => {
+  const name = location.hash.slice(1)
+  return tabs.some(t => t.dataset.tab === name) && $(name) ? name : null
+}
+tabs.forEach(tab =>
+  tab.addEventListener('click', () => {
+    if (location.hash.slice(1) !== tab.dataset.tab) history.pushState(null, '', `#${tab.dataset.tab}`)
+    showTab(tab.dataset.tab)
+  })
+)
 window.addEventListener('popstate', () => showTab(tabFromHash() || tabs[0].dataset.tab))
 if (tabFromHash()) showTab(tabFromHash())
 
 mountAnnouncements($('announcements-host'), 'registrar')
 
-async function init(){
+async function init() {
   const results = await Promise.allSettled([loadApplications(), loadSections(), loadStudents(), loadEnrollments()])
-  results.filter(result => result.status === 'rejected').forEach(result => toast(describeError(result.reason, 'Loading some records'), 'error'))
+  results
+    .filter(result => result.status === 'rejected')
+    .forEach(result => toast(describeError(result.reason, 'Loading some records'), 'error'))
   await loadAcademic()
   renderPromotionExclusions()
   await refreshShiftSections()

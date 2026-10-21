@@ -2,8 +2,8 @@ import { isEditLocked, editLockMessage } from '../../../role-admin/edit-lock.js'
 
 const assert = (await import('node:assert/strict')).default
 const now = Date.parse('2026-01-01T12:00:00Z')
-const locked = { editing_by: 'registrar01', editing_since: '2026-01-01T11:55:00Z' }   // 5 min old
-const stale = { editing_by: 'registrar01', editing_since: '2026-01-01T11:49:00Z' }    // 11 min old
+const locked = { editing_by: 'registrar01', editing_since: '2026-01-01T11:55:00Z' } // 5 min old
+const stale = { editing_by: 'registrar01', editing_since: '2026-01-01T11:49:00Z' } // 11 min old
 assert.equal(isEditLocked(locked, now), true)
 assert.equal(isEditLocked(stale, now), false)
 assert.equal(isEditLocked({ editing_by: null, editing_since: null }, now), false)

@@ -1,38 +1,35 @@
-# Thompson Christian School Management System
+# Thompson Christian School Management System (TCSMS)
 
-Vite + vanilla JavaScript + Supabase. Roles: administrator, registrar, faculty, student.
+Vite + vanilla JavaScript + Supabase, deployed on Vercel. Roles: administrator, registrar, faculty, student.
 
-> **WORKING ON A TASK? READ THESE FIRST**
-> 1. [dev/docs/readmeasAI.md](dev/docs/readmeasAI.md) - how the project is built. **If you use an AI assistant (Claude, Copilot, ...), make it read this file before it edits anything.**
-> 2. [dev/docs/TEAM_TASKS.md](dev/docs/TEAM_TASKS.md) - which branch and files are yours. Stay inside them so merges do not collide.
+| Read | When |
+| --- | --- |
+| [dev/docs/ARCHITECTURE.md](dev/docs/ARCHITECTURE.md) | Before changing code. **AI assistants: read this first.** |
+| [dev/docs/DEPLOYMENT.md](dev/docs/DEPLOYMENT.md) | Setting up Supabase / Vercel, or shipping a release |
+| [dev/docs/TESTING.md](dev/docs/TESTING.md) | What the checks cover, plus manual acceptance scripts |
 
 ## Run it
 
 ```
 npm install
-npm run dev      # local site
-npm run build    # production build
-npm run          # lists the check scripts (npm run check:<name>)
+cp .env.example .env   # set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (never commit .env)
+npm run dev            # local site
+npm run build          # production build -> dist/
+npm run preview        # serve the production build locally
+npm run check          # run every automated check
+npm run format         # Prettier
 ```
-
-The Supabase keys go in a local `.env` (never commit it).
 
 ## Layout
 
 ```
-index.html, forgot-password.html, verify-reset-code.html, reset-password.html   login + password-reset entry pages (root = stable URLs)
-auth/            scripts for those pages (login-page.js, ...)
-role-admin/      administrator pages + scripts
-role-registrar/  registrar page (student-records.html) + modules
-role-faculty/    faculty pages + scripts
-role-student/    student dashboard + scripts
-shared/          used by more than one role: ui/ (theme, shell, dialogs, tables), lib/ (auth, data, grades, errors), documents/ (report card, transcript, print/PDF)
-public/          static assets and CSS
-supabase/        edge function (provision-account)
-
-dev/             development only - not part of the production build
-  database/      SQL schema + migrations
-  scripts/       checks/ (npm run check:*), seed/ (account seeding)
-  docs/          project docs and handoff notes
-  backups/       SQL backups (git-ignored)
+index.html + 3 password-reset pages   root entry pages (stable URLs)
+auth/                                 scripts for those pages
+role-admin/  role-registrar/  role-faculty/  role-student/   one folder per role: pages + their scripts
+shared/ui/  shared/lib/  shared/documents/                   used by more than one role
+public/                               static assets and CSS (served at the site root)
+supabase/functions/                   Edge Function (provision-account)
+dev/                                  development only: database/, scripts/checks/, scripts/seed/, docs/, backups/
 ```
+
+Full map in [ARCHITECTURE.md](dev/docs/ARCHITECTURE.md#folder-layout).

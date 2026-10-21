@@ -5,8 +5,9 @@ import { resolve } from 'node:path'
 import assert from 'node:assert/strict'
 
 const root = resolve(import.meta.dirname, '../../..')
-const files = ['*.html', '{auth,role-admin,role-registrar,role-student,role-faculty}/*.{html,js}', 'shared/*/*.js'].flatMap(pattern => globSync(pattern, { cwd: root }))
-  .filter(name => name.replaceAll('\\', '/') !=='shared/lib/html.js')
+const files = ['*.html', '{auth,role-admin,role-registrar,role-student,role-faculty}/*.{html,js}', 'shared/*/*.js']
+  .flatMap(pattern => globSync(pattern, { cwd: root }))
+  .filter(name => name.replaceAll('\\', '/') !== 'shared/lib/html.js')
 
 const redeclarePattern = /(?:function\s+escapeHtml\s*\(|const\s+escapeHtml\s*=|const\s+escape\s*=\s*value\s*=>\s*String)/
 

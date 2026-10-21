@@ -6,7 +6,7 @@
 }
 
 body.document-body {
-  font-family: "Times New Roman", Times, serif;
+  font-family: 'Times New Roman', Times, serif;
   font-size: 10pt;
   color: #000;
   background-color: #fff;
@@ -179,4 +179,3 @@ table.doc-table td.indent-sub {
   font-size: 9pt;
   color: #333;
 }
-

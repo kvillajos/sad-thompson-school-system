@@ -21,13 +21,32 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
     { title: 'Mathematics', keys: ['mathematics', 'math'] },
     { title: 'Science', keys: ['science'] },
     { title: 'Araling Panlipunan (AP)', keys: ['araling panlipunan (ap)', 'araling panlipunan', 'ap', 'social studies'] },
-    { title: 'Edukasyong Pantahanan at Pangkabuhayan (EPP)', keys: ['edukasyong pantahanan at pangkabuhayan (epp)', 'edukasyong pantahanan at pangkabuhayan', 'epp', 'technology and livelihood education', 'tle'] },
+    {
+      title: 'Edukasyong Pantahanan at Pangkabuhayan (EPP)',
+      keys: [
+        'edukasyong pantahanan at pangkabuhayan (epp)',
+        'edukasyong pantahanan at pangkabuhayan',
+        'epp',
+        'technology and livelihood education',
+        'tle'
+      ]
+    },
     { title: 'MAPEH', keys: ['mapeh'] },
     { title: 'Music', keys: ['music'], isSub: true },
     { title: 'Arts', keys: ['arts'], isSub: true },
     { title: 'Physical Education', keys: ['physical education', 'pe'], isSub: true },
     { title: 'Health', keys: ['health'], isSub: true },
-    { title: 'Edukasyon sa Pagpapakatao (EsP)', keys: ['edukasyon sa pagpapakatao (esp)', 'edukasyon sa pagpapakatao', 'esp', 'values education', 'good manners and right conduct (gmrc)', 'gmrc'] }
+    {
+      title: 'Edukasyon sa Pagpapakatao (EsP)',
+      keys: [
+        'edukasyon sa pagpapakatao (esp)',
+        'edukasyon sa pagpapakatao',
+        'esp',
+        'values education',
+        'good manners and right conduct (gmrc)',
+        'gmrc'
+      ]
+    }
   ]
 
   // Map database records by normalized subject key
@@ -38,23 +57,9 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
     }
   })
 
-  // 4. Build table rows adhering to DepEd sequence
-  const tableRowsHtml = depedSubjects.map(item => {
-    let record = null
-    for (const key of item.keys) {
-      if (gradeMap.has(key)) {
-        record = gradeMap.get(key)
-        break
-      }
-    }
-    record = record || {}
-
-    const indentClass = item.isSub ? 'indent-sub' : 'text-left'
-    const paddingStyle = item.isSub ? 'padding-left: 20px;' : ''
-
-    return `
+  const subjectRow = (record, title, isSub = false) => `
       <tr>
-        <td class="${indentClass}" style="${paddingStyle}">${escapeHtml(record.subject || item.title)}</td>
+        <td class="${isSub ? 'indent-sub' : 'text-left'}" style="${isSub ? 'padding-left: 20px;' : ''}">${escapeHtml(record.subject || title)}</td>
         <td style="text-align: center;">${record.first_sem_q1 ?? ''}</td>
         <td style="text-align: center;">${record.first_sem_q2 ?? ''}</td>
         <td style="text-align: center;">${record.second_sem_q1 ?? ''}</td>
@@ -63,7 +68,23 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
         <td style="text-align: center;">${escapeHtml(record.remarks || (record.grade ? (record.grade >= 75 ? 'Passed' : 'Failed') : ''))}</td>
       </tr>
     `
-  }).join('')
+
+  // 4. Build table rows adhering to DepEd sequence
+  const shown = new Set()
+  const tableRowsHtml =
+    depedSubjects
+      .map(item => {
+        const record = gradeMap.get(item.keys.find(key => gradeMap.has(key))) || {}
+        shown.add(record)
+        return subjectRow(record, item.title, item.isSub)
+      })
+      .join('') +
+    // Subjects outside the Form 138 list (e.g. Senior High: Economics, Practical Research) still count in the
+    // General Average, so they must be listed too, after the standard subjects.
+    cleanRows
+      .filter(record => !shown.has(record))
+      .map(record => subjectRow(record, record.subject))
+      .join('')
 
   return `
     <link rel="stylesheet" href="/css/documents.css">

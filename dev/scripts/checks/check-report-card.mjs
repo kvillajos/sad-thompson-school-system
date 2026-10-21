@@ -10,7 +10,16 @@ const html = buildReportCard({
   schoolYear: '2026-2027',
   sectionName: 'St. Mark',
   academicRows: [
-    { subject: 'Mathematics', grade: 88, letter_grade: null, final: 88, first_sem_q1: 86, first_sem_q2: 87, second_sem_q1: 89, second_sem_q2: 90 },
+    {
+      subject: 'Mathematics',
+      grade: 88,
+      letter_grade: null,
+      final: 88,
+      first_sem_q1: 86,
+      first_sem_q2: 87,
+      second_sem_q1: 89,
+      second_sem_q2: 90
+    },
     { subject: 'Science', grade: 92, letter_grade: 'A' }
   ],
   attendance: { present: 45, late: 2, absent: 1, excused: 0, total: 48 },
@@ -22,16 +31,45 @@ assert.ok(html.includes('Grade 5'), 'grade level must appear')
 assert.ok(html.includes('St. Mark'), 'section name must appear')
 assert.ok(html.includes('Mathematics') && html.includes('Science'), 'every subject row must appear')
 assert.ok(html.includes('90'), 'general average (88+92)/2=90 must appear')
-assert.ok(['86', '87', '89'].every(q => html.includes(`>${q}<`)), 'quarter grades (stored as first_sem_q1..second_sem_q2) must fill the Quarter 1-4 columns')
+assert.ok(
+  ['86', '87', '89'].every(q => html.includes(`>${q}<`)),
+  'quarter grades (stored as first_sem_q1..second_sem_q2) must fill the Quarter 1-4 columns'
+)
 assert.ok(html.includes('45/48 present'), 'attendance summary must appear')
 assert.ok(html.includes('Keep up the good work'), 'remarks must appear')
-assert.ok(html.includes('Class Adviser') && html.includes('Parent / Guardian') && html.includes('School Principal'), 'signature block must appear')
+assert.ok(
+  html.includes('Class Adviser') && html.includes('Parent / Guardian') && html.includes('School Principal'),
+  'signature block must appear'
+)
 
 // MATATAG renamed EsP: GMRC (Grades 1-6) and Values Education (Grades 7-10) fill the same row under their own name.
-const matatag = buildReportCard({ student: { first_name: 'Ana', last_name: 'Santos' }, gradeLevel: 'Grade 4', schoolYear: '2025-2026', academicRows: [{ subject: 'Good Manners and Right Conduct (GMRC)', grade: 91 }] })
+const matatag = buildReportCard({
+  student: { first_name: 'Ana', last_name: 'Santos' },
+  gradeLevel: 'Grade 4',
+  schoolYear: '2025-2026',
+  academicRows: [{ subject: 'Good Manners and Right Conduct (GMRC)', grade: 91 }]
+})
 assert.ok(matatag.includes('Good Manners and Right Conduct (GMRC)') && matatag.includes('91'), 'a GMRC grade must appear on the values row')
 
-const empty = buildReportCard({ student: { first_name: 'No', last_name: 'Grades' }, gradeLevel: 'Grade 1', schoolYear: '2026-2027', academicRows: [] })
+// Senior High subjects are not on the Form 138 list but count in the average, so they must still be listed.
+const seniorHigh = buildReportCard({
+  student: { first_name: 'Ana', last_name: 'Santos' },
+  gradeLevel: 'Grade 12',
+  schoolYear: '2026-2027',
+  academicRows: [
+    { subject: 'English', grade: 90 },
+    { subject: 'Economics', grade: 85.5 }
+  ]
+})
+assert.ok(seniorHigh.includes('Economics') && seniorHigh.includes('85.5'), 'a subject outside the Form 138 list must still get a row')
+assert.equal(seniorHigh.match(/>English</g)?.length, 1, 'a standard subject must not be listed twice')
+
+const empty = buildReportCard({
+  student: { first_name: 'No', last_name: 'Grades' },
+  gradeLevel: 'Grade 1',
+  schoolYear: '2026-2027',
+  academicRows: []
+})
 assert.ok(empty.includes('Learning Areas'), 'the full DepEd subject grid is shown even with no grades yet')
 assert.ok(empty.includes('>-<'), 'no average is shown when there are no grades')
 
@@ -40,7 +78,10 @@ assert.ok(empty.includes('>-<'), 'no average is shown when there are no grades')
 // near-duplicate "Report Card" button producing the same PDF).
 const root = resolve(import.meta.dirname, '../../..')
 const js = readFileSync(join(root, 'role-registrar/registrar-academic.js'), 'utf8')
-assert.ok(js.includes("from '../shared/documents/report-card.js'"), 'role-registrar/registrar-academic.js must reuse the report card builder')
+assert.ok(
+  js.includes("from '../shared/documents/report-card.js'"),
+  'role-registrar/registrar-academic.js must reuse the report card builder'
+)
 assert.ok(js.includes('printing-card'), 'printing must use the record-card print CSS class')
 assert.ok(!js.includes('printReportCard'), 'the duplicate Report Card printer must not come back')
 const registrarHtml = readFileSync(join(root, 'role-registrar/student-records.html'), 'utf8')

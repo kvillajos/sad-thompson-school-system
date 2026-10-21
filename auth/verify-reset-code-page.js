@@ -15,10 +15,12 @@ if (!isSupabaseConfigured) showConfigurationError()
 // matching how auth-client.js already scopes the Supabase session to sessionStorage).
 // Landing here without it means the flow wasn't started properly, so send them back to start.
 let email = ''
-try { email = sessionStorage.getItem('tcsms_reset_email') || '' } catch {}
+try {
+  email = sessionStorage.getItem('tcsms_reset_email') || ''
+} catch {}
 if (!email) window.location.href = '/forgot-password.html'
 
-form.addEventListener('submit', async (e) => {
+form.addEventListener('submit', async e => {
   e.preventDefault()
 
   if (!supabase) {

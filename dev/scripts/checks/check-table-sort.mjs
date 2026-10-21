@@ -40,16 +40,27 @@ assert.equal(pickDefaultColumn([]), 0)
 // wiring can be checked without a browser or a test framework.
 const makeClassList = () => {
   const classes = new Set()
-  return { add: name => classes.add(name), contains: name => classes.has(name), toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)) }
+  return {
+    add: name => classes.add(name),
+    contains: name => classes.has(name),
+    toggle: (name, on) => (on ? classes.add(name) : classes.delete(name))
+  }
 }
 const makeCell = (text, isPlaceholder = false) => {
   const attributes = {}
   return {
-    textContent: text, dataset: {}, classList: makeClassList(),
-    parentElement: null, closest: () => null,
+    textContent: text,
+    dataset: {},
+    classList: makeClassList(),
+    parentElement: null,
+    closest: () => null,
     querySelector: () => (isPlaceholder ? { placeholder: true } : null),
-    setAttribute: (name, value) => { attributes[name] = value },
-    removeAttribute: name => { delete attributes[name] },
+    setAttribute: (name, value) => {
+      attributes[name] = value
+    },
+    removeAttribute: name => {
+      delete attributes[name]
+    },
     getAttribute: name => attributes[name] ?? null
   }
 }
@@ -60,10 +71,19 @@ function makeTable(labels, rowLabels) {
   let order = [...rows]
   let writes = 0
   const tBody = {
-    get rows() { return order },
-    get writes() { return writes },
-    appendChild(row) { writes += 1; order = [...order.filter(item => item !== row), row] },
-    setOrder(labelsInOrder) { order = labelsInOrder.map(label => rows.find(row => row.label[1] === label)) }
+    get rows() {
+      return order
+    },
+    get writes() {
+      return writes
+    },
+    appendChild(row) {
+      writes += 1
+      order = [...order.filter(item => item !== row), row]
+    },
+    setOrder(labelsInOrder) {
+      order = labelsInOrder.map(label => rows.find(row => row.label[1] === label))
+    }
   }
   const table = { tHead: { rows: [{ cells: headerCells }] }, tBodies: [tBody] }
   headerCells.forEach(cell => {
@@ -78,24 +98,48 @@ function makeDoc(tables) {
   const doc = {
     __tcsmsTableSortInstalled: false,
     body: {},
-    addEventListener: (type, handler) => { (handlers[type] ||= []).push(handler) },
+    addEventListener: (type, handler) => {
+      ;(handlers[type] ||= []).push(handler)
+    },
     querySelectorAll: selector => (selector === 'table' ? tables : [])
   }
   doc.fire = (type, target, extra = {}) => handlers[type].forEach(handler => handler({ target, preventDefault() {}, ...extra }))
   return doc
 }
 
-const students = makeTable(['Student ID', 'Name', 'Grade'], [['3', 'Charlie', 'Grade 2'], ['1', 'Alice', 'Grade 10'], ['2', 'Bob', 'Grade 1']])
-const labelsOnly = makeTable(['Section Name', 'Grade'], [['Zeta', '1'], ['Alpha', '2']])
+const students = makeTable(
+  ['Student ID', 'Name', 'Grade'],
+  [
+    ['3', 'Charlie', 'Grade 2'],
+    ['1', 'Alice', 'Grade 10'],
+    ['2', 'Bob', 'Grade 1']
+  ]
+)
+const labelsOnly = makeTable(
+  ['Section Name', 'Grade'],
+  [
+    ['Zeta', '1'],
+    ['Alpha', '2']
+  ]
+)
 const placeholder = makeTable(['Name', 'Grade'], [])
 // A single placeholder row (colspan) must never be reordered or lose its column count.
-placeholder.table.tBodies[0].appendChild({ label: ['No students'], cells: [makeCell('No students')], querySelector: selector => (selector === 'td[colspan]' ? {} : null) })
+placeholder.table.tBodies[0].appendChild({
+  label: ['No students'],
+  cells: [makeCell('No students')],
+  querySelector: selector => (selector === 'td[colspan]' ? {} : null)
+})
 
 const doc = makeDoc([students.table, labelsOnly.table, placeholder.table])
 // The sorter re-applies itself after every re-render through this observer; stub it
 // so the no-endless-loop guarantee can be asserted here.
 let notifyMutation = () => {}
-globalThis.MutationObserver = class { constructor(callback) { notifyMutation = callback } observe() {} }
+globalThis.MutationObserver = class {
+  constructor(callback) {
+    notifyMutation = callback
+  }
+  observe() {}
+}
 globalThis.window = { requestAnimationFrame: callback => callback() }
 
 installTableSort(doc)

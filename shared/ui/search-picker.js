@@ -19,12 +19,19 @@ export function searchPicker(input, { search, render, text, onPick, minLength = 
   let items = []
   let active = -1
   let latest = 0
-  const hide = () => { list.classList.add('hidden'); input.setAttribute('aria-expanded', 'false') }
+  const hide = () => {
+    list.classList.add('hidden')
+    input.setAttribute('aria-expanded', 'false')
+  }
   const highlight = index => {
     active = index
     list.querySelectorAll('[data-index]').forEach(li => li.classList.toggle('active', Number(li.dataset.index) === index))
   }
-  const pick = item => { input.value = text(item); hide(); onPick(item) }
+  const pick = item => {
+    input.value = text(item)
+    hide()
+    onPick(item)
+  }
   input.addEventListener('input', async () => {
     onPick(null)
     const query = input.value.trim()
@@ -34,7 +41,9 @@ export function searchPicker(input, { search, render, text, onPick, minLength = 
     if (request !== latest) return // a newer keystroke already answered
     items = found || []
     active = -1
-    list.innerHTML = items.map((item, index) => `<li role="option" data-index="${index}">${render(item)}</li>`).join('') || `<li class="combo-empty">${emptyText}</li>`
+    list.innerHTML =
+      items.map((item, index) => `<li role="option" data-index="${index}">${render(item)}</li>`).join('') ||
+      `<li class="combo-empty">${emptyText}</li>`
     list.classList.remove('hidden')
     input.setAttribute('aria-expanded', 'true')
   })
@@ -56,5 +65,11 @@ export function searchPicker(input, { search, render, text, onPick, minLength = 
     } else if (event.key === 'Escape') hide()
   })
   input.addEventListener('blur', () => setTimeout(hide, 120))
-  return { clear: () => { input.value = ''; hide(); onPick(null) } }
+  return {
+    clear: () => {
+      input.value = ''
+      hide()
+      onPick(null)
+    }
+  }
 }

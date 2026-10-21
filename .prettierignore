@@ -1,0 +1,6 @@
+dist/
+node_modules/
+dev/database/
+dev/backups/
+package-lock.json
+*.md

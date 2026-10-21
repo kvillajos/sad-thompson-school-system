@@ -36,13 +36,16 @@ for (const [employeeCode, firstName, middleName, lastName, username, password] o
     : await supabase.from('users').insert(accountPayload).select('user_id').single()
   if (accountResult.error) throw accountResult.error
 
-  const profileResult = await supabase.from('admins').upsert({
-    user_id: accountResult.data.user_id,
-    employee_code: employeeCode,
-    first_name: firstName,
-    middle_name: middleName,
-    last_name: lastName
-  }, { onConflict: 'user_id' })
+  const profileResult = await supabase.from('admins').upsert(
+    {
+      user_id: accountResult.data.user_id,
+      employee_code: employeeCode,
+      first_name: firstName,
+      middle_name: middleName,
+      last_name: lastName
+    },
+    { onConflict: 'user_id' }
+  )
   if (profileResult.error) throw profileResult.error
   console.log(`${username} | ${email} | Password ${password}`)
 }

@@ -9,20 +9,25 @@ export function buildTranscript({ student = {}, rows = [], mode = 'official', sc
   const name = `${student.first_name || ''} ${student.last_name || ''}`.trim()
   const heading = unofficial ? 'UNOFFICIAL TRANSCRIPT - STUDENT COPY' : 'OFFICIAL STUDENT PERMANENT RECORD (FORM 137 / SF10)'
 
-  const historyHtml = grouped.map(group => {
-    const semesterBlocks = [...group.semesters.entries()].map(([semester, semesterRows]) => {
-      const tableRows = semesterRows.map(row => {
-        const rating = row.semesterGrade ?? row.grade
-        return `
+  const historyHtml =
+    grouped
+      .map(group => {
+        const semesterBlocks = [...group.semesters.entries()]
+          .map(([semester, semesterRows]) => {
+            const tableRows = semesterRows
+              .map(row => {
+                const rating = row.semesterGrade ?? row.grade
+                return `
         <tr>
           <td class="text-left">${escapeHtml(row.subject)}</td>
           <td>${rating ?? '-'}</td>
           <td>${escapeHtml(row.remarks || (rating >= 75 ? 'Passed' : 'Failed'))}</td>
         </tr>
       `
-      }).join('')
+              })
+              .join('')
 
-      return `
+            return `
         <div class="transcript-semester" style="margin-bottom: 12px;">
           <div style="font-weight:bold; background:#e0e0e0; padding:4px 6px; border:1px solid #000; border-bottom:none; font-size:9pt;">
             SCHOOL YEAR: ${escapeHtml(group.schoolYear)} - ${semester === 'first' ? '1st Semester' : '2nd Semester'}
@@ -41,16 +46,20 @@ export function buildTranscript({ student = {}, rows = [], mode = 'official', sc
           </table>
         </div>
       `
-    }).join('')
+          })
+          .join('')
 
-    return semesterBlocks
-  }).join('') || '<p>No academic records yet.</p>'
+        return semesterBlocks
+      })
+      .join('') || '<p>No academic records yet.</p>'
 
-  const verification = unofficial 
-    ? '<p style="text-align:center; font-style:italic; font-size:9pt; margin-top:15px; color:#555;">For reference only. Verify this record with the Registrar\'s Office.</p>' 
+  const verification = unofficial
+    ? '<p style="text-align:center; font-style:italic; font-size:9pt; margin-top:15px; color:#555;">For reference only. Verify this record with the Registrar\'s Office.</p>'
     : ''
 
-  const signatures = unofficial ? '' : `
+  const signatures = unofficial
+    ? ''
+    : `
     <section class="signatures-section">
       <div class="signature-block">
         <div class="signature-line">School Registrar</div>

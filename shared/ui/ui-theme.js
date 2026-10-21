@@ -1,9 +1,9 @@
-import { installTableSort } from './table-sort.js';
-import { installTablePages } from './table-pages.js';
-import { installTableCopy } from './table-copy.js';
-import { describeError } from '../lib/errors.js';
+import { installTableSort } from './table-sort.js'
+import { installTablePages } from './table-pages.js'
+import { installTableCopy } from './table-copy.js'
+import { describeError } from '../lib/errors.js'
 
-const UI_THEME_STORAGE_KEY = 'tcsms_theme';
+const UI_THEME_STORAGE_KEY = 'tcsms_theme'
 
 const sharedTheme = /* css */ `
 :root {
@@ -1049,56 +1049,67 @@ button[aria-busy="true"]::before { content:''; display:inline-block; width:12px;
 @keyframes tcsms-spin { to { transform:rotate(360deg); } }
 .toast { cursor:pointer; }
 .caps-warning { margin:6px 0 0; color:var(--ui-warning); font-size:12px; font-weight:700; }
-`;
+`
 
-const SPAM_GUARD_MS = 600;
+const SPAM_GUARD_MS = 600
 
 // Blocks rapid repeat clicks on any clickable control app-wide so double-clicks or
 // impatient re-clicks during a network request can't trigger an action twice.
 function installSpamGuard() {
-  if (window.__tcsmsSpamGuardInstalled) return;
-  window.__tcsmsSpamGuardInstalled = true;
-  document.addEventListener('click', (event) => {
-    const target = event.target.closest('button, [type="submit"], .admin-view, .admin-remove, .sidebar-link');
-    // Menu toggles open/close instantly and can't double-submit anything, so they don't
-    // need the cooldown that guards real actions (saves, deletes) from a double-click.
-    if (!target || target.closest('.profile-toggle, .pw-toggle, .notif-toggle, .theme-toggle, .notif-item, .subtab, .pager-btn, .sidebar-link[data-tab]')) return;
-    const now = Date.now();
-    const last = Number(target.dataset.tcsmsLastClick || 0);
-    if (now - last < SPAM_GUARD_MS) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      return;
-    }
-    target.dataset.tcsmsLastClick = String(now);
-    target.classList.add('spam-guard-cooling');
-    setTimeout(() => target.classList.remove('spam-guard-cooling'), SPAM_GUARD_MS);
-  }, true);
+  if (window.__tcsmsSpamGuardInstalled) return
+  window.__tcsmsSpamGuardInstalled = true
+  document.addEventListener(
+    'click',
+    event => {
+      const target = event.target.closest('button, [type="submit"], .admin-view, .admin-remove, .sidebar-link')
+      // Menu toggles open/close instantly and can't double-submit anything, so they don't
+      // need the cooldown that guards real actions (saves, deletes) from a double-click.
+      if (
+        !target ||
+        target.closest(
+          '.profile-toggle, .pw-toggle, .notif-toggle, .theme-toggle, .notif-item, .subtab, .pager-btn, .sidebar-link[data-tab]'
+        )
+      )
+        return
+      const now = Date.now()
+      const last = Number(target.dataset.tcsmsLastClick || 0)
+      if (now - last < SPAM_GUARD_MS) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        return
+      }
+      target.dataset.tcsmsLastClick = String(now)
+      target.classList.add('spam-guard-cooling')
+      setTimeout(() => target.classList.remove('spam-guard-cooling'), SPAM_GUARD_MS)
+    },
+    true
+  )
 }
 
 function installGlobalErrorHandler() {
-  if (window.__tcsmsErrorHandlerInstalled) return;
-  window.__tcsmsErrorHandlerInstalled = true;
+  if (window.__tcsmsErrorHandlerInstalled) return
+  window.__tcsmsErrorHandlerInstalled = true
   window.addEventListener('unhandledrejection', event => {
-    event.preventDefault();
-    toast(describeError(event.reason, 'Operation'), 'error', 6000);
-  });
+    event.preventDefault()
+    toast(describeError(event.reason, 'Operation'), 'error', 6000)
+  })
   window.addEventListener('error', event => {
-    if (!event.error) return;
-    toast(describeError(event.error, 'Page'), 'error', 6000);
-  });
+    if (!event.error) return
+    toast(describeError(event.error, 'Page'), 'error', 6000)
+  })
 }
 
-let toastTimer;
+let toastTimer
 // Errors stay up longer than confirmations (there is more to read); a click dismisses either.
 export function toast(message, type = 'success', duration = type === 'error' ? 7000 : 3500) {
-  const element = document.getElementById('toast') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'toast' });
-  element.setAttribute('role', type === 'error' ? 'alert' : 'status');
-  element.textContent = message;
-  element.className = `toast ${type}`;
-  element.onclick = () => element.classList.add('hidden');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => element.classList.add('hidden'), duration);
+  const element =
+    document.getElementById('toast') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'toast' })
+  element.setAttribute('role', type === 'error' ? 'alert' : 'status')
+  element.textContent = message
+  element.className = `toast ${type}`
+  element.onclick = () => element.classList.add('hidden')
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => element.classList.add('hidden'), duration)
 }
 
 // "42 / 500" under any textarea that has a maxlength, added the first time it is focused (it works for dialogs that are
@@ -1114,118 +1125,149 @@ function installCharCounters(doc = document) {
     }
     return box.__charCount
   }
-  const show = box => { const counter = counterOf(box); if (counter) counter.textContent = `${box.value.length} / ${box.maxLength}` }
-  doc.addEventListener('focusin', event => { if (event.target.matches?.('textarea[maxlength]')) show(event.target) })
-  doc.addEventListener('input', event => { if (event.target.matches?.('textarea[maxlength]')) show(event.target) })
-  doc.addEventListener('reset', event => setTimeout(() => event.target.querySelectorAll?.('textarea[maxlength]').forEach(box => box.__charCount && show(box))))
+  const show = box => {
+    const counter = counterOf(box)
+    if (counter) counter.textContent = `${box.value.length} / ${box.maxLength}`
+  }
+  doc.addEventListener('focusin', event => {
+    if (event.target.matches?.('textarea[maxlength]')) show(event.target)
+  })
+  doc.addEventListener('input', event => {
+    if (event.target.matches?.('textarea[maxlength]')) show(event.target)
+  })
+  doc.addEventListener('reset', event =>
+    setTimeout(() => event.target.querySelectorAll?.('textarea[maxlength]').forEach(box => box.__charCount && show(box)))
+  )
 }
 
-const OPEN_MODALS = '.admin-modal:not(.hidden), .modal:not(.hidden)';
-const MODAL_CLOSE = '.admin-modal-head button, .modalhead button';
+const OPEN_MODALS = '.admin-modal:not(.hidden), .modal:not(.hidden)'
+const MODAL_CLOSE = '.admin-modal-head button, .modalhead button'
 
 // Every modal (static or built in JS) gets dialog semantics, a labelled close button, and closes on Escape.
 function installModalBehaviour() {
-  if (window.__tcsmsModalsInstalled) return;
-  window.__tcsmsModalsInstalled = true;
-  const label = root => root.querySelectorAll?.('.admin-modal, .modal').forEach(modal => {
-    const box = modal.querySelector('.admin-modal-box, .modalbox');
-    if (box && !box.hasAttribute('role')) { box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); }
-    const close = modal.querySelector(MODAL_CLOSE);
-    if (close && !close.hasAttribute('aria-label') && /^[x×✕]$/i.test(close.textContent.trim())) close.setAttribute('aria-label', 'Close');
-  });
-  label(document);
-  new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(node => {
-    if (node.nodeType !== 1) return;
-    if (node.matches('.admin-modal, .modal')) label(node.parentNode); else label(node);
-  }))).observe(document.body, { childList: true, subtree: true });
+  if (window.__tcsmsModalsInstalled) return
+  window.__tcsmsModalsInstalled = true
+  const label = root =>
+    root.querySelectorAll?.('.admin-modal, .modal').forEach(modal => {
+      const box = modal.querySelector('.admin-modal-box, .modalbox')
+      if (box && !box.hasAttribute('role')) {
+        box.setAttribute('role', 'dialog')
+        box.setAttribute('aria-modal', 'true')
+      }
+      const close = modal.querySelector(MODAL_CLOSE)
+      if (close && !close.hasAttribute('aria-label') && /^[x×✕]$/i.test(close.textContent.trim())) close.setAttribute('aria-label', 'Close')
+    })
+  label(document)
+  new MutationObserver(records =>
+    records.forEach(record =>
+      record.addedNodes.forEach(node => {
+        if (node.nodeType !== 1) return
+        if (node.matches('.admin-modal, .modal')) label(node.parentNode)
+        else label(node)
+      })
+    )
+  ).observe(document.body, { childList: true, subtree: true })
   document.addEventListener('keydown', event => {
-    if (event.key !== 'Escape' || event.defaultPrevented) return;
-    const open = [...document.querySelectorAll(OPEN_MODALS)];
-    const top = open.sort((a, b) => (Number(getComputedStyle(a).zIndex) || 0) - (Number(getComputedStyle(b).zIndex) || 0)).at(-1);
-    const close = top?.querySelector(`${MODAL_CLOSE}, [data-dialog-cancel]`);
-    if (close) { event.preventDefault(); close.click(); }
-  });
-  document.addEventListener('click', event => { if (event.target.closest('.table-retry')) window.location.reload(); });
+    if (event.key !== 'Escape' || event.defaultPrevented) return
+    const open = [...document.querySelectorAll(OPEN_MODALS)]
+    const top = open.sort((a, b) => (Number(getComputedStyle(a).zIndex) || 0) - (Number(getComputedStyle(b).zIndex) || 0)).at(-1)
+    const close = top?.querySelector(`${MODAL_CLOSE}, [data-dialog-cancel]`)
+    if (close) {
+      event.preventDefault()
+      close.click()
+    }
+  })
+  document.addEventListener('click', event => {
+    if (event.target.closest('.table-retry')) window.location.reload()
+  })
 }
 
 export function applyUiTheme() {
-  const isLoginPage = document.body.classList.contains('login-page');
+  const isLoginPage = document.body.classList.contains('login-page')
   try {
-    const savedTheme = localStorage.getItem(UI_THEME_STORAGE_KEY);
-    if (!isLoginPage && (savedTheme === 'dark' || savedTheme === 'light')) document.documentElement.dataset.theme = savedTheme;
-    else delete document.documentElement.dataset.theme;
+    const savedTheme = localStorage.getItem(UI_THEME_STORAGE_KEY)
+    if (!isLoginPage && (savedTheme === 'dark' || savedTheme === 'light')) document.documentElement.dataset.theme = savedTheme
+    else delete document.documentElement.dataset.theme
   } catch {}
   if (!document.getElementById('shared-ui-theme')) {
-    const style = document.createElement('style');
-    style.id = 'shared-ui-theme';
-    style.textContent = sharedTheme;
-    document.head.appendChild(style);
+    const style = document.createElement('style')
+    style.id = 'shared-ui-theme'
+    style.textContent = sharedTheme
+    document.head.appendChild(style)
     // Team stylesheets (public/css/*): one file per task so branches never edit the same lines. They load after the main theme, so they win.
     for (const name of ['theme-dark', 'responsive-tablet', 'responsive-mobile', 'documents', 'admin-polish']) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = `/css/${name}.css`;
-      document.head.appendChild(link);
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = `/css/${name}.css`
+      document.head.appendChild(link)
     }
   }
-  installSpamGuard();
-  installCharCounters();
-  installTableSort();
-  installTablePages();
-  installTableCopy();
-  installTableActionMenus();
-  installGlobalErrorHandler();
-  installModalBehaviour();
+  installSpamGuard()
+  installCharCounters()
+  installTableSort()
+  installTablePages()
+  installTableCopy()
+  installTableActionMenus()
+  installGlobalErrorHandler()
+  installModalBehaviour()
 }
 
 function installTableActionMenus() {
-  if (window.__tcsmsTableActionMenusInstalled) return;
-  window.__tcsmsTableActionMenusInstalled = true;
-  const excluded = cell => cell.closest('#approvals-table, #applications-table');
-  const enhance = root => root.querySelectorAll?.('td[data-label="Action"], td[data-label="Actions"], td:last-child:has(> button, > a)').forEach(cell => {
-    if (excluded(cell) || cell.dataset.actionMenuReady === 'true') return;
-    const actions = [...cell.querySelectorAll('button, a')];
-    if (!actions.length) return;
-    cell.dataset.actionMenuReady = 'true';
-    const menu = document.createElement('span');
-    menu.className = 'table-action-menu';
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'table-action-toggle';
-    toggle.setAttribute('aria-label', 'Show actions');
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.textContent = '⋯';
-    const dropdown = document.createElement('span');
-    dropdown.className = 'table-action-dropdown hidden';
-    actions.forEach(action => dropdown.appendChild(action));
-    menu.append(toggle, dropdown);
-    cell.replaceChildren(menu);
-    toggle.onclick = event => {
-      event.stopPropagation();
-      const open = !dropdown.classList.contains('hidden');
-      document.querySelectorAll('.table-action-dropdown').forEach(item => item.classList.add('hidden'));
-      document.querySelectorAll('.table-action-toggle').forEach(item => item.setAttribute('aria-expanded', 'false'));
-      if (!open) {
-        const rect = toggle.getBoundingClientRect();
-        dropdown.style.top = `${rect.bottom + 5}px`;
-        dropdown.style.left = `${Math.max(5, rect.right - 130)}px`;
+  if (window.__tcsmsTableActionMenusInstalled) return
+  window.__tcsmsTableActionMenusInstalled = true
+  const closeMenus = () => {
+    document.querySelectorAll('.table-action-dropdown').forEach(item => item.classList.add('hidden'))
+    document.querySelectorAll('.table-action-toggle').forEach(item => item.setAttribute('aria-expanded', 'false'))
+  }
+  const excluded = cell => cell.closest('#approvals-table, #applications-table')
+  const enhance = root =>
+    root.querySelectorAll?.('td[data-label="Action"], td[data-label="Actions"], td:last-child:has(> button, > a)').forEach(cell => {
+      if (excluded(cell) || cell.dataset.actionMenuReady === 'true') return
+      const actions = [...cell.querySelectorAll('button, a')]
+      if (!actions.length) return
+      cell.dataset.actionMenuReady = 'true'
+      const menu = document.createElement('span')
+      menu.className = 'table-action-menu'
+      const toggle = document.createElement('button')
+      toggle.type = 'button'
+      toggle.className = 'table-action-toggle'
+      toggle.setAttribute('aria-label', 'Show actions')
+      toggle.setAttribute('aria-expanded', 'false')
+      toggle.textContent = '⋯'
+      const dropdown = document.createElement('span')
+      dropdown.className = 'table-action-dropdown hidden'
+      actions.forEach(action => dropdown.appendChild(action))
+      menu.append(toggle, dropdown)
+      // Append, not replace: only the buttons/links move into the menu, so anything else in the cell
+      // (e.g. the Remarks input next to "Request correction" on a locked grade row) stays visible.
+      cell.append(menu)
+      toggle.onclick = event => {
+        event.stopPropagation()
+        const open = !dropdown.classList.contains('hidden')
+        closeMenus()
+        if (open) return
+        dropdown.classList.remove('hidden')
+        toggle.setAttribute('aria-expanded', 'true')
+        // The menu is position:fixed, so it cannot scroll into view: open it upward when a row near the
+        // bottom of the screen leaves no room below.
+        const rect = toggle.getBoundingClientRect()
+        const fitsBelow = rect.bottom + 5 + dropdown.offsetHeight <= window.innerHeight
+        dropdown.style.top = `${fitsBelow ? rect.bottom + 5 : Math.max(5, rect.top - dropdown.offsetHeight - 5)}px`
+        dropdown.style.left = `${Math.max(5, rect.right - 130)}px`
       }
-      dropdown.classList.toggle('hidden', open);
-      toggle.setAttribute('aria-expanded', String(!open));
-    };
-  });
-  enhance(document);
-  new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(node => {
-    if (node.nodeType === 1) enhance(node);
-  }))).observe(document.body, { childList:true, subtree:true });
+    })
+  enhance(document)
+  new MutationObserver(records =>
+    records.forEach(record =>
+      record.addedNodes.forEach(node => {
+        if (node.nodeType === 1) enhance(node)
+      })
+    )
+  ).observe(document.body, { childList: true, subtree: true })
   document.addEventListener('click', event => {
-    if (event.target.closest('.table-action-menu')) return;
-    document.querySelectorAll('.table-action-dropdown').forEach(item => item.classList.add('hidden'));
-    document.querySelectorAll('.table-action-toggle').forEach(item => item.setAttribute('aria-expanded', 'false'));
-  });
+    if (!event.target.closest('.table-action-menu')) closeMenus()
+  })
   document.addEventListener('keydown', event => {
-    if (event.key !== 'Escape') return;
-    document.querySelectorAll('.table-action-dropdown').forEach(item => item.classList.add('hidden'));
-    document.querySelectorAll('.table-action-toggle').forEach(item => item.setAttribute('aria-expanded', 'false'));
-  });
+    if (event.key === 'Escape') closeMenus()
+  })
 }

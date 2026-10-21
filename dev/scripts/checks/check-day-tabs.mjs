@@ -9,12 +9,40 @@ assert.deepEqual(visibleDays([{ day_of_week: 6 }, { day_of_week: '2' }]), [1, 2,
 assert.equal(initialDay([1, 2, 3, 4, 5], 3), 3, 'opens today')
 assert.equal(initialDay([1, 2, 3, 4, 5], 7), 1, 'weekend with no classes falls back to Monday')
 
-const classes = [{ start_time: '07:30:00', end_time: '09:00:00' }, { start_time: '12:00:00', end_time: '13:00:00' }]
-const gaps = [{ label: 'Lunch break', start: '11:00', end: '12:00' }, { label: 'Break', start: '09:45', end: '10:00' }]
-assert.deepEqual(withGaps(classes, gaps).map(item => item.type + '@' + item.start), ['class@07:30', 'gap@09:45', 'gap@11:00', 'class@12:00'], 'gaps sit between classes in time order')
-assert.deepEqual(withGaps([{ start_time: '09:30:00', end_time: '11:00:00' }, { start_time: '12:00:00', end_time: '13:00:00' }], gaps).map(item => item.type), ['class', 'gap', 'class'], 'a break inside a class is not drawn, lunch between classes still is')
-assert.deepEqual(withGaps([{ start_time: '10:00:00', end_time: '10:45:00' }], gaps).map(item => item.type), ['class'], 'no break before the first class, no lunch after the last')
-assert.deepEqual(withGaps([{ start_time: '07:30:00', end_time: '08:15:00' }], gaps).map(item => item.type), ['class'], 'nothing after the last class')
+const classes = [
+  { start_time: '07:30:00', end_time: '09:00:00' },
+  { start_time: '12:00:00', end_time: '13:00:00' }
+]
+const gaps = [
+  { label: 'Lunch break', start: '11:00', end: '12:00' },
+  { label: 'Break', start: '09:45', end: '10:00' }
+]
+assert.deepEqual(
+  withGaps(classes, gaps).map(item => item.type + '@' + item.start),
+  ['class@07:30', 'gap@09:45', 'gap@11:00', 'class@12:00'],
+  'gaps sit between classes in time order'
+)
+assert.deepEqual(
+  withGaps(
+    [
+      { start_time: '09:30:00', end_time: '11:00:00' },
+      { start_time: '12:00:00', end_time: '13:00:00' }
+    ],
+    gaps
+  ).map(item => item.type),
+  ['class', 'gap', 'class'],
+  'a break inside a class is not drawn, lunch between classes still is'
+)
+assert.deepEqual(
+  withGaps([{ start_time: '10:00:00', end_time: '10:45:00' }], gaps).map(item => item.type),
+  ['class'],
+  'no break before the first class, no lunch after the last'
+)
+assert.deepEqual(
+  withGaps([{ start_time: '07:30:00', end_time: '08:15:00' }], gaps).map(item => item.type),
+  ['class'],
+  'nothing after the last class'
+)
 assert.equal(time12('07:30:00'), '7:30 AM')
 assert.equal(time12('12:00'), '12:00 PM')
 assert.equal(time12('00:05'), '12:05 AM')

@@ -1,6 +1,6 @@
 // Runnable checks for the sectioning allocator: npm run check:sectioning
 import assert from 'node:assert/strict'
-import { AUTO_ASSIGN_GRADES, planBalancedAssignments, studentsForSection } from '../../../role-registrar/sectioning.js'
+import { AUTO_ASSIGN_GRADES, planBalancedAssignments, studentsForSection } from '../../../shared/lib/sectioning.js'
 
 // Deterministic RNG so "randomized" can still be asserted.
 const seeded = seed => () => {
@@ -30,13 +30,18 @@ assert.equal(plan.summary.filter(row => row.grade_level === 11).length, 0, 'grad
 assert.ok(!plan.assignments.some(row => row.section_id === 3), 'no grade 11 student may land in the grade 11 section')
 
 // Boys and girls stay within one of each other per section.
-plan.summary.filter(row => row.grade_level === 7).forEach(row => {
-  assert.ok(Math.abs(row.boys - row.girls) <= 1, `${row.section_name} is lopsided: ${row.boys} boys / ${row.girls} girls`)
-})
+plan.summary
+  .filter(row => row.grade_level === 7)
+  .forEach(row => {
+    assert.ok(Math.abs(row.boys - row.girls) <= 1, `${row.section_name} is lopsided: ${row.boys} boys / ${row.girls} girls`)
+  })
 
 // Every grade 7 student was placed exactly once, and capacity was respected.
 assert.equal(new Set(plan.assignments.map(row => row.student_id)).size, 18)
-assert.equal(sections.filter(s => s.grade_level === 7).reduce((total, s) => total + s.capacity, 0), 20)
+assert.equal(
+  sections.filter(s => s.grade_level === 7).reduce((total, s) => total + s.capacity, 0),
+  20
+)
 
 // Order is randomized: a different seed produces a different spread.
 const otherPlan = planBalancedAssignments({
@@ -82,7 +87,10 @@ const roster = studentsForSection([...makeStudents(9, 2, 2), ...makeStudents(10,
   enrolledByStudent: new Map([[10500, 20]])
 })
 assert.equal(roster.length, 3)
-assert.ok(roster.every(student => student.student_id >= 10000 && student.student_id < 11000), 'grade 9 students must not appear for grade 10')
+assert.ok(
+  roster.every(student => student.student_id >= 10000 && student.student_id < 11000),
+  'grade 9 students must not appear for grade 10'
+)
 assert.ok(!roster.some(student => student.student_id === 10500), 'students already in the section must be hidden')
 
 assert.deepEqual(AUTO_ASSIGN_GRADES, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
@@ -95,7 +103,10 @@ const subset = planBalancedAssignments({
   random: seeded(2)
 })
 assert.equal(subset.assignments.length, 2)
-assert.ok(subset.assignments.every(row => row.section_id === 4), 'grades outside the chosen list must not be assigned')
+assert.ok(
+  subset.assignments.every(row => row.section_id === 4),
+  'grades outside the chosen list must not be assigned'
+)
 
 const withExclusions = planBalancedAssignments({
   students: makeStudents(7, 2, 2),
@@ -104,9 +115,21 @@ const withExclusions = planBalancedAssignments({
   random: seeded(5)
 })
 assert.equal(withExclusions.assignments.length, 2)
-assert.ok(!withExclusions.assignments.some(row => row.student_id === 7000 || row.student_id === 7500), 'excluded students must stay unassigned')
+assert.ok(
+  !withExclusions.assignments.some(row => row.student_id === 7000 || row.student_id === 7500),
+  'excluded students must stay unassigned'
+)
 // Students who left the school are never offered for placement.
-const left = [{ student_id: 1, grade_level: 7, enrollment_status: 'Withdrawn' }, { student_id: 2, grade_level: 7, enrollment_status: null }]
-assert.deepEqual(studentsForSection(left, { gradeLevel: 7, sectionId: 1 }).map(s => s.student_id), [2])
-assert.equal(planBalancedAssignments({ students: left, sections, grades: [7], random: seeded(1) }).assignments.some(row => row.student_id === 1), false)
+const left = [
+  { student_id: 1, grade_level: 7, enrollment_status: 'Withdrawn' },
+  { student_id: 2, grade_level: 7, enrollment_status: null }
+]
+assert.deepEqual(
+  studentsForSection(left, { gradeLevel: 7, sectionId: 1 }).map(s => s.student_id),
+  [2]
+)
+assert.equal(
+  planBalancedAssignments({ students: left, sections, grades: [7], random: seeded(1) }).assignments.some(row => row.student_id === 1),
+  false
+)
 console.log('sectioning checks passed')

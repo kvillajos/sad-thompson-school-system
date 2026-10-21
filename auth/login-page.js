@@ -26,22 +26,22 @@ if (versionLabel) versionLabel.textContent = typeof __APP_VERSION__ === 'string'
 hideLoadingScreen()
 
 // Load public maintenance notices for desktop and mobile login screens.
-const desktopNoticeHost = document.getElementById('maintenance-notices');
-const mobileNoticeHost = document.getElementById('mobile-maintenance-notices');
+const desktopNoticeHost = document.getElementById('maintenance-notices')
+const mobileNoticeHost = document.getElementById('mobile-maintenance-notices')
 
 async function refreshLoginNotices() {
-    const notices = await loadMaintenanceNotices();
+  const notices = await loadMaintenanceNotices()
 
-    renderLoginNotices(desktopNoticeHost, notices);
-    renderLoginNotices(mobileNoticeHost, notices);
+  renderLoginNotices(desktopNoticeHost, notices)
+  renderLoginNotices(mobileNoticeHost, notices)
 }
 
 // Load immediately, then refresh every 60 seconds.
-refreshLoginNotices().catch(console.error);
+refreshLoginNotices().catch(console.error)
 
 setInterval(() => {
-    refreshLoginNotices().catch(console.error);
-}, 60_000);
+  refreshLoginNotices().catch(console.error)
+}, 60_000)
 
 if (!isSupabaseConfigured) showConfigurationError()
 
@@ -50,10 +50,14 @@ withPasswordToggle(passwordInput)
 const capsWarning = Object.assign(document.createElement('p'), { className: 'caps-warning', textContent: 'Caps Lock is on.', hidden: true })
 capsWarning.setAttribute('aria-live', 'polite')
 passwordInput.closest('.form-group').append(capsWarning)
-const checkCaps = event => { if (event.getModifierState) capsWarning.hidden = !event.getModifierState('CapsLock') }
+const checkCaps = event => {
+  if (event.getModifierState) capsWarning.hidden = !event.getModifierState('CapsLock')
+}
 passwordInput.addEventListener('keydown', checkCaps)
 passwordInput.addEventListener('keyup', checkCaps)
-passwordInput.addEventListener('blur', () => { capsWarning.hidden = true })
+passwordInput.addEventListener('blur', () => {
+  capsWarning.hidden = true
+})
 
 const LOGIN_FAILURE_MESSAGE = 'Your password is incorrect or this account does not exist.'
 // A dropped connection is not a wrong password; saying so stops people from retyping a correct one.
@@ -75,14 +79,14 @@ function failLogin(message, username, password) {
 }
 
 // Handle Login
-loginForm.addEventListener('submit', async (e) => {
+loginForm.addEventListener('submit', async e => {
   e.preventDefault()
 
   if (!supabase) {
     showConfigurationError()
     return
   }
-  
+
   const username = document.getElementById('username').value.trim()
   const password = document.getElementById('password').value
 

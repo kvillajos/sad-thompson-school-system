@@ -13,9 +13,9 @@ hideLoadingScreen()
 if (!isSupabaseConfigured) showConfigurationError()
 
 // Never reveal whether an email is registered: same wording either way.
-const GENERIC_MESSAGE = "If that email is registered, we sent a code. Check your inbox, then enter the code on the next screen."
+const GENERIC_MESSAGE = 'If that email is registered, we sent a code. Check your inbox, then enter the code on the next screen.'
 
-form.addEventListener('submit', async (e) => {
+form.addEventListener('submit', async e => {
   e.preventDefault()
 
   if (!supabase) {

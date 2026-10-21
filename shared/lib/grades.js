@@ -1,9 +1,16 @@
 // Faculty grade sheet helpers: which classes a faculty member can grade, and how one row of
 // scores becomes the academic_history payload. Pure on purpose (no app imports) so
-// scripts/check-faculty-grades.mjs can assert it in Node.
+// dev/scripts/checks/check-faculty-grades.mjs can assert it in Node.
 
 export const SCORE_FIELDS = ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2', 'midterm', 'final']
-export const ACADEMIC_LABELS = { first_sem_q1: 'Q1', first_sem_q2: 'Q2', second_sem_q1: 'Q3', second_sem_q2: 'Q4', midterm: 'Midterm', final: 'Final' }
+export const ACADEMIC_LABELS = {
+  first_sem_q1: 'Q1',
+  first_sem_q2: 'Q2',
+  second_sem_q1: 'Q3',
+  second_sem_q2: 'Q4',
+  midterm: 'Midterm',
+  final: 'Final'
+}
 const TEXT_FIELDS = ['letter_grade', 'remarks']
 
 // The school year runs June to May, so January to May still belongs to the year that began
@@ -31,7 +38,7 @@ export function classOptions(schedules = []) {
 }
 
 // DepEd-style letter bands, cross-checked against the 75 passing mark batch_promote_students()
-// already enforces (database/backupsqlmigration.sql). One table so the grade sheet, the GPA
+// already enforces (dev/database/backupsqlmigration.sql). One table so the grade sheet, the GPA
 // engine and the report card can never disagree; change the bands here and every reader follows.
 const LETTER_GRADE_SCALE = [
   { min: 97, letter: 'A+', descriptor: 'Outstanding' },
@@ -51,7 +58,7 @@ export function letterGrade(value) {
 }
 
 // The single source of truth for Story 45: the mean of a student's stored subject grades
-// for one school year. Matches student_general_average (database/backupsqlmigration.sql).
+// for one school year. Matches student_general_average (dev/database/backupsqlmigration.sql).
 export function generalAverage(records = []) {
   const grades = records.map(record => record.grade).filter(value => value != null && Number.isFinite(Number(value)))
   if (!grades.length) return null
@@ -59,7 +66,7 @@ export function generalAverage(records = []) {
   return Math.round(average * 100) / 100
 }
 
-const score = (value) => {
+const score = value => {
   const text = String(value ?? '').trim()
   if (text === '') return null
   const number = Number(text)
@@ -79,7 +86,7 @@ export function derivedGrade(record) {
   if (record.midterm != null) return record.midterm
   const entered = quarters.filter(value => value != null)
   if (!entered.length) return null
-  return Math.round(entered.reduce((total, value) => total + value, 0) / entered.length * 100) / 100
+  return Math.round((entered.reduce((total, value) => total + value, 0) / entered.length) * 100) / 100
 }
 
 // One sheet row to one RPC record; null when the row was left untouched, so a class can be
@@ -105,19 +112,32 @@ export function gradeRecord(studentId, values = {}) {
 // like a hand-entered one; the preview table renders each row's errors, so Save stays
 // blocked until every row is fixed instead of guessing at the bad ones.
 export function parseGradeCsv(text) {
-  const lines = String(text ?? '').split(/\r?\n/).map(line => line.trim()).filter(line => line !== '')
+  const lines = String(text ?? '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line !== '')
   if (!lines.length) return []
   const header = lines[0].split(',').map(cell => cell.trim().toLowerCase())
   return lines.slice(1).map((line, index) => {
     const cells = line.split(',')
     const values = {}
-    header.forEach((key, position) => { values[key] = (cells[position] ?? '').trim() })
+    header.forEach((key, position) => {
+      values[key] = (cells[position] ?? '').trim()
+    })
     const studentId = values.student_id
     const errors = []
     if (!studentId || !Number.isFinite(Number(studentId))) errors.push('student_id is required and must be a number')
+    // gradeRecord() turns unreadable text into "blank", so a typo like "8O" would silently drop the score.
+    SCORE_FIELDS.forEach(field => {
+      if (values[field] === undefined || values[field] === '') return
+      const number = Number(values[field])
+      if (!Number.isFinite(number) || number < 0 || number > 100) errors.push(`${field} must be a number from 0 to 100`)
+    })
     const record = studentId && Number.isFinite(Number(studentId)) ? gradeRecord(studentId, values) : null
     if (studentId && Number.isFinite(Number(studentId)) && !record) errors.push('no scores were provided')
     if (record && derivedGrade(record) == null) errors.push('needs at least one score')
+    // Same default the grade sheet fills in, so uploaded and hand-entered grades both carry a letter.
+    if (record && !record.letter_grade) record.letter_grade = letterGrade(derivedGrade(record))?.letter ?? null
     return { row: index + 2, student_id: studentId, record, errors }
   })
 }

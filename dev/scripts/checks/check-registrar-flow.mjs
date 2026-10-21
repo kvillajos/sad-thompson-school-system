@@ -55,6 +55,7 @@ export function mountSidebar(items) {
   document.body.prepend(nav)
 }
 export const withBusy = async (button, label, action) => action()
+export const confirmPassword = async () => true
 `
 const stubLoading = 'export const hideLoadingScreen = () => {}\n'
 
@@ -85,7 +86,7 @@ try {
   document.querySelector('#auto-assign-grades').dispatchEvent(new Event('change', { bubbles: true }))
   const excludeBox = [...document.querySelectorAll('#auto-assign-exclude-list input')].find(box => box.value === '12')
   excludeBox.checked = true
-  document.querySelector('#auto-assign-exclude-list').dispatchEvent(new Event('change', { bubbles: true }))
+  excludeBox.dispatchEvent(new Event('change', { bubbles: true }))
   out.autoCountAfterExclude = document.querySelector('#auto-assign-count').textContent
   document.querySelector('#close-auto-assign-2').click()
   out.cancelClosed = document.querySelector('#auto-assign-modal').classList.contains('hidden')
@@ -126,12 +127,47 @@ try {
 try {
   const fixtureHtml = html
     .replace(/<script type="module">[\s\S]*?<\/script>/, '')
-    .replace('</head>', `<script>window.__errors=[];window.addEventListener('error',e=>window.__errors.push(e.message));window.addEventListener('unhandledrejection',e=>window.__errors.push(String(e.reason?.stack||e.reason)));</script><style>[data-panel].hidden,[hidden]{display:none!important}</style></head>`)
-    .replace('</body>', '<pre id="result"></pre><script type="module" src="./role-registrar/registrar.js"></script><script type="module" src="./driver.js"></script></body>')
+    .replace(
+      '</head>',
+      `<script>window.__errors=[];window.addEventListener('error',e=>window.__errors.push(e.message));window.addEventListener('unhandledrejection',e=>window.__errors.push(String(e.reason?.stack||e.reason)));</script><style>[data-panel].hidden,[hidden]{display:none!important}</style></head>`
+    )
+    .replace(
+      '</body>',
+      '<pre id="result"></pre><script type="module" src="./role-registrar/registrar.js"></script><script type="module" src="./driver.js"></script></body>'
+    )
   writeFileSync(join(folder, 'fixture.html'), fixtureHtml)
   // mirror the repo layout so the modules' relative imports resolve unchanged
-  const put = (path, content) => { mkdirSync(dirname(join(folder, path)), { recursive: true }); writeFileSync(join(folder, path), content) }
-  for (const name of ['role-registrar/registrar.js', 'role-registrar/registrar-state.js', 'role-registrar/registrar-admissions.js', 'role-registrar/registrar-sectioning.js', 'role-registrar/registrar-academic.js', 'role-registrar/registrar-shifting.js', 'role-registrar/registrar-requests.js', 'role-registrar/override-form.js', 'role-registrar/search-picker.js', 'role-registrar/sectioning.js', 'shared/ui/announcements.js', 'shared/ui/dialog.js', 'shared/lib/html.js', 'shared/lib/errors.js', 'shared/lib/grades.js', 'shared/lib/attendance.js', 'shared/lib/semester-grades.js', 'shared/lib/fetch-all.js', 'shared/lib/edit-request.js', 'shared/documents/report-card.js', 'shared/documents/transcript.js', 'shared/documents/print.js', 'shared/documents/pdf-preview.js']) put(name, read(name))
+  const put = (path, content) => {
+    mkdirSync(dirname(join(folder, path)), { recursive: true })
+    writeFileSync(join(folder, path), content)
+  }
+  for (const name of [
+    'role-registrar/registrar.js',
+    'role-registrar/registrar-state.js',
+    'role-registrar/registrar-admissions.js',
+    'role-registrar/registrar-sectioning.js',
+    'role-registrar/registrar-academic.js',
+    'role-registrar/registrar-shifting.js',
+    'role-registrar/registrar-requests.js',
+    'shared/ui/override-form.js',
+    'shared/ui/search-picker.js',
+    'shared/lib/sectioning.js',
+    'shared/ui/announcements.js',
+    'shared/ui/restore-changes.js',
+    'shared/ui/dialog.js',
+    'shared/lib/html.js',
+    'shared/lib/errors.js',
+    'shared/lib/grades.js',
+    'shared/lib/attendance.js',
+    'shared/lib/semester-grades.js',
+    'shared/lib/fetch-all.js',
+    'shared/lib/edit-request.js',
+    'shared/documents/report-card.js',
+    'shared/documents/transcript.js',
+    'shared/documents/print.js',
+    'shared/documents/pdf-preview.js'
+  ])
+    put(name, read(name))
   put('shared/lib/auth-client.js', stubAuth)
   put('shared/ui/ui-theme.js', stubTheme)
   put('shared/ui/shell.js', stubShell)
@@ -139,10 +175,27 @@ try {
   writeFileSync(join(folder, 'driver.js'), driverSource)
 
   const edge = browserPath()
-  const result = spawnSync(edge, ['--headless', '--disable-gpu', '--no-first-run', '--disable-extensions', '--allow-file-access-from-files', `--user-data-dir=${join(folder, 'profile')}`, '--virtual-time-budget=9000', '--dump-dom', pathToFileURL(join(folder, 'fixture.html')).href], { encoding: 'utf8', timeout: 40000, maxBuffer: 6e6 })
+  const result = spawnSync(
+    edge,
+    [
+      '--headless',
+      '--disable-gpu',
+      '--no-first-run',
+      '--disable-extensions',
+      '--allow-file-access-from-files',
+      `--user-data-dir=${join(folder, 'profile')}`,
+      '--virtual-time-budget=9000',
+      '--dump-dom',
+      pathToFileURL(join(folder, 'fixture.html')).href
+    ],
+    { encoding: 'utf8', timeout: 40000, maxBuffer: 6e6 }
+  )
   if (result.error) throw result.error
   const match = result.stdout.match(/<pre id="result">([\s\S]*?)<\/pre>/)
-  assert.ok(match?.[1], `Browser produced no result. stderr: ${String(result.stderr).slice(-600)} dom: ${String(result.stdout).slice(-600)}`)
+  assert.ok(
+    match?.[1],
+    `Browser produced no result. stderr: ${String(result.stderr).slice(-600)} dom: ${String(result.stdout).slice(-600)}`
+  )
   const data = JSON.parse(match[1].replaceAll('&quot;', '"').replaceAll('&#39;', "'"))
   console.log(data)
   assert.equal(data.failure, undefined)
@@ -151,20 +204,20 @@ try {
   assert.equal(data.autoCount, '2', 'auto-assign should plan the 2 section-less students')
   assert.ok(data.summaryShown)
   assert.ok(data.rpc1.length >= 2, 'both section-less students should be assigned')
-assert.equal(data.autoGradeBoxes, 2, 'every grade level with a section must be offered')
-assert.equal(data.autoExcludeChoices, 3, 'students in the chosen grades must be excludable')
-assert.equal(data.autoCountGradeTenOnly, '0', 'unchecking a grade level must shrink the preview')
-assert.equal(data.autoCountAfterExclude, '1', 'excluding a student must remove them from the preview')
-assert.equal(data.cancelClosed, true, 'auto-assign Cancel must close the modal')
+  assert.equal(data.autoGradeBoxes, 2, 'every grade level with a section must be offered')
+  assert.equal(data.autoExcludeChoices, 3, 'students in the chosen grades must be excludable')
+  assert.equal(data.autoCountGradeTenOnly, '0', 'unchecking a grade level must shrink the preview')
+  assert.equal(data.autoCountAfterExclude, '1', 'excluding a student must remove them from the preview')
+  assert.equal(data.cancelClosed, true, 'auto-assign Cancel must close the modal')
   assert.deepEqual(data.grade10, [], 'students already in the selected section must be excluded')
   assert.deepEqual(data.grade9, ['12', '21'])
   assert.deepEqual(data.rpc2, [{ student_id: 12, section_id: 2 }])
-assert.equal(data.academicRows, 3, 'every grade 1-12 student must list in Academic History')
-assert.equal(data.academicSearch, true, 'the student list must be searchable')
-assert.equal(data.academicForm, false, 'the registrar must not get a grade entry form')
-assert.equal(data.academicModalOpen, true, 'View History must open the record')
-assert.ok(data.academicModalTitle.includes('Amistoso'), 'the modal must name the student')
-assert.equal(data.academicModalTables, 1, 'the modal must show the academic history table')
+  assert.equal(data.academicRows, 3, 'every grade 1-12 student must list in Academic History')
+  assert.equal(data.academicSearch, true, 'the student list must be searchable')
+  assert.equal(data.academicForm, false, 'the registrar must not get a grade entry form')
+  assert.equal(data.academicModalOpen, true, 'View History must open the record')
+  assert.ok(data.academicModalTitle.includes('Amistoso'), 'the modal must name the student')
+  assert.equal(data.academicModalTables, 1, 'the modal must show the academic history table')
   console.log('registrar flow checks passed')
 } finally {
   rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })

@@ -3,7 +3,10 @@
 import { supabase } from './auth-client.js'
 
 export async function loadSchoolYearSettings(schoolYear) {
-  const { data } = await supabase.from('school_year_settings').select('school_year,lunch_start,lunch_end,break_start,break_end').order('school_year', { ascending: false })
+  const { data } = await supabase
+    .from('school_year_settings')
+    .select('school_year,lunch_start,lunch_end,break_start,break_end')
+    .order('school_year', { ascending: false })
   const rows = data || []
   return rows.find(row => row.school_year === schoolYear) || rows[0] || null
 }
