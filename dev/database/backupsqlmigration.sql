@@ -3715,7 +3715,7 @@ commit;
 
 
 -- ============================================================================
--- BEGIN migration-v39-quarter-corrections-one-pending-promotion.sql  (written 2026-10-21, NOT yet applied live)
+-- BEGIN migration-v39-quarter-corrections-one-pending-promotion.sql  (applied live 2026-10-21)
 -- 1. A grade correction names the score it changes (Q1-Q4, midterm or final). Approving it changes that
 --    score and recalculates the year grade the same way save_faculty_grades() does, so the semester
 --    grades on the transcript follow the correction. (Before, only final/grade changed, so a transcript
