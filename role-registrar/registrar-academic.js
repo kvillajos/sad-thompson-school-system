@@ -2,6 +2,7 @@ import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { $, state } from './registrar-state.js'
 import { escapeHtml, gradeLabel, gradeLevelOptions, errorRow } from '../shared/lib/html.js'
+import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
 import { withBusy } from '../shared/ui/shell.js'
@@ -10,8 +11,9 @@ import { buildReportCard } from '../shared/documents/report-card.js'
 import { buildSemesterTable } from '../shared/lib/semester-grades.js'
 import { buildTranscript } from '../shared/documents/transcript.js'
 import { previewPdf, pdfName } from '../shared/documents/pdf-preview.js'
+import { loadGradingScales } from '../shared/lib/grading-scale.js'
 
-$('academic-grade-filter').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades (1-12)', includeKindergarten: false })
+$('academic-grade-filter').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades', grades: OFFERED_GRADES })
 
 // The rows are ... Latest School Year | Section | buttons, so Section goes before the page's own "Action" header.
 document
@@ -71,6 +73,7 @@ export function renderAcademicStudents() {
 }
 let academicLoadSequence = 0
 export async function loadAcademic() {
+  await loadGradingScales()
   const sequence = ++academicLoadSequence
   const data = []
   state.academic = []

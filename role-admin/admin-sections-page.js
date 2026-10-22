@@ -2,6 +2,7 @@ import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
 import { escapeHtml as escape, gradeLevelOptions, errorRow } from '../shared/lib/html.js'
+import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog, noticeDialog } from '../shared/ui/dialog.js'
 import { withBusy } from '../shared/ui/shell.js'
@@ -72,8 +73,8 @@ const openForm = section => {
 document.getElementById('add-section').onclick = () => openForm()
 document.getElementById('close-section').onclick = close
 document.getElementById('cancel-section').onclick = close
-document.getElementById('section-grade').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades' })
-form.elements.grade_level.innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'Select Grade Level' })
+document.getElementById('section-grade').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades', grades: OFFERED_GRADES })
+form.elements.grade_level.innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'Select Grade Level', grades: OFFERED_GRADES })
 async function loadSections() {
   const table = document.getElementById('sections-table')
   if (!moderators.length) {

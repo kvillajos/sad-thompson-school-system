@@ -81,15 +81,34 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .admin-filterbar { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 14px }
 .admin-filterbar input,.admin-filterbar select { min-width:180px; padding:10px 12px; border:1px solid #b9c8dc; border-radius:11px; color:var(--ui-text); background:#fff }
 .admin-filterbar .admin-action { margin-left:auto }
+.student-info-card { display:flex; flex-wrap:wrap; gap:10px 32px; margin-top:4px; padding:12px 16px; border:1px solid var(--ui-border); border-radius:12px; background:#f6f9fd; }
+.student-info-card[hidden] { display:none; }
+.student-info-card small { display:block; color:var(--ui-muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+.student-info-card strong { display:block; margin-top:2px; font-size:15px; }
+.excel-sample { overflow-x:auto; margin-top:12px; border:1px solid #b7cfc0; border-radius:6px; }
+.admin-table-wrap .excel-sample table { width:100%; border-collapse:collapse; font-family:Calibri, Arial, sans-serif; font-size:13px; background:#fff; }
+.admin-table-wrap .excel-sample th { background:#217346 !important; color:#fff !important; font-weight:600; text-align:center; border:1px solid #185c37 !important; border-radius:0 !important; padding:3px 12px; }
+.admin-table-wrap .excel-sample td { border:1px solid #cfdcd3 !important; padding:3px 12px; min-width:70px; height:22px; white-space:nowrap; color:#111 !important; background:#fff !important; }
+.admin-table-wrap .excel-sample .excel-head { font-weight:700; background:#e3f1e8 !important; }
+#grade-table input { border:0; border-bottom:1px solid #94a3b8; border-radius:0; background:transparent; box-shadow:none; padding:6px 4px; text-align:center; font:inherit; color:inherit; appearance:textfield; -moz-appearance:textfield; }
+#grade-table input::-webkit-outer-spin-button, #grade-table input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+#grade-table input:focus { outline:none; border-bottom-color:var(--ui-blue-dark); box-shadow:0 1px 0 var(--ui-blue-dark); }
+#grade-table input[readonly] { border-bottom-style:dotted; cursor:default; }
+#grade-table input[data-field="final"] { font-weight:700; }
+#grade-table input:disabled { border-bottom-style:dotted; opacity:.7; }
+@media (min-width:701px) {
+  #grade-table input[type="number"] { width:56px; }
+  #grade-table input[data-field="letter_grade"] { width:44px; }
+  #grade-table input[data-field="remarks"] { width:150px; text-align:left; }
+}
+.admin-filterbar .combo { flex:1 1 280px; width:auto !important; max-width:420px; }
+.admin-filterbar .combo input { width:100%; box-sizing:border-box; }
 .filterbar { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px }
 .filterbar input,.filterbar select { margin:0; padding:9px; font-size:12px; max-width:220px }
 .admin-checklist { display:grid; gap:0 }
 .admin-check { display:flex; align-items:center; gap:10px; padding:12px 8px; border-bottom:1px solid var(--ui-border); color:var(--ui-text); font-weight:600 }
 .admin-check input { width:auto; margin:0 }
 .admin-check:last-child { border-bottom:0 }
-.admin-summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:start }
-.admin-summary-grid > .admin-table-wrap { margin-top:0 }
-.admin-summary-grid .card { background:var(--ui-bg); border-radius:12px; padding:14px 16px }
 .stat { margin-top:4px; color:var(--ui-blue); font-size:28px; font-weight:800 }
 .student-card { grid-column:span 2; display:flex; gap:22px; align-items:flex-start }
 .student-card-photo { display:grid; place-items:center; flex:0 0 112px; width:112px; height:112px; border-radius:50%; overflow:hidden; background:var(--ui-blue); color:#fff; font-size:34px; font-weight:700 }
@@ -104,7 +123,7 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .student-card-grid .wide { grid-column:1/-1 }
 .student-card-grid > div { background:var(--ui-surface); border:1px solid var(--ui-border); border-radius:8px; padding:10px 14px }
 .student-card-grid dt { text-transform:uppercase; letter-spacing:.03em }
-@media (max-width:700px) { .admin-summary-grid { grid-template-columns:1fr } .student-card { grid-column:auto; flex-direction:column; align-items:center; text-align:center } .student-card-head { justify-content:center } .student-card-grid { text-align:left; width:100% } }
+@media (max-width:700px) { .student-card { grid-column:auto; flex-direction:column; align-items:center; text-align:center } .student-card-head { justify-content:center } .student-card-grid { text-align:left; width:100% } }
 .admin-table-wrap { overflow:auto; background:var(--ui-surface-strong); border:1px solid #e5ebf4; border-radius:16px; padding:18px; box-shadow:0 8px 24px rgba(7,27,58,.06) }
 .admin-table-wrap + .admin-table-wrap { margin-top:18px; }
 .admin-section-title { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 14px; }
@@ -117,11 +136,14 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .admin-table-wrap tbody tr:nth-child(even) td,
 .card table tbody tr:nth-child(even) td { background:#f7f9fc; }
 .table-action-menu { position:relative; display:inline-block; }
-.table-action-toggle { display:grid; place-items:center; width:32px; height:32px; padding:0 0 3px; border:1px solid #c9d5e5; border-radius:50%; background:#fff; color:var(--ui-blue-dark); cursor:pointer; font-family:Arial,'Helvetica Neue',sans-serif; font-size:20px; line-height:1; letter-spacing:2px; transition:transform .15s ease, background .15s ease, box-shadow .15s ease; }
+.table-action-toggle { display:grid; place-items:center; width:32px; height:32px; padding:0; border:1px solid #c9d5e5; border-radius:50%; background:#fff; color:var(--ui-blue-dark); cursor:pointer; transition:transform .15s ease, background .15s ease, box-shadow .15s ease; }
+.table-action-toggle svg { width:18px; height:18px; fill:currentColor; }
 .table-action-toggle:hover,.table-action-toggle:focus-visible { background:#eaf1ff; outline:2px solid #9dbcf4; outline-offset:1px; transform:scale(1.12); box-shadow:0 3px 8px rgba(7,27,58,.14); }
-.table-action-dropdown { position:fixed; z-index:20; display:grid; min-width:130px; padding:5px; border:1px solid var(--ui-border); border-radius:10px; background:var(--ui-surface-strong); box-shadow:0 8px 22px rgba(7,27,58,.16); }
+.table-action-dropdown { position:fixed; z-index:20; display:grid; gap:4px; min-width:130px; padding:5px; border:1px solid var(--ui-border); border-radius:10px; background:var(--ui-surface-strong); box-shadow:0 8px 22px rgba(7,27,58,.16); }
 .table-action-dropdown.hidden { display:none; }
-.table-action-dropdown > button,.table-action-dropdown > a { display:block !important; width:100% !important; min-width:0 !important; box-sizing:border-box; margin:0 !important; border:0; border-radius:7px; background:transparent; color:var(--ui-text); padding:8px 10px !important; text-align:left !important; text-decoration:none; white-space:nowrap; cursor:pointer; }
+/* Drawn as a mask in the text colour, on ::before, so it survives code that rewrites the label (withBusy). */
+.table-action-dropdown > [data-action-icon]::before { content:''; flex:none; width:15px; height:15px; background:currentColor; -webkit-mask:var(--action-icon) center/contain no-repeat; mask:var(--action-icon) center/contain no-repeat; }
+.table-action-dropdown > button,.table-action-dropdown > a { display:flex !important; align-items:center; gap:8px; width:100% !important; min-width:0 !important; box-sizing:border-box; margin:0 !important; border:0; border-radius:7px; background:transparent; color:var(--ui-text); padding:8px 10px !important; text-align:left !important; text-decoration:none; white-space:nowrap; cursor:pointer; }
 .table-action-dropdown > button:hover,.table-action-dropdown > button:focus-visible,.table-action-dropdown > a:hover,.table-action-dropdown > a:focus-visible { background:#eaf1ff; color:var(--ui-blue-dark); outline:0; }
 .admin-table-wrap td { border-bottom:1px solid #d3dce8; }
 .admin-view,.admin-remove,.admin-approve { display:inline-block; border:0; border-radius:9px; padding:7px 10px; margin-right:5px; cursor:pointer; font-size:12px; font-weight:600; line-height:1.3; text-decoration:none; white-space:nowrap }
@@ -632,10 +654,11 @@ body.has-app-sidebar > .app-sidebar { position:fixed; inset:0 auto 0 0; z-index:
 .audit-export-controls input { margin:0; padding:8px; border:1px solid #b9c8dc; border-radius:5px; color:var(--ui-text); }
 .audit-export-note { color:var(--ui-muted); font-size:12px; }
 .audit-events-table { table-layout:fixed; }
-.audit-events-table th:nth-child(1), .audit-events-table td:nth-child(1) { width:19%; }
-.audit-events-table th:nth-child(2), .audit-events-table td:nth-child(2) { width:17%; }
-.audit-events-table th:nth-child(3), .audit-events-table td:nth-child(3) { width:18%; }
-.audit-events-table th:nth-child(4), .audit-events-table td:nth-child(4) { width:46%; }
+.audit-events-table th:nth-child(1), .audit-events-table td:nth-child(1) { width:16%; }
+.audit-events-table th:nth-child(2), .audit-events-table td:nth-child(2) { width:15%; }
+.audit-events-table th:nth-child(3), .audit-events-table td:nth-child(3) { width:14%; overflow-wrap:anywhere; }
+.audit-events-table th:nth-child(4), .audit-events-table td:nth-child(4) { width:14%; }
+.audit-events-table th:nth-child(5), .audit-events-table td:nth-child(5) { width:41%; }
 .audit-details-desktop { overflow-wrap:anywhere; }
 .audit-details-mobile { display:none; white-space:pre-line; }
 .audit-print-area { display:none; }
@@ -808,6 +831,7 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 #maintenance-notices { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:min(360px,calc(100% - 32px)); }
 .login-notice-card { padding:18px 22px; border-radius:10px; background:rgba(9,28,60,.78); border:1px solid rgba(255,255,255,.3); color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.55); max-height:70vh; overflow:auto; }
 .login-notice-tag { color:#ffd479; text-transform:uppercase; letter-spacing:.08em; font-size:12px; }
+.login-panel .login-notice, .login-notice { display:block; width:100%; padding:0; border:0; border-radius:0; box-shadow:none; background:none; color:inherit; font:inherit; text-align:left; text-shadow:inherit; cursor:pointer; }
 .login-notice + .login-notice { margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,.3); }
 .login-notice strong { display:block; font-size:15px; }
 .login-notice-date { display:block; margin-top:8px; text-align:right; font-size:12px; opacity:.85; }
@@ -860,6 +884,8 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .mail-row:hover, .mail-row:focus-visible { background:#f6f9fd; }
 .mail-row.urgent { background:#fffaf0; border-left-color:#e0961a; }
 .mail-row.urgent:hover { background:#fff3dc; }
+.mail-row.notice { background:#f3fbf5; border-left-color:#2f9e5b; }
+.mail-row.notice:hover { background:#e4f6ea; }
 .mail-main { display:flex; flex-direction:column; min-width:0; gap:3px; }
 .mail-top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
 .mail-date { color:#64748b; font-size:12px; white-space:nowrap; }
@@ -891,7 +917,13 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .mail-meta small { display:flex; align-items:center; color:#64748b; }
 .mail-body { padding-top:14px; white-space:pre-wrap; font-size:15px; line-height:1.55; max-height:60vh; overflow:auto; }
 .announcement-item.urgent { background:#fff7e6; border-left:4px solid #e0961a; padding-left:12px; }
+.priority-high { background:#fee2e2 !important; color:#991b1b !important; }
+.priority-medium { background:#fef3c7 !important; color:#92400e !important; }
+.priority-low { background:#dcfce7 !important; color:#166534 !important; }
+.feedback-row { cursor:pointer; }
+.feedback-row:hover td { background:#eef4fd !important; }
 .urgent-badge { background:#fde7b0 !important; color:#7a4d00 !important; }
+.notice-badge { background:#c9f0d6 !important; color:#14532d !important; }
 .rte { border:1px solid #cbd5e1; border-radius:10px; background:#fff; overflow:hidden; }
 .rte:focus-within { border-color:#2864c7; box-shadow:0 0 0 3px rgba(40,100,199,.15); }
 .rte-bar { display:flex; align-items:center; gap:2px; padding:5px 6px; background:#fff; border-bottom:1px solid #e2e8f0; overflow-x:auto; }
@@ -941,6 +973,18 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .lunch-group-title { grid-column:1 / -1; font-size:13px; font-weight:700; color:var(--ui-blue-dark); }
 .lunch-group-title small { font-size:12px; font-weight:500; color:var(--ui-muted); }
 .lunch-save { height:42px; min-width:120px; padding:0 22px; }
+/* Recent Changes (Audit Trail): two-line cells, so keep the vertical padding tight. */
+#restore-changes-host > table td { padding-top:3px !important; padding-bottom:3px !important; line-height:1.3; }
+#restore-changes-host > table td small { line-height:1.2; }
+.scale-form { display:grid; grid-template-columns:minmax(150px,220px) minmax(0,1fr) auto; gap:16px 24px; align-items:end; margin-top:14px; }
+.scale-form .lunch-year { align-self:start; }
+.admin-table-wrap .scale-table { width:100%; margin:0; }
+.admin-table-wrap .scale-table td { padding:4px 8px; }
+.scale-table input { width:100%; max-width:240px; height:34px; padding:0 10px; box-sizing:border-box; border:1px solid var(--ui-border); border-radius:8px; font:inherit; }
+.scale-table input[data-scale-min] { max-width:80px; }
+.scale-table input[data-scale-letter] { max-width:64px; text-align:center; text-transform:uppercase; }
+.scale-table small { color:var(--ui-muted); }
+@media (max-width:900px) { .scale-form { grid-template-columns:1fr; } }
 .lunch-card .admin-note { margin:12px 0 0; }
 @media (max-width:900px) { .lunch-form { grid-template-columns:1fr; } .lunch-save { width:100%; } }
 .schedule-gap td { background:#f3f7fd; color:#64748b; font-size:13px; font-style:italic; text-align:center; letter-spacing:.02em; }
@@ -1212,6 +1256,50 @@ export function applyUiTheme() {
   installModalBehaviour()
 }
 
+// Icon per action menu button, picked from its label; the first matching pattern wins (so "View / Edit" gets the pencil).
+const ACTION_ICONS = [
+  [/password/i, '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>'],
+  [
+    /delete|deactivate|remove/i,
+    '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
+  ],
+  [/restore|revert|undo/i, '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'],
+  [/approve|confirm|accept|activate/i, '<path d="M20 6 9 17l-5-5"/>'],
+  [/reject|decline|cancel/i, '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'],
+  [
+    /print/i,
+    '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/>'
+  ],
+  [/download|pdf/i, '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>'],
+  [
+    /transcript|report card|record/i,
+    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8"/>'
+  ],
+  [/unlock/i, '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>'],
+  [/lock|submit/i, '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'],
+  [/edit|correct|update/i, '<path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>'],
+  [/view|review|detail|history|open/i, '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'],
+  [/attendance/i, '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/>'],
+  [/grade/i, '<path d="M3 3v18h18"/><path d="M8 17v-5M13 17V8M18 17v-3"/>'],
+  [
+    /assign|place|provision|add|enrol/i,
+    '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>'
+  ],
+  [
+    /student|class|member/i,
+    '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>'
+  ],
+  [
+    /pin/i,
+    '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>'
+  ],
+  [/resume/i, '<path d="m6 3 14 9-14 9Z"/>'],
+  [/copy/i, '<rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"/>']
+]
+const ACTION_ICON_FALLBACK = '<path d="m9 18 6-6-6-6"/>'
+const actionIconSvg = paths =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
+
 function installTableActionMenus() {
   if (window.__tcsmsTableActionMenusInstalled) return
   window.__tcsmsTableActionMenusInstalled = true
@@ -1233,10 +1321,17 @@ function installTableActionMenus() {
       toggle.className = 'table-action-toggle'
       toggle.setAttribute('aria-label', 'Show actions')
       toggle.setAttribute('aria-expanded', 'false')
-      toggle.textContent = '⋯'
+      // Drawn dots, not the '⋯' character: the font's glyph sat about 1px left of the circle's centre.
+      toggle.innerHTML =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>'
       const dropdown = document.createElement('span')
       dropdown.className = 'table-action-dropdown hidden'
-      actions.forEach(action => dropdown.appendChild(action))
+      actions.forEach(action => {
+        const icon = ACTION_ICONS.find(([pattern]) => pattern.test(action.textContent))?.[1] || ACTION_ICON_FALLBACK
+        action.dataset.actionIcon = ''
+        action.style.setProperty('--action-icon', `url("data:image/svg+xml,${encodeURIComponent(actionIconSvg(icon))}")`)
+        dropdown.appendChild(action)
+      })
       menu.append(toggle, dropdown)
       // Append, not replace: only the buttons/links move into the menu, so anything else in the cell
       // (e.g. the Remarks input next to "Request correction" on a locked grade row) stays visible.

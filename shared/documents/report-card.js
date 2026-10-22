@@ -1,8 +1,9 @@
 // report-card.js
 import { escapeHtml } from '../lib/html.js'
-import { generalAverage } from '../lib/grades.js'
+import { generalAverage, scaleFor, PASSING_GRADE } from '../lib/grades.js'
 
-export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, academicRows = [], attendance, remarks }) {
+export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, academicRows = [], attendance, remarks, scale }) {
+  const bands = scale || scaleFor(schoolYear)
   // 1. Exclude any duplicate database row where subject is named "General Average"
   const cleanRows = (academicRows || []).filter(r => {
     const sub = (r.subject || '').trim().toLowerCase()
@@ -132,16 +133,21 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
         </table>
 
         <div class="grading-scale-container" style="margin-top: 35px; width: 100%;">
-          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; text-align: center; font-size: 10pt;">
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; text-align: center; font-size: 10pt;">
             <div style="font-weight: bold;">Description</div>
             <div style="font-weight: bold;">Grading Scale</div>
+            <div style="font-weight: bold;">Letter</div>
             <div style="font-weight: bold;">Remarks</div>
-
-            <div>Outstanding</div><div>90-100</div><div>Passed</div>
-            <div>Very Satisfactory</div><div>85-89</div><div>Passed</div>
-            <div>Satisfactory</div><div>80-84</div><div>Passed</div>
-            <div>Fairly Satisfactory</div><div>75-79</div><div>Passed</div>
-            <div>Did Not Meet Expectations</div><div>Below 75</div><div>Failed</div>
+            ${bands
+              .map(
+                (band, index) =>
+                  `<div>${escapeHtml(band.descriptor)}</div><div>${
+                    index === bands.length - 1
+                      ? `Below ${bands[index - 1]?.min ?? PASSING_GRADE}`
+                      : `${band.min}-${index === 0 ? 100 : bands[index - 1].min - 1}`
+                  }</div><div>${escapeHtml(band.letter)}</div><div>${band.min >= PASSING_GRADE ? 'Passed' : 'Failed'}</div>`
+              )
+              .join('')}
           </div>
         </div>
 

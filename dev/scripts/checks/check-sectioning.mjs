@@ -65,7 +65,7 @@ assert.equal(crowded.unplaced.length, 9)
 assert.ok(crowded.unplaced.every(row => row.reason.includes('full')))
 
 // A grade with no section reports every student instead of placing them nowhere.
-const noSection = planBalancedAssignments({ students: makeStudents(4, 2, 2), sections, random: seeded(1) })
+const noSection = planBalancedAssignments({ students: makeStudents(10, 2, 2), sections, random: seeded(1) })
 assert.equal(noSection.assignments.length, 0)
 assert.equal(noSection.unplaced.length, 4)
 
@@ -93,7 +93,7 @@ assert.ok(
 )
 assert.ok(!roster.some(student => student.student_id === 10500), 'students already in the section must be hidden')
 
-assert.deepEqual(AUTO_ASSIGN_GRADES, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+assert.deepEqual(AUTO_ASSIGN_GRADES, [7, 8, 9, 10])
 
 // Only the chosen grade levels run, and excluded students stay put.
 const subset = planBalancedAssignments({

@@ -1,6 +1,6 @@
 -- TCSMS consolidated database backup.
 -- Run this file in Supabase SQL Editor as the single, complete database setup.
--- Source order: base schema, then migrations v2-v39 in order (each block is wrapped in BEGIN/END markers).
+-- Source order: base schema, then migrations v2-v44 in order (each block is wrapped in BEGIN/END markers).
 
 
 -- ============================================================
@@ -3871,3 +3871,361 @@ end $$;
 notify pgrst, 'reload schema';
 commit;
 -- END migration-v39-quarter-corrections-one-pending-promotion.sql
+
+
+-- ============================================================================
+-- BEGIN migration-v40-grade-levels-offered.sql  (applied live 2026-10-22)
+-- The school offers Grades 7-12 only (Kindergarten to Grade 6 are out of scope), with room to add grades back
+-- later without code changes.
+-- 1. grade_levels: one row per grade (0 = Kindergarten .. 12) with an "offered" switch; 7-12 start on. The
+--    app's grade pickers list only offered grades (shared/lib/grade-levels.js). To add grades back:
+--      update grade_levels set offered = true where grade_level between 0 and 6;
+-- 2. Removes the existing Kindergarten-Grade 6 data (agreed 2026-10-22, no real users yet): those students
+--    with their logins, grades, attendance and enrollments; K-6 admission applications and requests; K-6
+--    sections that no remaining student's history points to; K-6 grades on subjects.
+--    Run dev/backups/snapshot-2026-10-22.sql first so restore-2026-10-22.sql can undo it.
+-- 3. New sections, students, admission applications and promotion requests must use an offered grade
+--    (one trigger; saved rows are only checked when their grade changes).
+-- ============================================================================
+begin;
+
+-- ---------- 1. Offered grade levels ----------
+create table if not exists grade_levels (
+  grade_level integer primary key check (grade_level between 0 and 12),
+  offered boolean not null default false
+);
+insert into grade_levels (grade_level, offered)
+select g, g >= 7 from generate_series(0, 12) g
+on conflict (grade_level) do nothing;
+alter table grade_levels enable row level security;
+drop policy if exists grade_levels_read on grade_levels;
+create policy grade_levels_read on grade_levels for select to authenticated using ((select current_app_role()) in (1,2,3,4));
+drop policy if exists grade_levels_admin on grade_levels;
+create policy grade_levels_admin on grade_levels for all to authenticated
+  using ((select current_app_role()) = 1) with check ((select current_app_role()) = 1);
+grant select, insert, update, delete on grade_levels to authenticated;
+
+-- "Grade 7", "7" or "Kindergarten" -> 7 / 0 (admission_applications.grade_level is text).
+create or replace function grade_number(p_value text) returns integer language sql immutable set search_path = public as $$
+  select case when p_value ilike 'kinder%' then 0 else substring(p_value from '\d+')::integer end
+$$;
+
+-- ---------- 2. Remove Kindergarten-Grade 6 data ----------
+create temp table gone_students on commit drop as
+  select student_id as id from students where grade_level in (select grade_level from grade_levels where not offered);
+create temp table gone_users on commit drop as
+  select user_id as id, lower(email) as email from users where student_id in (select id from gone_students);
+
+-- Requests carry ids inside payload (not foreign keys), so nothing cascades to them.
+delete from approval_requests
+where (payload->>'student_id')::integer in (select id from gone_students)
+   or (payload->>'target_user_id')::integer in (select id from gone_users)
+   or (request_type = 'promotion' and (payload->>'grade_level')::integer in (select grade_level from grade_levels where not offered));
+delete from admission_applications where grade_number(grade_level) in (select grade_level from grade_levels where not offered);
+delete from notifications where recipient_user_id in (select id from gone_users);
+
+-- The lock trigger blocks deleting locked grades, so unlock them first (only the lock flag may change on a locked row).
+update academic_history set locked = false where locked and student_id in (select id from gone_students);
+delete from users where user_id in (select id from gone_users);
+delete from auth.users where lower(email) in (select email from gone_users);
+-- Not every live foreign key to students cascades (live attendance_student_id_fkey does not, unlike this
+-- file), so first clear every reference that would block the delete: remove the row, or blank the column
+-- when it is optional. The cascading ones (enrollments, grades, ...) then go with the student.
+do $$
+declare fk record;
+begin
+  for fk in
+    select c.conrelid::regclass as tbl, a.attname as col, a.attnotnull as required
+    from pg_constraint c join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+    where c.contype = 'f' and c.confrelid = 'public.students'::regclass and c.confdeltype in ('a', 'r')
+  loop
+    if fk.required then
+      execute format('delete from %s where %I in (select id from gone_students)', fk.tbl, fk.col);
+    else
+      execute format('update %s set %I = null where %I in (select id from gone_students)', fk.tbl, fk.col, fk.col);
+    end if;
+  end loop;
+end $$;
+delete from students where student_id in (select id from gone_students);
+
+-- K-6 sections go, except those a remaining student's history still points to (e.g. last year's Grade 6
+-- section of today's Grade 7 students): those deletes fail on the enrollment foreign key and are skipped.
+do $$
+declare s record;
+begin
+  for s in select section_id from sections where grade_level in (select grade_level from grade_levels where not offered) loop
+    begin
+      delete from sections where section_id = s.section_id;
+    exception when foreign_key_violation then null;
+    end;
+  end loop;
+end $$;
+
+update subjects set grade_level = array(select g from unnest(grade_level) g where g in (select grade_level from grade_levels where offered) order by g)
+where grade_level && array(select grade_level from grade_levels where not offered)
+  and grade_level && array(select grade_level from grade_levels where offered);
+
+-- Housekeeping for this transaction only: the removed sections' timetables raised "Teaching load updated"
+-- notices, and every deleted row was copied to change_snapshots (Audit Trail > Restore Changes). The
+-- database snapshot is the undo for this cleanup, so neither is kept.
+delete from notifications where title = 'Teaching load updated' and created_at = now();
+delete from change_snapshots where change_group = txid_current();
+
+-- ---------- 3. New rows must use an offered grade ----------
+create or replace function require_offered_grade() returns trigger language plpgsql set search_path = public as $$
+declare row_data jsonb := to_jsonb(new); raw text; grade integer;
+begin
+  raw := case when tg_table_name = 'approval_requests'
+    then case when row_data->>'request_type' = 'promotion' then row_data->'payload'->>'grade_level' end
+    else row_data->>'grade_level' end;
+  if tg_op = 'UPDATE' and raw is not distinct from to_jsonb(old)->>'grade_level' then return new; end if;
+  grade := grade_number(raw);
+  if grade is not null and not exists (select 1 from grade_levels where grade_level = grade and offered) then
+    raise exception '% is not offered by the school', case when grade = 0 then 'Kindergarten' else 'Grade ' || grade end;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists sections_offered_grade on sections;
+create trigger sections_offered_grade before insert or update of grade_level on sections
+  for each row execute function require_offered_grade();
+drop trigger if exists students_offered_grade on students;
+create trigger students_offered_grade before insert or update of grade_level on students
+  for each row execute function require_offered_grade();
+drop trigger if exists admission_applications_offered_grade on admission_applications;
+create trigger admission_applications_offered_grade before insert or update of grade_level on admission_applications
+  for each row execute function require_offered_grade();
+drop trigger if exists approval_requests_offered_grade on approval_requests;
+create trigger approval_requests_offered_grade before insert on approval_requests
+  for each row execute function require_offered_grade();
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v40-grade-levels-offered.sql
+
+-- Check (run separately afterwards): offered grades, and anything left below Grade 7.
+-- select grade_level, offered from grade_levels order by grade_level;
+-- select 'students' as what, count(*) from students where grade_level < 7
+-- union all select 'sections (kept as history)', count(*) from sections where grade_level < 7;
+
+
+-- ============================================================
+-- BEGIN migration-v41-storage-upload-limits.sql  (applied live 2026-10-22)
+-- File type and size were only checked in the browser, so anyone calling Storage directly could upload any
+-- file of any size. The buckets now enforce the same limits as the forms:
+--   profile-pictures: PNG/JPEG/WebP up to 3 MB; admission-documents: PDF/JPEG/PNG up to 5 MB.
+-- profile_pictures_read let anyone LIST every file in the public bucket. Public URLs (getPublicUrl) work
+-- without it, and no code lists, removes or upserts profile pictures, so it is dropped.
+-- ============================================================================
+begin;
+update storage.buckets set file_size_limit = 3145728, allowed_mime_types = array['image/png', 'image/jpeg', 'image/webp']
+  where id = 'profile-pictures';
+update storage.buckets set file_size_limit = 5242880, allowed_mime_types = array['application/pdf', 'image/jpeg', 'image/png']
+  where id = 'admission-documents';
+drop policy if exists profile_pictures_read on storage.objects;
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v41-storage-upload-limits.sql
+
+-- Check (run separately afterwards): limits set, read policy gone.
+-- select id, public, file_size_limit, allowed_mime_types from storage.buckets where id in ('profile-pictures', 'admission-documents');
+-- select policyname from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname like 'profile_pictures%';
+
+
+-- ============================================================
+-- BEGIN migration-v42-audit-user-and-ip.sql  (applied live 2026-10-22)
+-- Every new audit entry records the signed-in user's ID and the caller's IP address, and the username when
+-- the writing function left "actor" empty. Older entries stay as they were (no user ID / IP).
+-- request_ip() is shared with the login lookup throttle (v45). It prefers cf-connecting-ip (set by the proxy
+-- in front of Supabase, not by the browser) over the first x-forwarded-for entry, which a client can fake.
+-- Cron and archive jobs have no request, so they record no user and no IP.
+-- archive_audit_logs() lists its columns, so it is updated to carry the two new ones into the archive.
+-- ============================================================================
+begin;
+alter table audit_logs add column if not exists actor_user_id integer, add column if not exists ip_address text;
+
+create or replace function request_ip()
+returns text language sql stable set search_path = public as $$
+  select nullif(trim(coalesce(h ->> 'cf-connecting-ip', split_part(h ->> 'x-forwarded-for', ',', 1))), '')
+  from (select nullif(current_setting('request.headers', true), '')::json as h) request
+$$;
+
+create or replace function fill_audit_actor()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare uid integer; uname text;
+begin
+  select user_id, username into uid, uname from users where lower(email) = lower(auth.jwt() ->> 'email');
+  new.actor_user_id := coalesce(new.actor_user_id, uid);
+  new.actor := coalesce(new.actor, uname);
+  new.ip_address := coalesce(new.ip_address, request_ip());
+  return new;
+end $$;
+drop trigger if exists audit_logs_fill_actor on audit_logs;
+create trigger audit_logs_fill_actor before insert on audit_logs for each row execute function fill_audit_actor();
+revoke execute on function request_ip() from public, anon, authenticated;
+revoke execute on function fill_audit_actor() from public, anon, authenticated;
+
+create or replace function archive_audit_logs(p_archive_date date default (current_date - 1))
+returns integer language plpgsql security definer set search_path = public as $$
+declare archived_count integer;
+begin
+  insert into audit_log_archives(archive_date, events, archived_at)
+  select p_archive_date, coalesce(jsonb_agg(to_jsonb(row) order by row.created_at), '[]'::jsonb), now()
+  from (
+    select id, actor, actor_user_id, ip_address, action, entity_type, entity_id, details, created_at
+    from audit_logs
+    where created_at >= p_archive_date::timestamptz
+      and created_at < (p_archive_date + 1)::timestamptz
+  ) row
+  on conflict (archive_date) do update
+    set events = excluded.events, archived_at = excluded.archived_at;
+
+  delete from audit_logs
+  where created_at >= p_archive_date::timestamptz
+    and created_at < (p_archive_date + 1)::timestamptz;
+  get diagnostics archived_count = row_count;
+  return archived_count;
+end $$;
+revoke execute on function archive_audit_logs(date) from public, anon, authenticated;
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v42-audit-user-and-ip.sql
+
+-- Check (run separately afterwards): the newest entries after any audited action in the app.
+-- select created_at, actor, actor_user_id, ip_address, action from audit_logs order by created_at desc limit 5;
+
+
+-- ============================================================
+-- BEGIN migration-v43-feedback-fixed-proof.sql  (applied live 2026-10-22)
+-- Registrar Feedback items can be marked fixed from the admin dashboard, with a required reason and up to 3
+-- proof files (PDF/JPEG/PNG, 5 MB each) kept in the private feedback-proofs bucket. Open items stay in the
+-- main list; fixed ones move to the "Fixed" window. Existing rows become 'open'. The existing audit trigger on
+-- registrar_feedback records the change, and the v42 trigger adds who and from where.
+-- ============================================================================
+begin;
+alter table registrar_feedback
+  add column if not exists status text not null default 'open',
+  add column if not exists fixed_reason text,
+  add column if not exists fixed_by text,
+  add column if not exists fixed_at timestamptz,
+  add column if not exists proof_files jsonb not null default '[]'::jsonb;
+alter table registrar_feedback drop constraint if exists registrar_feedback_status_check;
+alter table registrar_feedback add constraint registrar_feedback_status_check check (status in ('open', 'fixed'));
+alter table registrar_feedback drop constraint if exists registrar_feedback_fixed_needs_reason;
+alter table registrar_feedback add constraint registrar_feedback_fixed_needs_reason
+  check (status = 'open' or length(trim(coalesce(fixed_reason, ''))) > 0);
+
+insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
+  values ('feedback-proofs', 'feedback-proofs', false, 5242880, array['application/pdf', 'image/jpeg', 'image/png'])
+  on conflict (id) do update set file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists feedback_proofs_upload on storage.objects;
+create policy feedback_proofs_upload on storage.objects for insert to authenticated
+  with check (bucket_id = 'feedback-proofs' and (select current_app_role()) = any (array[1, 2]));
+drop policy if exists feedback_proofs_read on storage.objects;
+create policy feedback_proofs_read on storage.objects for select to authenticated
+  using (bucket_id = 'feedback-proofs' and (select current_app_role()) = any (array[1, 2]));
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v43-feedback-fixed-proof.sql
+
+-- Check (run separately afterwards): new columns and bucket.
+-- select status, count(*) from registrar_feedback group by status;
+-- select id, public, file_size_limit from storage.buckets where id = 'feedback-proofs';
+
+
+-- ============================================================
+-- BEGIN migration-v44-grading-scales.sql  (written 2026-10-22, NOT yet applied live)
+-- The letter-grade scale is set per school year by the admin (Manage Subjects > Grading scale), so a past
+-- year keeps the scale it was graded under. bands: highest first, [{min, letter, descriptor}], the last band
+-- min 0. Everyone signed in reads it (faculty letters, report cards); only admins change it.
+-- Saving a year's scale relabels that year's stored letter grades (trigger below). The locked-record guard
+-- lets only that relabel through: it sets app.regrading for its own transaction, and the guard then
+-- ignores a change to letter_grade alone. Scores stay locked.
+-- Every known school year starts on the DepEd bands (90/85/80/75); seeding them relabels the existing
+-- grades too (agreed 2026-10-22, no real users yet).
+-- ============================================================================
+begin;
+create table if not exists grading_scales (
+  school_year text primary key,
+  bands jsonb not null,
+  updated_at timestamptz not null default now(),
+  updated_by text,
+  constraint grading_scales_bands_check check (jsonb_typeof(bands) = 'array' and jsonb_array_length(bands) between 2 and 10)
+);
+alter table grading_scales enable row level security;
+revoke all on grading_scales from anon;
+drop policy if exists grading_scales_read on grading_scales;
+create policy grading_scales_read on grading_scales for select to authenticated
+  using ((select current_app_role()) in (1, 2, 3, 4));
+drop policy if exists grading_scales_admin on grading_scales;
+create policy grading_scales_admin on grading_scales for all to authenticated
+  using ((select current_app_role()) = 1) with check ((select current_app_role()) = 1);
+drop trigger if exists grading_scales_audit on grading_scales;
+create trigger grading_scales_audit after insert or update or delete on grading_scales
+  for each row execute function audit_row_change('school_year');
+
+create or replace function protect_locked_academic_record()
+returns trigger language plpgsql as $$
+begin
+  if old.locked then
+    if tg_op='DELETE' then raise exception 'Unlock the academic record before deleting it'; end if;
+    -- A grading-scale relabel may change the letter only; every score stays locked.
+    if current_setting('app.regrading', true) = 'on'
+       and (to_jsonb(new)-'locked'-'letter_grade') is not distinct from (to_jsonb(old)-'locked'-'letter_grade') then
+      return new;
+    end if;
+    if (to_jsonb(new)-'locked') is distinct from (to_jsonb(old)-'locked') then
+      raise exception 'Unlock the academic record before changing its grades';
+    end if;
+  end if;
+  if tg_op='DELETE' then return old; end if;
+  return new;
+end $$;
+
+create or replace function regrade_letters_for_scale()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  perform set_config('app.regrading', 'on', true);
+  update academic_history h
+  set letter_grade = (
+    select band ->> 'letter' from jsonb_array_elements(new.bands) band
+    where h.grade >= (band ->> 'min')::numeric
+    order by (band ->> 'min')::numeric desc
+    limit 1
+  )
+  where h.school_year = new.school_year and h.grade is not null;
+  perform set_config('app.regrading', 'off', true);
+  return new;
+end $$;
+revoke execute on function regrade_letters_for_scale() from public, anon, authenticated;
+drop trigger if exists grading_scales_regrade on grading_scales;
+create trigger grading_scales_regrade after insert or update of bands on grading_scales
+  for each row execute function regrade_letters_for_scale();
+
+insert into grading_scales (school_year, bands)
+select years.school_year, '[
+  {"min": 90, "letter": "A", "descriptor": "Outstanding"},
+  {"min": 85, "letter": "B", "descriptor": "Very Satisfactory"},
+  {"min": 80, "letter": "C", "descriptor": "Satisfactory"},
+  {"min": 75, "letter": "D", "descriptor": "Fairly Satisfactory"},
+  {"min": 0, "letter": "F", "descriptor": "Did Not Meet Expectations"}
+]'::jsonb
+from (
+  select school_year from academic_history
+  union select school_year from enrollments
+  union select school_year from school_year_settings
+  union select academic_year from sections
+) years
+where years.school_year is not null
+on conflict (school_year) do nothing;
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v44-grading-scales.sql
+
+-- Check (run separately afterwards): one scale per year, and letters spread across A-F.
+-- select school_year, jsonb_array_length(bands) from grading_scales order by school_year;
+-- select letter_grade, count(*) from academic_history group by letter_grade order by letter_grade;

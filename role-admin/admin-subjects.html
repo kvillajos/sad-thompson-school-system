@@ -37,6 +37,26 @@
           </tbody>
         </table>
       </section>
+      <section class="admin-table-wrap lunch-card scale-card">
+        <div class="admin-section-title">
+          <div><h3>Grading scale</h3></div>
+        </div>
+        <form id="scale-form" class="scale-form">
+          <label class="lunch-year">School year<select id="scale-year"></select></label>
+          <table class="scale-table" data-no-sort>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>From</th>
+                <th>Letter</th>
+              </tr>
+            </thead>
+            <tbody id="scale-rows"></tbody>
+          </table>
+          <button class="admin-primary lunch-save" type="submit">Save scale</button>
+        </form>
+        <p class="admin-note" id="scale-note"></p>
+      </section>
     </main>
     <div id="subject-modal" class="admin-modal hidden">
       <div class="admin-modal-box">

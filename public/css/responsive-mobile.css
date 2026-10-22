@@ -560,32 +560,6 @@
     background: #fff !important;
   }
 
-  /* Keep the three dashboard totals side by side on narrow screens. */
-  body.admin-shell .admin-summary-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    gap: 8px !important;
-    width: 100% !important;
-  }
-
-  body.admin-shell .admin-summary-grid > .card {
-    min-width: 0 !important;
-    padding: 12px 8px !important;
-    text-align: center !important;
-  }
-
-  body.admin-shell .admin-summary-grid > .card small {
-    display: block;
-    font-size: 11px !important;
-    line-height: 1.2;
-    white-space: nowrap;
-  }
-
-  body.admin-shell .admin-summary-grid > .card .stat {
-    margin-top: 5px;
-    font-size: clamp(20px, 7vw, 28px) !important;
-    line-height: 1.1;
-  }
-
   /* Show announcements as compact, readable cards instead of a wide table. */
   body.admin-shell .admin-announcements {
     min-width: 0 !important;
@@ -1105,9 +1079,9 @@
 
     border-radius: 5px;
 
-    background: #dff2ff;
+    background: #dcfce7;
 
-    color: #1674a5;
+    color: #166534;
 
     font-size: 8px;
 
@@ -1871,7 +1845,7 @@
    ========================================== */
 
   @media (max-width: 700px) {
-    body.admin-shell:has(#count-students) > main {
+    body.admin-shell:has(#approvals-table) > main {
       box-sizing: border-box;
       width: 100%;
       max-width: 100%;
@@ -1879,52 +1853,21 @@
       margin-left: 0;
     }
 
-    body.admin-shell:has(#count-students) .admin-page-head {
+    body.admin-shell:has(#approvals-table) .admin-page-head {
       margin-bottom: 16px;
       padding-right: 0;
     }
 
-    body.admin-shell:has(#count-students) .admin-page-head h2 {
+    body.admin-shell:has(#approvals-table) .admin-page-head h2 {
       font-size: 23px;
       line-height: 1.3;
       margin: 0;
     }
 
     /* Compact statistics cards */
-    body.admin-shell:has(#count-students) .admin-summary-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 18px;
-    }
-
-    body.admin-shell:has(#count-students) .admin-summary-grid .card {
-      box-sizing: border-box;
-      min-width: 0;
-      padding: 14px 12px;
-      border-radius: 14px;
-    }
-
-    body.admin-shell:has(#count-students) .admin-summary-grid .card:first-child {
-      grid-column: 1 / -1;
-    }
-
-    body.admin-shell:has(#count-students) .admin-summary-grid .card small {
-      display: block;
-      font-size: 12px;
-      line-height: 1.4;
-      overflow-wrap: anywhere;
-    }
-
-    body.admin-shell:has(#count-students) .admin-summary-grid .stat {
-      font-size: 27px;
-      line-height: 1.25;
-      overflow-wrap: anywhere;
-    }
-
     /* Approvals and announcements panels */
 
-    body.admin-shell:has(#count-students) .admin-table-wrap {
+    body.admin-shell:has(#approvals-table) .admin-table-wrap {
       box-sizing: border-box;
       width: 100%;
       max-width: 100%;
@@ -1936,43 +1879,43 @@
       border-radius: 14px;
     }
 
-    body.admin-shell:has(#count-students) .admin-section-title {
+    body.admin-shell:has(#approvals-table) .admin-section-title {
       align-items: flex-start;
       flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 12px;
     }
 
-    body.admin-shell:has(#count-students) .admin-section-title h3 {
+    body.admin-shell:has(#approvals-table) .admin-section-title h3 {
       font-size: 16px;
       line-height: 1.4;
     }
 
-    body.admin-shell:has(#count-students) #approval-filter {
+    body.admin-shell:has(#approvals-table) #approval-filter {
       box-sizing: border-box;
       width: 100%;
       min-width: 0;
       min-height: 42px;
     }
 
-    body.admin-shell:has(#count-students) .combo {
+    body.admin-shell:has(#approvals-table) .combo {
       width: 100%;
       max-width: 100%;
     }
 
-    body.admin-shell:has(#count-students) .admin-table-wrap > div[style*='overflow-x:auto'],
-    body.admin-shell:has(#count-students) .ann-table-scroll {
+    body.admin-shell:has(#approvals-table) .admin-table-wrap > div[style*='overflow-x:auto'],
+    body.admin-shell:has(#approvals-table) .ann-table-scroll {
       max-width: 100%;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
     }
 
-    body.admin-shell:has(#count-students) .admin-table-wrap table {
+    body.admin-shell:has(#approvals-table) .admin-table-wrap table {
       width: 100%;
       min-width: 0;
     }
 
-    body.admin-shell:has(#count-students) #add-announcement {
+    body.admin-shell:has(#approvals-table) #add-announcement {
       min-height: 42px;
       padding: 10px 14px;
       white-space: nowrap;
@@ -1981,61 +1924,20 @@
 
   /* Extra-narrow phones */
   @media (max-width: 360px) {
-    body.admin-shell:has(#count-students) > main {
+    body.admin-shell:has(#approvals-table) > main {
       padding-right: 9px;
       padding-left: 9px;
-    }
-
-    body.admin-shell:has(#count-students) .admin-summary-grid {
-      gap: 8px;
-    }
-
-    body.admin-shell:has(#count-students) .admin-summary-grid .stat {
-      font-size: 24px;
     }
   }
 
   /* Admin dashboard: stronger mobile card styling */
   @media (max-width: 700px) {
-    body.admin-shell:has(#count-students) .admin-summary-grid .card {
-      background: #ffffff;
-      border: 1px solid #dce6f2;
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 4px 14px rgba(16, 42, 67, 0.08);
-    }
-
-    body.admin-shell:has(#count-students) .admin-summary-grid .card:first-child {
-      border-top: 4px solid #2864c5;
-    }
-
-    body.admin-shell:has(#count-students) .admin-summary-grid .card:nth-child(2) {
-      border-top: 4px solid #16a085;
-    }
-
-    body.admin-shell:has(#count-students) .admin-summary-grid .card:nth-child(3) {
-      border-top: 4px solid #e5a323;
-    }
-
-    body.admin-shell:has(#count-students) .admin-summary-grid .card small {
-      color: #52647a;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    body.admin-shell:has(#count-students) .admin-summary-grid .stat {
-      color: #174ea6;
-      font-size: 30px;
-      font-weight: 800;
-      margin-top: 8px;
-    }
-
-    body.admin-shell:has(#count-students) .admin-table-wrap {
+    body.admin-shell:has(#approvals-table) .admin-table-wrap {
       border: 1px solid #dce6f2;
       box-shadow: 0 5px 18px rgba(16, 42, 67, 0.07);
     }
 
-    body.admin-shell:has(#count-students) .admin-section-title h3 {
+    body.admin-shell:has(#approvals-table) .admin-section-title h3 {
       color: #102a43;
       font-size: 17px;
       font-weight: 700;
@@ -2324,11 +2226,11 @@
       border-radius: 6px;
     }
 
-    /* NOTICE: blue label */
+    /* NOTICE: green label */
     body.admin-shell .admin-announcements .ann-type-cell:has(.ann-notice-label),
     body.admin-shell .admin-announcements .ann-mobile-kind.notice {
-      color: #075985 !important;
-      background: #e0f2fe !important;
+      color: #166534 !important;
+      background: #dcfce7 !important;
     }
 
     /* URGENT: high-contrast red label */
@@ -2709,10 +2611,6 @@
   }
 
   /* ADMIN MANAGE SUBJECTS - MOBILE CARDS */
-  body:has(#subjects-table) #subjects-table .subject-mobile-remove {
-    display: none !important;
-  }
-
   @media (max-width: 700px) {
     body:has(#subjects-table) .admin-table-wrap:has(#subjects-table) {
       width: 100% !important;
@@ -2809,15 +2707,6 @@
 
     body:has(#subjects-table) #subjects-table td[data-label='Actions'] button {
       margin: 3px 6px 3px 0;
-    }
-
-    body:has(#subjects-table) #subjects-table td[data-label='Actions'] .subject-mobile-remove {
-      display: inline-flex !important;
-      margin-right: 0;
-    }
-
-    body:has(#subjects-table) #subjects-table .subject-desktop-remove {
-      display: none !important;
     }
   }
 
@@ -4461,7 +4350,7 @@
     #restore-changes-host > table tbody {
       display: grid;
       width: 100%;
-      gap: 12px;
+      gap: 8px;
     }
 
     #restore-changes-host > table tbody tr {
@@ -4469,7 +4358,7 @@
       width: 100%;
       min-width: 0;
       box-sizing: border-box;
-      padding: 10px 14px;
+      padding: 4px 12px;
       border: 1px solid #dbe3ef;
       border-radius: 14px;
       background: #fff;
@@ -4484,10 +4373,10 @@
       width: 100%;
       min-width: 0;
       box-sizing: border-box;
-      padding: 9px 0;
+      padding: 5px 0;
       border-bottom: 1px solid #edf1f6;
       font-size: 12px;
-      line-height: 1.5;
+      line-height: 1.35;
       white-space: normal;
       overflow-wrap: anywhere;
     }
@@ -4503,7 +4392,7 @@
 
     #restore-changes-host > table tbody td[data-label='Action'] {
       display: block;
-      padding-top: 12px;
+      padding-top: 6px;
       border-bottom: 0;
     }
 
@@ -4687,8 +4576,8 @@
 
   body.admin-shell .admin-announcements .ann-mobile-kind .ann-notice-label,
   body.admin-shell .admin-announcements .ann-type-cell .ann-notice-label {
-    background: #e0f2fe !important;
-    color: #075985 !important;
+    background: #dcfce7 !important;
+    color: #166534 !important;
   }
 
   body.admin-shell .admin-announcements .ann-mobile-kind .urgent-badge,

@@ -32,8 +32,8 @@ const mobileNoticeHost = document.getElementById('mobile-maintenance-notices')
 async function refreshLoginNotices() {
   const notices = await loadMaintenanceNotices()
 
-  renderLoginNotices(desktopNoticeHost, notices)
-  renderLoginNotices(mobileNoticeHost, notices)
+  renderLoginNotices(desktopNoticeHost, notices, 120)
+  renderLoginNotices(mobileNoticeHost, notices, 25)
 }
 
 // Load immediately, then refresh every 60 seconds.
@@ -104,7 +104,8 @@ loginForm.addEventListener('submit', async e => {
     return
   }
   if (lookupError || !email) {
-    failLogin(LOGIN_FAILURE_MESSAGE, username, password)
+    // find_login_email's throttle (v45) raises a readable message; any other failure stays generic.
+    failLogin(/too many sign-in attempts/i.test(lookupError?.message) ? lookupError.message : LOGIN_FAILURE_MESSAGE, username, password)
     return
   }
 

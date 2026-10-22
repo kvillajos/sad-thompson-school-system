@@ -2,6 +2,7 @@ import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
 import { escapeHtml as escape, formatDate, errorRow, activeStatus } from '../shared/lib/html.js'
+import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { confirmPassword, withBusy } from '../shared/ui/shell.js'
 import { confirmDialog, noticeDialog } from '../shared/ui/dialog.js'
 import { describeError, describeFunctionError } from '../shared/lib/errors.js'
@@ -167,7 +168,6 @@ const format = (key, value) => {
   if (/date|birth/.test(key)) return formatDate(value)
   return String(value)
 }
-const GRADES = Array.from({ length: 13 }, (_, n) => n)
 const STUDENT_FIELDS = [
   ['first_name', 'First name'],
   ['middle_name', 'Middle name'],
@@ -191,7 +191,7 @@ function editStudentInfo(item, profile) {
     if (Array.isArray(kind))
       return `<label>${text}<select data-student-field="${key}"><option value="">-</option>${kind.map(option => `<option ${option === value ? 'selected' : ''}>${option}</option>`).join('')}</select></label>`
     if (kind === 'grade')
-      return `<label>${text}<select data-student-field="${key}"><option value="">-</option>${GRADES.map(n => `<option value="${n}" ${String(n) === String(value) ? 'selected' : ''}>${n === 0 ? 'Kindergarten' : 'Grade ' + n}</option>`).join('')}</select></label>`
+      return `<label>${text}<select data-student-field="${key}"><option value="">-</option>${OFFERED_GRADES.map(n => `<option value="${n}" ${String(n) === String(value) ? 'selected' : ''}>${n === 0 ? 'Kindergarten' : 'Grade ' + n}</option>`).join('')}</select></label>`
     if (kind === 'area')
       return `<label class="wide">${text}<textarea data-student-field="${key}" maxlength="500">${escape(value)}</textarea></label>`
     return `<label class="${kind === 'wide' ? 'wide' : ''}">${text}<input data-student-field="${key}" type="${kind === 'date' || kind === 'email' ? kind : 'text'}" value="${escape(value)}" maxlength="200"></label>`

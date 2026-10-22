@@ -3,10 +3,14 @@ import { toast } from '../shared/ui/ui-theme.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { $, state } from './registrar-state.js'
 import { escapeHtml, gradeLabel, gradeToNumber } from '../shared/lib/html.js'
+import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { describeError } from '../shared/lib/errors.js'
 import { loadSections, loadEnrollments, renderStudentDirectory } from './registrar-sectioning.js'
 import { renderAcademicStudents } from './registrar-academic.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
+
+// Label values ("Grade 7"), which gradeToNumber() reads back.
+$('promotion-grade').innerHTML = OFFERED_GRADES.map(grade => `<option>${gradeLabel(grade)}</option>`).join('')
 
 export function renderPromotionExclusions() {
   const search = $('promotion-exclude-search').value.trim().toLowerCase()

@@ -55,7 +55,7 @@ export function buildSemesterTable(rows = [], { flat = false, semester = '' } = 
     .filter(row => !semester || row.semester === semester)
     .map(
       row =>
-        `<tr><td data-label="${labels[0]}">${escapeHtml(row.school_year)}</td><td data-label="${labels[1]}">${row.semesterLabel}</td><td data-label="${labels[2]}">${escapeHtml(row.subject)}</td><td data-label="Q1">${row.first_sem_q1 ?? ''}</td><td data-label="Q2">${row.first_sem_q2 ?? ''}</td><td data-label="Q3">${row.second_sem_q1 ?? ''}</td><td data-label="Q4">${row.second_sem_q2 ?? ''}</td><td data-label="Grade">${row.semesterGrade ?? row.grade ?? ''}</td><td data-label="Letter Grade">${escapeHtml(row.letter_grade || letterGrade(row.semesterGrade ?? row.grade)?.letter || '')}</td><td data-label="Remarks">${escapeHtml(row.remarks || '')}</td></tr>`
+        `<tr><td data-label="${labels[0]}">${escapeHtml(row.school_year)}</td><td data-label="${labels[1]}">${row.semesterLabel}</td><td data-label="${labels[2]}">${escapeHtml(row.subject)}</td><td data-label="Q1">${row.first_sem_q1 ?? ''}</td><td data-label="Q2">${row.first_sem_q2 ?? ''}</td><td data-label="Q3">${row.second_sem_q1 ?? ''}</td><td data-label="Q4">${row.second_sem_q2 ?? ''}</td><td data-label="Grade">${row.semesterGrade ?? row.grade ?? ''}</td><td data-label="Letter Grade">${escapeHtml(row.letter_grade || letterGrade(row.semesterGrade ?? row.grade, row.school_year)?.letter || '')}</td><td data-label="Remarks">${escapeHtml(row.remarks || '')}</td></tr>`
     )
     .join('')
   return `<table><thead><tr>${labels.map(label => `<th>${label}</th>`).join('')}</tr></thead><tbody>${body || '<tr><td colspan="10" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`

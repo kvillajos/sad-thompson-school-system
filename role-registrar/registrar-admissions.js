@@ -3,11 +3,17 @@ import { toast } from '../shared/ui/ui-theme.js'
 import { withBusy, confirmPassword } from '../shared/ui/shell.js'
 import { $, state } from './registrar-state.js'
 import { escapeHtml, formatDate, gradeLabel, gradeToNumber, errorRow } from '../shared/lib/html.js'
+import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { attendanceSummaryLine } from '../shared/lib/attendance.js'
 import { generalAverage, letterGrade } from '../shared/lib/grades.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
+
+// Label values ("Grade 7"), so an application's stored grade still selects through gradeSelectLabel().
+document
+  .querySelector('#application-form [name=grade_level]')
+  .insertAdjacentHTML('beforeend', OFFERED_GRADES.map(grade => `<option>${gradeLabel(grade)}</option>`).join(''))
 
 // Grade is stored as a number but the select options are labels, so map back on resume.
 const gradeSelectLabel = value =>

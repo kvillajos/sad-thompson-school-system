@@ -2,6 +2,7 @@ import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
 import { escapeHtml as escape, gradeLevelOptions, gradeLevelSummary, errorRow, subjectDisplayName } from '../shared/lib/html.js'
+import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { formatDays, groupScheduleRows, planDayChanges } from '../shared/lib/schedule-days.js'
 import { describeError } from '../shared/lib/errors.js'
 import { mountAdminShell } from './admin-page.js'
@@ -12,7 +13,7 @@ import { fetchAll } from '../shared/lib/fetch-all.js'
 import { currentSchoolYear } from '../shared/lib/grades.js'
 const admin = await mountAdminShell('schedules')
 
-document.getElementById('section-grade').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades' })
+document.getElementById('section-grade').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades', grades: OFFERED_GRADES })
 const sectionModal = document.getElementById('section-schedule-modal')
 const scheduleModal = document.getElementById('schedule-modal')
 const scheduleForm = document.getElementById('schedule-form')

@@ -60,13 +60,21 @@ assert.equal(derivedGrade({ final: null }), null, 'no score, no grade')
 assert.deepEqual(SCORE_FIELDS, ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2', 'midterm', 'final'])
 
 // --- the letter-grade scale and general average ---------------------------
-assert.equal(letterGrade(97).letter, 'A+')
-assert.equal(letterGrade(96).letter, 'A')
-assert.equal(letterGrade(91).letter, 'B+')
-assert.equal(letterGrade(82).letter, 'B')
-assert.equal(letterGrade(78).letter, 'C+')
-assert.equal(letterGrade(75).letter, 'C', '75 is the passing mark batch_promote_students() enforces')
+assert.equal(letterGrade(100).letter, 'A')
+assert.equal(letterGrade(90).letter, 'A', 'DepEd Outstanding starts at 90')
+assert.equal(letterGrade(89.99).letter, 'B')
+assert.equal(letterGrade(85).letter, 'B')
+assert.equal(letterGrade(80).letter, 'C')
+assert.equal(letterGrade(75).letter, 'D', '75 is the passing mark batch_promote_students() enforces')
 assert.equal(letterGrade(74.9).letter, 'F')
+assert.equal(
+  letterGrade(90, [
+    { min: 95, letter: 'X' },
+    { min: 0, letter: 'Y' }
+  ]).letter,
+  'Y',
+  'a saved scale overrides the default'
+)
 assert.equal(letterGrade(null), null)
 assert.equal(generalAverage([{ grade: 80 }, { grade: 90 }, { grade: null }]), 85)
 assert.equal(generalAverage([]), null)
@@ -79,7 +87,7 @@ const mobileCss = readFileSync(join(root, 'public', 'css', 'responsive-mobile.cs
 assert.ok(script.includes('save_faculty_grades'), 'grades must be saved through the validated RPC')
 assert.ok(script.includes("from '../shared/lib/grades.js'"), 'the page must reuse the grade helpers')
 assert.ok(html.includes('id="grade-table"') && html.includes('id="save-grades"'), 'the grade page must expose its controls')
-for (const label of ['Student', 'Grade', 'Letter Grade', 'Remarks'])
+for (const label of ['Student', 'Final Grade', 'Letter Grade', 'Remarks'])
   assert.ok(script.includes(`data-label="${label}"`), `${label} must be labeled in mobile grade cards`)
 for (const label of ['Q1', 'Q2', 'Q3', 'Q4', 'Midterm', 'Final'])
   assert.ok(script.includes(`'${label}'`), `${label} must be labeled in mobile grade cards`)

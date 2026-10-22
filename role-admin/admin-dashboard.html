@@ -12,20 +12,6 @@
       <div class="admin-page-head">
         <div><h2>Admin Dashboard</h2></div>
       </div>
-      <section class="admin-summary-grid" style="margin-bottom:18px">
-        <div class="card">
-          <small>Students</small>
-          <div class="stat" id="count-students">-</div>
-        </div>
-        <div class="card">
-          <small>Faculty</small>
-          <div class="stat" id="count-faculty">-</div>
-        </div>
-        <div class="card">
-          <small>Accounts</small>
-          <div class="stat" id="count-accounts">-</div>
-        </div>
-      </section>
       <div id="announcements-host"></div>
       <section class="admin-table-wrap" style="overflow:visible">
         <div class="admin-section-title">
@@ -64,7 +50,10 @@
         </div>
       </section>
       <section class="admin-table-wrap">
-        <div class="admin-section-title"><h3>Registrar Feedback</h3></div>
+        <div class="admin-section-title">
+          <h3>Registrar Feedback</h3>
+          <button id="view-fixed-feedback" class="admin-secondary" type="button">Fixed (0)</button>
+        </div>
         <div style="overflow-x:auto">
           <table>
             <thead>
@@ -75,11 +64,12 @@
                 <th>Suggested Fix</th>
                 <th>Submitted By</th>
                 <th>Submitted</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody id="registrar-feedback-table">
               <tr>
-                <td colspan="6">Loading feedback...</td>
+                <td colspan="7">Loading feedback...</td>
               </tr>
             </tbody>
           </table>

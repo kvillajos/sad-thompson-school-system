@@ -59,9 +59,9 @@ Never put the service-role key in a `VITE_` variable: anything prefixed `VITE_` 
 The login screen shows a build label (`<branch> · <build time>`), taken from the commit message prefix
 `<branch>/main - ...` (see `vite.config.js`). Use it to confirm which build is live.
 
-Security headers live in [`vercel.json`](../../vercel.json). The Content-Security-Policy is still **Report-Only**.
-After a clean run through every role with no CSP violations in the browser console, rename the header to
-`Content-Security-Policy` to enforce it.
+Security headers live in [`vercel.json`](../../vercel.json). The Content-Security-Policy is **enforced**: a script,
+image or connection the policy does not list is blocked (the browser console names the blocked URL). When a new
+feature needs another origin, add it to the matching directive there instead of loosening `default-src`.
 
 ## 6. After the first production deploy
 

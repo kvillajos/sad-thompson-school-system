@@ -2,7 +2,7 @@
 // randomized allocator behind "Auto-Assign Grades 1-10".
 // Pure on purpose (no app imports) so dev/scripts/checks/check-sectioning.mjs can assert it in Node.
 
-export const AUTO_ASSIGN_GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+export const AUTO_ASSIGN_GRADES = [7, 8, 9, 10]
 
 const defaultRandom = () => Math.random()
 

@@ -14,6 +14,7 @@ import { buildTranscript } from '../shared/documents/transcript.js'
 import { previewPdf, pdfName } from '../shared/documents/pdf-preview.js'
 import { mountAnnouncements } from '../shared/ui/announcements.js'
 import { mountNotificationBell } from './notifications.js'
+import { loadGradingScales } from '../shared/lib/grading-scale.js'
 applyUiTheme()
 const user = await requireRole(4)
 if (!user) throw new Error('Unauthorized')
@@ -271,7 +272,7 @@ function renderGrades() {
   document.getElementById('grades-table-second').innerHTML = buildSemesterTable(rows, { semester: 'second' })
   const average = generalAverage(rows)
   document.getElementById('grades-average').textContent =
-    average == null ? '' : `General Average (${year || 'no records'}): ${average} (${letterGrade(average)?.letter || '-'})`
+    average == null ? '' : `General Average (${year || 'no records'}): ${average} (${letterGrade(average, year)?.letter || '-'})`
 }
 
 function renderTranscript() {
@@ -378,7 +379,7 @@ document.getElementById('print-unofficial-transcript').onclick = () =>
     printClass: 'printing-transcript'
   })
 
-await loadStudent()
+await Promise.all([loadGradingScales(), loadStudent()])
 await Promise.all([
   loadSchedule(),
   loadGrades(),

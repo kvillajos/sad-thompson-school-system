@@ -14,4 +14,16 @@ const redeclarePattern = /(?:function\s+escapeHtml\s*\(|const\s+escapeHtml\s*=|c
 const offenders = files.filter(name => redeclarePattern.test(readFileSync(resolve(root, name), 'utf8')))
 
 assert.deepEqual(offenders, [], `these files re-declare escapeHtml instead of importing it from html.js: ${offenders.join(', ')}`)
+
+// Grade pickers list the offered grades (grade_levels table via shared/lib/grade-levels.js), so a page must
+// not hard-code its own grade list, and every shared picker call must pass grades: OFFERED_GRADES.
+const hardCodedGrades = /<option>(Kindergarten|Grade \d+)<\/option>|Array\.from\(\{ length: 1[23] \}/
+const gradeLists = files.filter(name => hardCodedGrades.test(readFileSync(resolve(root, name), 'utf8')))
+assert.deepEqual(gradeLists, [], `these files hard-code a grade list instead of using OFFERED_GRADES: ${gradeLists.join(', ')}`)
+const unfiltered = files.filter(name =>
+  [...readFileSync(resolve(root, name), 'utf8').matchAll(/gradeLevel(?:Options|Checkboxes)\(([^)]*)\)/g)].some(
+    ([, args]) => !args.includes('OFFERED_GRADES')
+  )
+)
+assert.deepEqual(unfiltered, [], `these grade pickers do not pass grades: OFFERED_GRADES: ${unfiltered.join(', ')}`)
 console.log('shared helper checks passed')

@@ -15,7 +15,7 @@ export async function loadFacultyContext(activePage = 'dashboard') {
   const navigation = [
     ['Dashboard', '/role-faculty/faculty-dashboard.html', '⌂', 'dashboard'],
     ['Class List', '/role-faculty/faculty-class-list.html', '▤', 'class-list'],
-    ['Encode Grades', '/role-faculty/faculty-grades.html', '✎', 'grades'],
+    ['Grades', '/role-faculty/faculty-grades.html', '✎', 'grades'],
     ['Bulk Upload', '/role-faculty/faculty-upload.html', '⇧', 'upload'],
     ['Attendance', '/role-faculty/faculty-attendance.html', '✓', 'attendance'],
     ['Reports', '/role-faculty/faculty-reports.html', '▧', 'reports']

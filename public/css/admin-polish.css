@@ -15,6 +15,10 @@
     text-align: left;
     vertical-align: middle;
   }
+  body.role-admin .admin-table-wrap td {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
   body.role-admin .admin-table-wrap th {
     white-space: nowrap;
   }

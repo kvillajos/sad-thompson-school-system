@@ -78,7 +78,6 @@
     color: var(--ui-blue-dark) !important;
   }
 
-  html[data-theme='dark'] .admin-summary-grid .card,
   html[data-theme='dark'] .admin-secondary,
   html[data-theme='dark'] .admin-view,
   html[data-theme='dark'] .admin-modal-head button,
@@ -230,6 +229,25 @@
     color: #e4eaf2 !important;
   }
 
+  html[data-theme='dark'] .badge.priority-high {
+    background: #4a2326 !important;
+    color: #fecaca !important;
+  }
+
+  html[data-theme='dark'] .badge.priority-medium {
+    background: #392f1e !important;
+    color: #f2d89f !important;
+  }
+
+  html[data-theme='dark'] .badge.priority-low {
+    background: #1d3326 !important;
+    color: #c9f0d6 !important;
+  }
+
+  html[data-theme='dark'] .feedback-row:hover td {
+    background: #202c3b !important;
+  }
+
   html[data-theme='dark'] .badge {
     background: #344052 !important;
     color: #e4eaf2 !important;
@@ -295,6 +313,11 @@
   html[data-theme='dark'] .review-countdown {
     background-color: #392f1e !important;
     color: #f2d89f !important;
+  }
+
+  html[data-theme='dark'] .mail-row.notice {
+    background-color: #1d3326 !important;
+    color: #c9f0d6 !important;
   }
 
   html[data-theme='dark'] .mail-meta,

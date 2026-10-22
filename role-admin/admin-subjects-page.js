@@ -12,16 +12,18 @@ import {
   activeStatus,
   subjectDisplayName
 } from '../shared/lib/html.js'
+import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { describeError } from '../shared/lib/errors.js'
 import { mountAdminShell } from './admin-page.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
-import { withBusy } from '../shared/ui/shell.js'
-await mountAdminShell('subjects')
+import { withBusy, confirmPassword } from '../shared/ui/shell.js'
+import { DEFAULT_GRADING_SCALE, PASSING_GRADE, currentSchoolYear } from '../shared/lib/grades.js'
+const admin = await mountAdminShell('subjects')
 
 const subjectModal = document.getElementById('subject-modal')
 const subjectForm = document.getElementById('subject-form')
 const gradePicker = document.getElementById('subject-grade-picker')
-gradePicker.innerHTML = gradeLevelCheckboxes('grade_level', { includeAll: true, allLabel: 'All Grades' })
+gradePicker.innerHTML = gradeLevelCheckboxes('grade_level', { includeAll: true, allLabel: 'All Grades', grades: OFFERED_GRADES })
 bindExclusiveGradePicker(gradePicker)
 let subjects = []
 
@@ -57,8 +59,7 @@ function renderSubjects() {
     <td data-label="Status">${activeStatus(item.is_active)}</td>
     <td data-label="Actions">
       <button class="admin-view" data-edit-subject="${item.subject_id}">Edit</button>
-      <button type="button" class="admin-remove subject-mobile-remove" data-remove-subject="${item.subject_id}">Remove</button>
-      <button class="admin-remove subject-desktop-remove" data-remove-subject="${item.subject_id}">Remove</button>
+      <button type="button" class="admin-remove" data-remove-subject="${item.subject_id}">Remove</button>
     </td>
   </tr>
 `
@@ -126,5 +127,91 @@ document.getElementById('close-subject').onclick = () => closeModal(subjectModal
 document.getElementById('cancel-subject').onclick = () => closeModal(subjectModal, subjectForm)
 document.getElementById('subject-search').oninput = renderSubjects
 document.getElementById('subject-status').onchange = renderSubjects
-await loadData()
+// ---- Grading scale, per school year (same pattern as lunch times on Manage Schedules). Saving relabels that
+// year's stored letter grades in the database. The passing band (75) and the bottom band stay fixed.
+let savedScales = []
+const scaleYear = document.getElementById('scale-year')
+const scaleRows = document.getElementById('scale-rows')
+const scaleNote = document.getElementById('scale-note')
+function fillScaleForm() {
+  const own = savedScales.find(row => row.school_year === scaleYear.value)
+  const bands = own?.bands?.length ? own.bands : DEFAULT_GRADING_SCALE
+  scaleRows.innerHTML = bands
+    .map((band, index) => {
+      const fixed = index >= bands.length - 2
+      const from =
+        index === bands.length - 1
+          ? `Below ${escape(bands[index - 1].min)}`
+          : fixed
+            ? `${escape(band.min)} <small>(passing)</small>`
+            : `<input type="number" min="${PASSING_GRADE + 1}" max="100" step="1" required data-scale-min value="${escape(band.min)}" aria-label="Lowest grade for ${escape(band.descriptor)}" />`
+      return `<tr data-scale-band="${index}" data-min="${escape(band.min)}"><td data-label="Description"><input required maxlength="40" data-scale-descriptor value="${escape(band.descriptor)}" aria-label="Description" /></td><td data-label="From">${from}</td><td data-label="Letter"><input required maxlength="3" data-scale-letter value="${escape(band.letter)}" aria-label="Letter for ${escape(band.descriptor)}" /></td></tr>`
+    })
+    .join('')
+  scaleNote.textContent = own
+    ? `Last saved ${new Date(own.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${own.updated_by ? ` by ${own.updated_by}` : ''}.`
+    : 'Not set for this school year yet. The DepEd scale is shown; save to set this year.'
+}
+async function loadScales() {
+  const [scaleResult, settingsResult] = await Promise.all([
+    supabase.from('grading_scales').select('*'),
+    supabase.from('school_year_settings').select('school_year')
+  ])
+  if (scaleResult.error) {
+    scaleNote.textContent = describeError(scaleResult.error, 'Load grading scale')
+    return
+  }
+  savedScales = scaleResult.data || []
+  const years = [
+    ...new Set([
+      currentSchoolYear(),
+      ...savedScales.map(row => row.school_year),
+      ...(settingsResult.data || []).map(row => row.school_year)
+    ])
+  ]
+    .filter(Boolean)
+    .sort()
+    .reverse()
+  const keep = scaleYear.value || currentSchoolYear()
+  scaleYear.innerHTML = years.map(year => `<option>${escape(year)}</option>`).join('')
+  scaleYear.value = years.includes(keep) ? keep : years[0]
+  fillScaleForm()
+}
+scaleYear.onchange = fillScaleForm
+document.getElementById('scale-form').onsubmit = async event => {
+  event.preventDefault()
+  const rows = [...scaleRows.querySelectorAll('[data-scale-band]')]
+  const bands = rows.map(row => ({
+    min: Number(row.querySelector('[data-scale-min]')?.value ?? row.dataset.min),
+    letter: row.querySelector('[data-scale-letter]').value.trim(),
+    descriptor: row.querySelector('[data-scale-descriptor]').value.trim()
+  }))
+  const invalid = (input, message) => {
+    input.setCustomValidity(message)
+    input.reportValidity()
+    input.addEventListener('input', () => input.setCustomValidity(''), { once: true })
+  }
+  for (let index = 1; index < bands.length; index++)
+    if (bands[index].min >= bands[index - 1].min)
+      return invalid(
+        rows[index - 1].querySelector('[data-scale-min]') || rows[index].querySelector('[data-scale-min]'),
+        'Each band must start higher than the one below it.'
+      )
+  if (new Set(bands.map(band => band.letter.toUpperCase())).size !== bands.length)
+    return invalid(rows[rows.length - 1].querySelector('[data-scale-letter]'), 'Each band needs its own letter.')
+  if (!(await confirmPassword(admin.email, 'Enter your password to change the grading scale.'))) return
+  const { error } = await withBusy(event.submitter || event.target.querySelector('[type="submit"]'), 'Saving…', () =>
+    supabase
+      .from('grading_scales')
+      .upsert(
+        { school_year: scaleYear.value, bands, updated_at: new Date().toISOString(), updated_by: admin.username },
+        { onConflict: 'school_year' }
+      )
+  )
+  if (error) return toast(describeError(error, 'Save grading scale'), 'error')
+  toast(`Grading scale saved. ${scaleYear.value} letter grades were updated to match.`, 'success')
+  await loadScales()
+}
+
+await Promise.all([loadData(), loadScales()])
 hideLoadingScreen()

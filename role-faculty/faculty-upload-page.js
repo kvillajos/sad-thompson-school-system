@@ -1,11 +1,16 @@
 import { supabase } from '../shared/lib/auth-client.js'
 import { loadFacultyContext, escapeHtml, classSelect, rosterFor } from './faculty-common.js'
-import { currentSchoolYear, derivedGrade, parseGradeCsv, SCORE_FIELDS } from '../shared/lib/grades.js'
+import { currentSchoolYear, derivedGrade, parseGradeCsv } from '../shared/lib/grades.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
+import { loadGradingScales } from '../shared/lib/grading-scale.js'
+
+// Q1 to Q4 and an optional Final Grade override. Midterm and the letter grade are no longer entered by hand.
+const TEMPLATE_SCORES = ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2', 'final']
 
 const context = await loadFacultyContext('upload')
+await loadGradingScales()
 if (context) {
   const $ = id => document.getElementById(id)
   classSelect($('upload-class'), context.classes)
@@ -28,12 +33,11 @@ if (context) {
   $('download-template').onclick = () => {
     const { chosen, roster } = rosterFor(context, $('upload-class').value)
     if (!chosen) return toast('Choose a class first.', 'error')
-    const header = ['student_id', ...SCORE_FIELDS, 'letter_grade', 'remarks', 'student_name']
+    const header = ['student_id', ...TEMPLATE_SCORES, 'remarks', 'student_name']
     const lines = roster.map(item =>
       [
         item.student_id,
-        ...SCORE_FIELDS.map(() => ''),
-        '',
+        ...TEMPLATE_SCORES.map(() => ''),
         '',
         `${item.students?.first_name || ''} ${item.students?.last_name || ''}`.replace(/,/g, ' ')
       ].join(',')
@@ -53,7 +57,7 @@ if (context) {
       render()
       return toast('Choose a .csv file (in Excel: File > Save As > CSV).', 'error')
     }
-    rows = parseGradeCsv(await file.text())
+    rows = parseGradeCsv(await file.text(), $('upload-year').value.trim())
     render()
     if (!rows.length) toast('That file has no grade rows under the header line.', 'error')
   }

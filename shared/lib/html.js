@@ -46,8 +46,10 @@ export function gradeToNumber(value) {
   return value === 'Kindergarten' ? 0 : Number(String(value).replace('Grade ', ''))
 }
 
-export function gradeLevelOptions({ includeAll = false, allLabel = 'All Grades', includeKindergarten = true } = {}) {
-  const grades = Array.from({ length: includeKindergarten ? 13 : 12 }, (_, index) => (includeKindergarten ? index : index + 1))
+// Kindergarten (0) to Grade 12. Pickers list only the offered ones: pass grades: OFFERED_GRADES (shared/lib/grade-levels.js).
+export const ALL_GRADES = Array.from({ length: 13 }, (_, grade) => grade)
+
+export function gradeLevelOptions({ includeAll = false, allLabel = 'All Grades', grades = ALL_GRADES } = {}) {
   const options = includeAll ? [`<option value="">${escapeHtml(allLabel)}</option>`] : []
   return options.concat(grades.map(grade => `<option value="${grade}">${escapeHtml(gradeLabel(grade))}</option>`)).join('')
 }
@@ -55,8 +57,7 @@ export function gradeLevelOptions({ includeAll = false, allLabel = 'All Grades',
 // Same grade choices as gradeLevelOptions, but as a tile grid of checkboxes (several grades picked, like
 // the auto-assign grade picker's .grade-picker/.grade-option/.grade-check styles) instead of a dropdown.
 // Pass an <input value=""> "All Grades" tile and bindExclusiveGradePicker() to make it exclusive with the rest.
-export function gradeLevelCheckboxes(name, { includeAll = false, allLabel = 'All Grades', includeKindergarten = true } = {}) {
-  const grades = Array.from({ length: includeKindergarten ? 13 : 12 }, (_, index) => (includeKindergarten ? index : index + 1))
+export function gradeLevelCheckboxes(name, { includeAll = false, allLabel = 'All Grades', grades = ALL_GRADES } = {}) {
   const tile = (value, label, checked) =>
     `<label class="grade-option"><input type="checkbox" name="${escapeHtml(name)}" value="${value}"${checked ? ' checked' : ''}><span class="grade-check" aria-hidden="true"></span><span>${escapeHtml(label)}</span></label>`
   const tiles = includeAll ? [tile('', allLabel, true)] : []

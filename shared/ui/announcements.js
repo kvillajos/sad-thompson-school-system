@@ -30,7 +30,7 @@ export async function mountAnnouncements(host, role, { list = true } = {}) {
   const inbox = notices
     .map(
       (item, index) =>
-        `<button type="button" class="mail-row${item.kind === 'maintenance' ? ' urgent' : ''}" data-mail="${index}"><span class="mail-main"><span class="mail-top"><span class="mail-subject">${item.pinned ? pinIcon : ''}${badge(item)}${escapeHtml(item.title)}${item.author_name ? `<span class="mail-author">&middot; ${escapeHtml(item.author_name)}</span>` : ''}</span><span class="mail-date">${formatDate(item.posted_at)}</span></span><span class="mail-preview">${escapeHtml(preview(item.message || '')) || 'No message.'}</span></span></button>`
+        `<button type="button" class="mail-row${item.kind === 'maintenance' ? ' urgent' : ' notice'}" data-mail="${index}"><span class="mail-main"><span class="mail-top"><span class="mail-subject">${item.pinned ? pinIcon : ''}${badge(item)}${escapeHtml(item.title)}${item.author_name ? `<span class="mail-author">&middot; ${escapeHtml(item.author_name)}</span>` : ''}</span><span class="mail-date">${formatDate(item.posted_at)}</span></span><span class="mail-preview">${escapeHtml(preview(item.message || '')) || 'No message.'}</span></span></button>`
     )
     .join('')
   host.innerHTML = list
@@ -71,9 +71,20 @@ export async function loadMaintenanceNotices() {
   return (data || []).filter(item => !item.expires_at || new Date(item.expires_at) > new Date())
 }
 
-// Transparent card over the login photo. Empty when there is nothing urgent.
-export function renderLoginNotices(host, notices) {
+// Transparent card over the login photo. Empty when there is nothing urgent. The title and date show in full;
+// the message is plain text cut at `maxMessage` characters. Tapping a notice opens the full message in the same
+// reader the dashboards use.
+export function renderLoginNotices(host, notices, maxMessage) {
+  const preview = html => {
+    const box = document.createElement('div')
+    box.innerHTML = richText(html).replace(/<\/(p|div|li|h3|blockquote)>|<br>/gi, ' ')
+    const text = (box.textContent || '').replace(/\s+/g, ' ').trim()
+    return text.length > maxMessage ? text.slice(0, maxMessage).trimEnd() + '...' : text
+  }
   host.innerHTML = notices.length
-    ? `<div class="login-notice-card" role="status">${notices.map(item => `<div class="login-notice"><strong><span class="login-notice-tag">Notice</span> - ${item.pinned ? pinIcon : ''}${escapeHtml(item.title)}</strong>${item.message ? `<div class="rich">${richText(item.message)}</div>` : ''}<small class="login-notice-date">${formatDate(item.posted_at)}</small></div>`).join('')}</div>`
+    ? `<div class="login-notice-card" role="status">${notices.map((item, index) => `<button type="button" class="login-notice" data-notice="${index}" aria-haspopup="dialog"><strong><span class="login-notice-tag">Notice</span> - ${item.pinned ? pinIcon : ''}${escapeHtml(item.title)}</strong>${item.message ? `<div class="rich">${escapeHtml(preview(item.message))}</div>` : ''}<small class="login-notice-date">${formatDate(item.posted_at)}</small></button>`).join('')}</div>`
     : ''
+  host
+    .querySelectorAll('[data-notice]')
+    .forEach(button => (button.onclick = () => openAnnouncement({ ...notices[Number(button.dataset.notice)], kind: 'maintenance' })))
 }

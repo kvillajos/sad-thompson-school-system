@@ -215,25 +215,150 @@ async function loadApprovalRequests() {
   renderApprovals()
 }
 
+// Registrar feedback: open items in the table, fixed ones in the "Fixed" window. Long text is cut at 40
+// characters; pressing a row opens the full item. "Mark as fixed" needs a reason and can attach proof files.
+const FEEDBACK_PREVIEW = 40
+const PROOF_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
+let feedbackItems = []
+const feedbackTable = document.getElementById('registrar-feedback-table')
+const short = text => (text.length > FEEDBACK_PREVIEW ? text.slice(0, FEEDBACK_PREVIEW).trimEnd() + '...' : text)
+const priorityBadge = priority => `<span class="badge priority-${escape(String(priority).toLowerCase())}">${escape(priority)}</span>`
+const withBreaks = text => escape(text).replaceAll('\n', '<br>')
+const feedbackFields = item =>
+  [
+    ['Area', escape(item.area)],
+    ['Priority', priorityBadge(item.priority)],
+    ['Issue/Concern', withBreaks(item.pain_point)],
+    ['Suggested fix', withBreaks(item.suggested_fix || '-')],
+    ['Submitted', `${escape(item.submitted_by || '-')} &middot; ${formatDate(item.created_at, true)}`]
+  ]
+    .map(([label, value]) => `<p><strong>${label}:</strong> ${value}</p>`)
+    .join('')
+
+function feedbackModal(title, bodyHtml, actionsHtml) {
+  const modal = document.createElement('div')
+  modal.className = 'admin-modal stack-above'
+  modal.innerHTML = `<div class="admin-modal-box" role="dialog" aria-modal="true" style="width:min(100%,520px)"><div class="admin-modal-head"><h3>${title}</h3><button type="button" data-close aria-label="Close">x</button></div><div style="max-height:60vh;overflow:auto">${bodyHtml}</div><div class="admin-actions">${actionsHtml}</div></div>`
+  document.body.appendChild(modal)
+  modal.onclick = event => {
+    if (event.target === modal || event.target.closest('[data-close]')) modal.remove()
+  }
+  return modal
+}
+
+async function openFeedback(id) {
+  const item = feedbackItems.find(row => row.id === id)
+  if (!item) return
+  const fixed = item.status === 'fixed'
+  let proofHtml = ''
+  if (fixed && item.proof_files?.length) {
+    const links = await Promise.all(
+      item.proof_files.map(async file => {
+        const { data } = await supabase.storage.from('feedback-proofs').createSignedUrl(file.path, 600)
+        return data?.signedUrl
+          ? `<a href="${escape(data.signedUrl)}" target="_blank" rel="noopener">${escape(file.name)}</a>`
+          : escape(file.name)
+      })
+    )
+    proofHtml = `<p><strong>Proof:</strong> ${links.join(', ')}</p>`
+  }
+  const fixedHtml = fixed
+    ? `<hr><p><span class="badge priority-low">Fixed</span> ${escape(item.fixed_by || '-')} &middot; ${formatDate(item.fixed_at, true)}</p><p><strong>Reason:</strong> ${withBreaks(item.fixed_reason || '-')}</p>${proofHtml}`
+    : ''
+  const modal = feedbackModal(
+    'Feedback',
+    feedbackFields(item) + fixedHtml,
+    `<button type="button" class="admin-secondary" data-close>Close</button>${fixed ? '' : '<button type="button" class="admin-primary" data-fix>Mark as fixed</button>'}`
+  )
+  modal.querySelector('[data-fix]')?.addEventListener('click', () => {
+    modal.remove()
+    markFeedbackFixed(id)
+  })
+}
+
+async function markFeedbackFixed(id) {
+  const values = await formDialog({
+    title: 'Mark as fixed',
+    message: 'Say what was done. Proof files are optional: up to 3 files (PDF, JPG or PNG, 5 MB each).',
+    confirmText: 'Mark as fixed',
+    fields: [
+      { name: 'reason', label: 'What was fixed?', multiline: true, required: true, maxlength: 1000 },
+      { name: 'proof', label: 'Proof (optional)', type: 'file', multiple: true, accept: '.pdf,.jpg,.jpeg,.png' }
+    ]
+  })
+  if (!values) return
+  const files = values.proof
+  if (files.length > 3) return toast('Attach at most 3 proof files.', 'error')
+  if (files.some(file => !PROOF_TYPES.includes(file.type) || file.size > 5 * 1024 * 1024))
+    return toast('Proof files must be PDF, JPG or PNG up to 5 MB each.', 'error')
+  const proof = []
+  for (const file of files) {
+    const path = `${id}/${Date.now()}-${file.name.replace(/[^\w.-]/g, '_')}`
+    const { error } = await supabase.storage.from('feedback-proofs').upload(path, file, { upsert: false })
+    if (error) return toast(describeError(error, 'Upload proof'), 'error')
+    proof.push({ path, name: file.name })
+  }
+  const { error } = await supabase
+    .from('registrar_feedback')
+    .update({
+      status: 'fixed',
+      fixed_reason: values.reason,
+      fixed_by: user.username,
+      fixed_at: new Date().toISOString(),
+      proof_files: proof
+    })
+    .eq('id', id)
+    .eq('status', 'open')
+  if (error) return toast(describeError(error, 'Mark as fixed'), 'error')
+  toast('Marked as fixed.')
+  await loadRegistrarFeedback()
+}
+
+function openFixedList() {
+  const rows = feedbackItems
+    .filter(item => item.status === 'fixed')
+    .map(
+      item =>
+        `<button type="button" class="mail-row" data-feedback="${item.id}"><span class="mail-top">${priorityBadge(item.priority)} ${escape(short(item.pain_point))} <small>&middot; fixed ${formatDate(item.fixed_at)}</small></span></button>`
+    )
+    .join('')
+  const modal = feedbackModal(
+    'Fixed feedback',
+    rows || '<p style="color:#64748b">Nothing has been marked as fixed yet.</p>',
+    '<button type="button" class="admin-secondary" data-close>Close</button>'
+  )
+  modal.querySelectorAll('[data-feedback]').forEach(button => (button.onclick = () => openFeedback(Number(button.dataset.feedback))))
+}
+
 async function loadRegistrarFeedback() {
-  const table = document.getElementById('registrar-feedback-table')
   const { data, error } = await supabase
     .from('registrar_feedback')
-    .select('id,area,priority,pain_point,suggested_fix,submitted_by,created_at')
+    .select('id,area,priority,pain_point,suggested_fix,submitted_by,created_at,status,fixed_reason,fixed_by,fixed_at,proof_files')
     .order('created_at', { ascending: false })
-    .limit(50)
+    .limit(100)
   if (error) {
-    table.innerHTML = errorRow(6, error, 'Load registrar feedback')
+    feedbackTable.innerHTML = errorRow(7, error, 'Load registrar feedback')
     return
   }
-  table.innerHTML =
-    (data || [])
+  feedbackItems = data || []
+  const open = feedbackItems.filter(item => item.status !== 'fixed')
+  document.getElementById('view-fixed-feedback').textContent = `Fixed (${feedbackItems.length - open.length})`
+  feedbackTable.innerHTML =
+    open
       .map(
         item =>
-          `<tr><td>${escape(item.area)}</td><td>${escape(item.priority)}</td><td>${escape(item.pain_point)}</td><td>${escape(item.suggested_fix || '-')}</td><td>${escape(item.submitted_by || '-')}</td><td>${formatDate(item.created_at, true)}</td></tr>`
+          `<tr class="feedback-row" data-feedback="${item.id}"><td>${escape(item.area)}</td><td>${priorityBadge(item.priority)}</td><td title="Press to read the full text">${escape(short(item.pain_point))}</td><td>${escape(short(item.suggested_fix || '-'))}</td><td>${escape(item.submitted_by || '-')}</td><td>${formatDate(item.created_at, true)}</td><td><button type="button" data-fix-feedback="${item.id}">Mark as fixed</button></td></tr>`
       )
-      .join('') || '<tr><td colspan="6">No feedback submitted yet.</td></tr>'
+      .join('') || '<tr><td colspan="7">No open feedback.</td></tr>'
+  feedbackTable.querySelectorAll('[data-fix-feedback]').forEach(button => {
+    button.onclick = () => markFeedbackFixed(Number(button.dataset.fixFeedback))
+  })
 }
+feedbackTable.addEventListener('click', event => {
+  const row = event.target.closest('[data-feedback]')
+  if (row && !event.target.closest('.table-action-menu')) openFeedback(Number(row.dataset.feedback))
+})
+document.getElementById('view-fixed-feedback').onclick = openFixedList
 
 async function reviewRequest(id, approve, button) {
   const request = approvalRequests.find(item => String(item.id) === String(id))
@@ -479,7 +604,9 @@ async function loadAnnouncements() {
       .map(a => {
         const message = plainText(a.message) || '-'
         const kindHtml =
-          a.kind === 'maintenance' ? '<span class="badge urgent-badge">Urgent</span>' : '<span class="ann-notice-label">Notice</span>'
+          a.kind === 'maintenance'
+            ? '<span class="badge urgent-badge">Urgent</span>'
+            : '<span class="badge notice-badge ann-notice-label">Notice</span>'
         const expiryHtml = a.expires_at
           ? new Date(a.expires_at) < new Date()
             ? ' <small>(expired)</small>'
@@ -636,19 +763,6 @@ document.getElementById('announcement-form').addEventListener('submit', async ev
   await loadAnnouncements()
   mountAnnouncements(document.getElementById('announcements-host'), 'admin', { list: false })
 })
-// Exact row counts, so the dashboard can be checked against the tables: every student record,
-// every faculty profile, and every login that has not been deleted.
-const countRows = async (id, query) => {
-  const { count, error } = await query
-  document.getElementById(id).textContent = error ? '!' : (count ?? 0)
-  if (error) toast(describeError(error, 'Load dashboard counts'), 'error')
-}
-countRows('count-students', supabase.from('students').select('student_id', { count: 'exact', head: true }))
-countRows(
-  'count-faculty',
-  supabase.from('staff_profiles').select('profile_id,users!inner(role_id)', { count: 'exact', head: true }).eq('users.role_id', 3)
-) // registrars also have staff profiles
-countRows('count-accounts', supabase.from('users').select('user_id', { count: 'exact', head: true }).is('deleted_at', null))
 await loadAnnouncements()
 mountAnnouncements(document.getElementById('announcements-host'), 'admin', { list: false })
 hideLoadingScreen()

@@ -27,7 +27,7 @@ assert.doesNotMatch(
 )
 assert.match(
   auditPage,
-  /const auditRow = row =>.*data-label="When".*data-label="Action".*data-label="Entity".*data-label="Details"/s,
+  /const auditRow = row =>.*data-label="When".*data-label="Action".*data-label="By".*data-label="Entity".*data-label="Details"/s,
   'live and archived audit rows must retain labels for mobile cards'
 )
 assert.ok(
@@ -44,7 +44,7 @@ assert.match(auditHtml, /<table class="audit-events-table">/, 'live audit table 
 assert.match(auditPage, /<table class="audit-events-table">/, 'archive audit table must use desktop column sizing')
 assert.match(
   uiTheme,
-  /\.audit-events-table th:nth-child\(4\), \.audit-events-table td:nth-child\(4\) \{ width:46%; \}/,
+  /\.audit-events-table th:nth-child\(5\), \.audit-events-table td:nth-child\(5\) \{ width:41%; \}/,
   'desktop Details column must have room to render'
 )
 assert.match(

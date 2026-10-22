@@ -110,7 +110,11 @@ ordering bugs. Keep it that way.
 ## Database
 
 - `dev/database/backupsqlmigration.sql` is the single executable database file: base schema plus migrations
-  v2-v38, each in a `BEGIN/END` block. It is safe to re-run.
+  v2-v44, each in a `BEGIN/END` block. It is safe to re-run.
+- **Grade levels offered**: the school runs Grades 7-12. Table `grade_levels` (v40) has an `offered` switch per
+  grade (0 = Kindergarten to 12); every grade picker reads it through `shared/lib/grade-levels.js`, and a trigger
+  refuses new sections, students, applications and promotion requests in a grade that is switched off. To add
+  grades back: `update grade_levels set offered = true where grade_level between 0 and 6;`
 - **Changes**: append a new numbered block at the end of that file. Ask before running SQL on the live project.
 - Enrollment status is fixed by `students_enrollment_status_check`: `Enrolled | Pending | Graduated | Transferred`.
   Adding one needs a new migration block.
@@ -139,7 +143,12 @@ ordering bugs. Keep it that way.
 
 - PDFs come from the browser's Print → Save as PDF (and html2pdf.js for the preview download). A true
   server-side PDF would need an Edge Function renderer.
-- The CSP in `vercel.json` is Report-Only until it has been checked against every role.
+- The CSP in `vercel.json` is enforced (checked 2026-10-22 against an enforced copy in the browser for admin,
+  registrar, faculty and the sign-in pages). Inline scripts, `eval` and other origins are blocked; inline
+  styles stay allowed (`'unsafe-inline'`) because the UI sets them from JS.
+- The login lookup throttle (`find_login_email`) and audit IP addresses use the first `x-forwarded-for`
+  entry when `cf-connecting-ip` is missing; a client can fake that entry, so the per-username limit is the
+  one that cannot be dodged.
 - Supabase is the current backend. Moving off it later means replacing Supabase Auth, the
   `provision-account` function, and the `supabase.from()/.rpc()` calls; business rules already live in
   Postgres functions and RLS.

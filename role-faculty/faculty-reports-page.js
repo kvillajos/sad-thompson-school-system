@@ -6,24 +6,49 @@ import { withBusy } from '../shared/ui/shell.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
 import { gradeLabel } from '../shared/lib/html.js'
+import { searchPicker } from '../shared/ui/search-picker.js'
+import { loadGradingScales } from '../shared/lib/grading-scale.js'
 
 const context = await loadFacultyContext('reports')
+await loadGradingScales()
 if (context) {
   const $ = id => document.getElementById(id)
-  $('report-student').innerHTML =
-    context.enrollments
-      .map(
-        item =>
-          `<option value="${item.student_id}">${escapeHtml(`${item.students?.first_name || ''} ${item.students?.last_name || ''}`)} (${escapeHtml(item.students?.lrn_number || item.student_id)})</option>`
-      )
-      .join('') || '<option value="">No students assigned</option>'
+  // Type-to-search over the faculty's students (a plain dropdown is unusable past a few dozen names).
+  let pickedStudent = null
+  const studentName = item => `${item.students?.first_name || ''} ${item.students?.last_name || ''}`.trim()
+  const studentLrn = item => item.students?.lrn_number || item.student_id
+  searchPicker($('report-student'), {
+    search: query => {
+      const words = query.toLowerCase().split(/\s+/)
+      return context.enrollments
+        .filter(item => words.every(word => `${studentName(item)} ${studentLrn(item)}`.toLowerCase().includes(word)))
+        .slice(0, 15)
+    },
+    render: item => `${escapeHtml(studentName(item))} <small>(${escapeHtml(studentLrn(item))})</small>`,
+    text: item => `${studentName(item)} (${studentLrn(item)})`,
+    onPick: item => {
+      pickedStudent = item
+      const info = $('report-student-info')
+      info.hidden = !item
+      if (!item) return
+      const section = context.schedules.find(row => row.section_id === item.section_id)?.sections?.section_name
+      const field = (label, value) => `<div><small>${label}</small><strong>${escapeHtml(value)}</strong></div>`
+      info.innerHTML =
+        field('Student No.', studentLrn(item)) +
+        field('Grade', gradeLabel(item.students?.grade_level)) +
+        field('Section', section || 'No section')
+    },
+    emptyText: 'No student found'
+  })
+  // Blank report card (no name, grades or dates) so faculty can see the layout before generating one.
+  $('report-sample').innerHTML = buildReportCard({ student: {}, gradeLevel: '', schoolYear: '', sectionName: '' })
   $('report-year').value = context.schoolYear
   $('generate-report').onclick = () =>
     withBusy($('generate-report'), 'Loading...', async () => {
-      const studentId = Number($('report-student').value)
       const year = $('report-year').value.trim()
-      const studentRow = context.enrollments.find(item => Number(item.student_id) === studentId)
-      if (!studentRow || !year) return toast('Choose a student and school year first.', 'error')
+      const studentRow = pickedStudent
+      const studentId = Number(studentRow?.student_id)
+      if (!studentRow || !year) return toast('Search and pick a student, and enter a school year.', 'error')
       const [academicResult, attendanceResult, enrollmentDetail] = await Promise.all([
         supabase.from('academic_history').select('*').eq('student_id', studentId).eq('school_year', year).order('subject'),
         supabase.rpc('attendance_totals', { p_student_id: studentId, p_school_year: year }),

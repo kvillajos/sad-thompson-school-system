@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/assets/logo.png" />
-    <title>Encode Grades | TCSMS</title>
+    <title>Grades | TCSMS</title>
   </head>
   <body class="admin-shell">
     <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#102a43"></div>
     <main>
       <div class="admin-page-head">
-        <div><h2>Encode Grades</h2></div>
+        <div><h2>Grades</h2></div>
       </div>
       <section class="admin-table-wrap">
         <div class="admin-filterbar">
@@ -20,7 +20,7 @@
             class="admin-primary"
             type="button"
           >
-            Load Class</button
+            Refresh</button
           ><button id="save-grades" class="admin-primary" type="button">Save Grades</button
           ><button id="lock-grades" class="admin-secondary" type="button">Submit &amp; Lock</button>
         </div>
@@ -33,16 +33,43 @@
                 <th>Q2</th>
                 <th>Q3</th>
                 <th>Q4</th>
-                <th>Midterm</th>
-                <th>Final</th>
-                <th>Grade</th>
+                <th>Final Grade</th>
                 <th>Letter Grade</th>
                 <th>Remarks</th>
               </tr>
             </thead>
             <tbody id="grade-table">
               <tr>
-                <td colspan="10">Choose a class, then load it.</td>
+                <td colspan="8">Loading class...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="admin-table-wrap">
+        <div class="admin-section-title">
+          <h3>My Students' Grades</h3>
+          <input id="all-grades-search" type="search" aria-label="Search grades" placeholder="Search student, section or subject" />
+        </div>
+        <div style="overflow: auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Student No.</th>
+                <th>Student</th>
+                <th>Section</th>
+                <th>Subject</th>
+                <th>Q1</th>
+                <th>Q2</th>
+                <th>Q3</th>
+                <th>Q4</th>
+                <th>Final Grade</th>
+                <th>Letter Grade</th>
+              </tr>
+            </thead>
+            <tbody id="all-grades-table">
+              <tr>
+                <td colspan="10">Loading grades...</td>
               </tr>
             </tbody>
           </table>

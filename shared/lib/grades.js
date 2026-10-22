@@ -37,24 +37,33 @@ export function classOptions(schedules = []) {
   return [...options.values()]
 }
 
-// DepEd-style letter bands, cross-checked against the 75 passing mark batch_promote_students()
-// already enforces (dev/database/backupsqlmigration.sql). One table so the grade sheet, the GPA
-// engine and the report card can never disagree; change the bands here and every reader follows.
-const LETTER_GRADE_SCALE = [
-  { min: 97, letter: 'A+', descriptor: 'Outstanding' },
-  { min: 92, letter: 'A', descriptor: 'Very Satisfactory' },
-  { min: 87, letter: 'B+', descriptor: 'Satisfactory' },
-  { min: 82, letter: 'B', descriptor: 'Satisfactory' },
-  { min: 78, letter: 'C+', descriptor: 'Fairly Satisfactory' },
-  { min: 75, letter: 'C', descriptor: 'Fairly Satisfactory' },
-  { min: -Infinity, letter: 'F', descriptor: 'Did Not Meet Expectations' }
+// DepEd bands, highest first; the last band starts at 0. 75 is the passing mark batch_promote_students()
+// enforces. Admins set each school year's scale on Manage Subjects (table grading_scales, migration v44);
+// a year with no saved scale uses this one. Same shape as grading_scales.bands.
+export const DEFAULT_GRADING_SCALE = [
+  { min: 90, letter: 'A', descriptor: 'Outstanding' },
+  { min: 85, letter: 'B', descriptor: 'Very Satisfactory' },
+  { min: 80, letter: 'C', descriptor: 'Satisfactory' },
+  { min: 75, letter: 'D', descriptor: 'Fairly Satisfactory' },
+  { min: 0, letter: 'F', descriptor: 'Did Not Meet Expectations' }
 ]
+export const PASSING_GRADE = 75
 
-// The band a numeric score falls in, or null when there is no score to grade yet.
-export function letterGrade(value) {
+// Saved scales by school year, filled once per page by loadGradingScales() (shared/lib/grading-scale.js).
+const scales = new Map()
+export function setGradingScales(rows = []) {
+  scales.clear()
+  rows.forEach(row => Array.isArray(row?.bands) && row.bands.length && scales.set(row.school_year, row.bands))
+}
+export const scaleFor = year => scales.get(String(year ?? '')) || DEFAULT_GRADING_SCALE
+
+// The band a numeric score falls in, or null when there is no score to grade yet. The second argument is a
+// school year (its saved scale) or a bands array; without it the default DepEd scale is used.
+export function letterGrade(value, scaleOrYear) {
   const score = Number(value)
-  if (value == null || !Number.isFinite(score)) return null
-  return LETTER_GRADE_SCALE.find(band => score >= band.min) || null
+  if (value == null || value === '' || !Number.isFinite(score)) return null
+  const bands = Array.isArray(scaleOrYear) ? scaleOrYear : scaleFor(scaleOrYear)
+  return bands.find(band => score >= band.min) || bands[bands.length - 1] || null
 }
 
 // The single source of truth for Story 45: the mean of a student's stored subject grades
@@ -111,7 +120,7 @@ export function gradeRecord(studentId, values = {}) {
 // letter_grade, remarks). Reuses gradeRecord/derivedGrade so a CSV row is validated exactly
 // like a hand-entered one; the preview table renders each row's errors, so Save stays
 // blocked until every row is fixed instead of guessing at the bad ones.
-export function parseGradeCsv(text) {
+export function parseGradeCsv(text, schoolYear) {
   const lines = String(text ?? '')
     .split(/\r?\n/)
     .map(line => line.trim())
@@ -137,7 +146,7 @@ export function parseGradeCsv(text) {
     if (studentId && Number.isFinite(Number(studentId)) && !record) errors.push('no scores were provided')
     if (record && derivedGrade(record) == null) errors.push('needs at least one score')
     // Same default the grade sheet fills in, so uploaded and hand-entered grades both carry a letter.
-    if (record && !record.letter_grade) record.letter_grade = letterGrade(derivedGrade(record))?.letter ?? null
+    if (record && !record.letter_grade) record.letter_grade = letterGrade(derivedGrade(record), schoolYear)?.letter ?? null
     return { row: index + 2, student_id: studentId, record, errors }
   })
 }

@@ -12,7 +12,7 @@ const git = command => {
 }
 
 // Commit messages start "<work-branch>/<target> - ..." (e.g. "TuesdayFixes/main - ..."); use that work-branch name so a push to main still shows it.
-const prefix = (process.env.VERCEL_GIT_COMMIT_MESSAGE || git('git log -1 --format=%s')).match(/^([\w.-]+)\/[\w.-]+ - /)?.[1]
+const prefix = (process.env.VERCEL_GIT_COMMIT_MESSAGE || git('git log -1 --format=%s')).match(/^([\w.&-]+)\/[\w.-]+ - /)?.[1]
 const branch = prefix || process.env.VERCEL_GIT_COMMIT_REF || git('git rev-parse --abbrev-ref HEAD')
 const builtAt = new Date().toLocaleString('en-US', {
   timeZone: 'Asia/Manila',
