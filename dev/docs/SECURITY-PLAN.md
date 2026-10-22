@@ -152,7 +152,7 @@ records who by username only, with no IP address.
 
 Progress 2026-10-22: v41 (Task 1), v42 (Task 3) and v43 (feedback fixed/proof, not a security task) were run live
 by the user; columns, bucket and the admin read were checked through the API. The v41 upload limits themselves
-were not tested (an oversized upload needs a write). Task 2 will be v45 (limits chosen:
+were not tested (an oversized upload needs a write). Task 2 will be v46 (limits chosen:
 20 per username / 60 per IP in 15 minutes; `login-page.js` already shows the message), waiting for the live
 function definition. Task 3: user chose a "By" column (actor · IP) and having the trigger fill an empty `actor`;
 `archive_audit_logs()` lists its columns, so v42 updates it. **Do not deploy before v42 is live**: the Audit Trail

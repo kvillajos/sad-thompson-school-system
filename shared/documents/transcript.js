@@ -36,7 +36,7 @@ export function buildTranscript({ student = {}, rows = [], mode = 'official', sc
             <thead>
               <tr>
                 <th style="width: 50%;">Learning Areas / Subject Title</th>
-                <th style="width: 25%;">Final Rating</th>
+                <th style="width: 25%;">Final Grade</th>
                 <th style="width: 25%;">Action Taken</th>
               </tr>
             </thead>

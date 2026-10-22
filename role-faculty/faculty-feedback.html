@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <title>Feedback | TCSMS</title>
+  </head>
+  <body class="admin-shell">
+    <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
+    <main>
+      <div class="admin-page-head">
+        <div><h2>Feedback</h2></div>
+      </div>
+      <section class="admin-table-wrap">
+        <div class="admin-section-title"><h3>Send feedback or a request</h3></div>
+        <form id="faculty-feedback-form" class="feedback-form">
+          <label
+            >Area<select name="area">
+              <option>Grades</option>
+              <option>Bulk Upload</option>
+              <option>Attendance</option>
+              <option>Class List</option>
+              <option>Reports</option>
+              <option>Schedule</option>
+              <option>Account</option>
+              <option>Other</option>
+            </select></label
+          ><label
+            >Priority<select name="priority">
+              <option>High</option>
+              <option selected>Medium</option>
+              <option>Low</option>
+            </select></label
+          ><label class="full">Issue or request<textarea maxlength="1000" name="pain_point" rows="3" required></textarea></label
+          ><label class="full"
+            >Suggested fix <small>(optional)</small><textarea maxlength="1000" name="suggested_fix" rows="2"></textarea>
+          </label>
+          <div class="full feedback-actions"><button class="admin-primary" type="submit">Send to admin</button></div>
+        </form>
+      </section>
+      <section class="admin-table-wrap">
+        <div class="admin-section-title"><h3>My Requests</h3></div>
+        <div style="overflow: auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Submitted</th>
+                <th>Area</th>
+                <th>Priority</th>
+                <th>Issue or request</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="my-feedback-table">
+              <tr>
+                <td colspan="5">Loading requests...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/role-faculty/faculty-feedback-page.js"></script>
+  </body>
+</html>

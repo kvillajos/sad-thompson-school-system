@@ -110,7 +110,7 @@ ordering bugs. Keep it that way.
 ## Database
 
 - `dev/database/backupsqlmigration.sql` is the single executable database file: base schema plus migrations
-  v2-v44, each in a `BEGIN/END` block. It is safe to re-run.
+  v2-v45, each in a `BEGIN/END` block. It is safe to re-run.
 - **Grade levels offered**: the school runs Grades 7-12. Table `grade_levels` (v40) has an `offered` switch per
   grade (0 = Kindergarten to 12); every grade picker reads it through `shared/lib/grade-levels.js`, and a trigger
   refuses new sections, students, applications and promotion requests in a grade that is switched off. To add

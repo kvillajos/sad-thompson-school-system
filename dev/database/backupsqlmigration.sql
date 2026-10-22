@@ -1,6 +1,6 @@
 -- TCSMS consolidated database backup.
 -- Run this file in Supabase SQL Editor as the single, complete database setup.
--- Source order: base schema, then migrations v2-v44 in order (each block is wrapped in BEGIN/END markers).
+-- Source order: base schema, then migrations v2-v45 in order (each block is wrapped in BEGIN/END markers).
 
 
 -- ============================================================
@@ -4037,7 +4037,7 @@ commit;
 -- BEGIN migration-v42-audit-user-and-ip.sql  (applied live 2026-10-22)
 -- Every new audit entry records the signed-in user's ID and the caller's IP address, and the username when
 -- the writing function left "actor" empty. Older entries stay as they were (no user ID / IP).
--- request_ip() is shared with the login lookup throttle (v45). It prefers cf-connecting-ip (set by the proxy
+-- request_ip() is shared with the login lookup throttle (v46). It prefers cf-connecting-ip (set by the proxy
 -- in front of Supabase, not by the browser) over the first x-forwarded-for entry, which a client can fake.
 -- Cron and archive jobs have no request, so they record no user and no IP.
 -- archive_audit_logs() lists its columns, so it is updated to carry the two new ones into the archive.
@@ -4137,7 +4137,7 @@ commit;
 
 
 -- ============================================================
--- BEGIN migration-v44-grading-scales.sql  (written 2026-10-22, NOT yet applied live)
+-- BEGIN migration-v44-grading-scales.sql  (applied live 2026-10-22)
 -- The letter-grade scale is set per school year by the admin (Manage Subjects > Grading scale), so a past
 -- year keeps the scale it was graded under. bands: highest first, [{min, letter, descriptor}], the last band
 -- min 0. Everyone signed in reads it (faculty letters, report cards); only admins change it.
@@ -4229,3 +4229,40 @@ commit;
 -- Check (run separately afterwards): one scale per year, and letters spread across A-F.
 -- select school_year, jsonb_array_length(bands) from grading_scales order by school_year;
 -- select letter_grade, count(*) from academic_history group by letter_grade order by letter_grade;
+
+
+-- ============================================================
+-- BEGIN migration-v45-faculty-feedback.sql  (applied live 2026-10-22)
+-- Faculty can send feedback and requests to the admin from their own Feedback page. They share the
+-- registrar_feedback table (one list for the admin), tagged by submitted_role. A faculty member may add rows
+-- under their own username and read only their own rows (to see whether the admin marked them fixed);
+-- they cannot edit or delete them. Admin/registrar access is unchanged.
+-- ============================================================================
+begin;
+alter table registrar_feedback add column if not exists submitted_role text not null default 'registrar';
+alter table registrar_feedback drop constraint if exists registrar_feedback_role_check;
+alter table registrar_feedback add constraint registrar_feedback_role_check check (submitted_role in ('registrar', 'faculty'));
+
+drop policy if exists faculty_feedback_insert on registrar_feedback;
+create policy faculty_feedback_insert on registrar_feedback for insert to authenticated
+  with check (
+    (select current_app_role()) = 3
+    and submitted_role = 'faculty'
+    and status = 'open'
+    and submitted_by = (select username from users where lower(email) = lower(auth.jwt() ->> 'email'))
+  );
+drop policy if exists faculty_feedback_read on registrar_feedback;
+create policy faculty_feedback_read on registrar_feedback for select to authenticated
+  using (
+    (select current_app_role()) = 3
+    and submitted_role = 'faculty'
+    and submitted_by = (select username from users where lower(email) = lower(auth.jwt() ->> 'email'))
+  );
+grant select, insert on registrar_feedback to authenticated;
+
+notify pgrst, 'reload schema';
+commit;
+-- END migration-v45-faculty-feedback.sql
+
+-- Check (run separately afterwards): where feedback comes from.
+-- select submitted_role, status, count(*) from registrar_feedback group by submitted_role, status;

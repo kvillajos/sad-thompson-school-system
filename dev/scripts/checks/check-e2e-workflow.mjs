@@ -13,9 +13,10 @@ const student = read('role-student/student-dashboard-page.js')
 assert.match(registrar, /review_admission_application|shift_student/)
 assert.match(faculty, /save_faculty_grades|save_attendance/)
 assert.match(student, /academic_history|attendance_totals/)
-for (const label of ['Subject', 'Teacher', 'Q1', 'Q2', 'Grade', 'Letter Grade', 'Remarks']) {
+for (const label of ['Subject', 'Teacher', 'Final Grade', 'Letter Grade', 'Remarks']) {
   assert.ok(student.includes(`data-label="${label}"`), `student current grades expose the ${label} mobile label`)
 }
+assert.ok(student.includes('data-label="Q${index + 1}"'), 'student current grades label each quarter Q1-Q4 on mobile')
 assert.match(registrar, /buildTranscript/)
 assert.match(student, /buildTranscript/)
 console.log('role workflow wiring checks passed')

@@ -9,7 +9,7 @@ import { describeError } from '../shared/lib/errors.js'
 import { attendanceSummaryLine } from '../shared/lib/attendance.js'
 import { changedFields } from '../shared/lib/edit-request.js'
 import { generalAverage, letterGrade } from '../shared/lib/grades.js'
-import { buildSemesterTable } from '../shared/lib/semester-grades.js'
+import { buildSemesterTable, generalAverageRow, semesterRows } from '../shared/lib/semester-grades.js'
 import { buildTranscript } from '../shared/documents/transcript.js'
 import { previewPdf, pdfName } from '../shared/documents/pdf-preview.js'
 import { mountAnnouncements } from '../shared/ui/announcements.js'
@@ -243,22 +243,27 @@ async function loadGrades() {
 
 async function renderCurrentGrades() {
   const host = document.getElementById('current-grades-table')
-  if (!schoolYear || !currentSemester) {
+  if (!schoolYear) {
     host.innerHTML = '<p>No active enrollment for this term.</p>'
     return
   }
-  const label = currentSemester === 'first' ? '1st Semester' : '2nd Semester'
-  document.getElementById('current-grades-title').textContent = `Current Term - ${label}`
-  const quarterFields = currentSemester === 'first' ? ['first_sem_q1', 'first_sem_q2'] : ['second_sem_q1', 'second_sem_q2']
+  // The whole school year, as faculty grade it: Q1 to Q4 (stored as the two semesters' quarters), then the Final Grade.
+  document.getElementById('current-grades-title').textContent = `Current Term - ${schoolYear}`
+  const quarterFields = ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2']
   const teacherFor = subject => scheduleRows.find(item => item.subjects?.subject_name === subject)?.faculty_name || '-'
   const rows = gradeRows.filter(row => row.school_year === schoolYear)
   const body = rows
-    .map(row => {
-      const semGrade = generalAverage(quarterFields.map(field => ({ grade: row[field] })))
-      return `<tr><td data-label="Subject">${escape(row.subject)}</td><td data-label="Teacher">${escape(teacherFor(row.subject))}</td><td data-label="Q1">${row[quarterFields[0]] ?? ''}</td><td data-label="Q2">${row[quarterFields[1]] ?? ''}</td><td data-label="Grade">${semGrade ?? row.grade ?? ''}</td><td data-label="Letter Grade">${escape(row.letter_grade || letterGrade(semGrade ?? row.grade)?.letter || '')}</td><td data-label="Remarks">${escape(row.remarks || '')}</td></tr>`
-    })
+    .map(
+      row =>
+        `<tr><td data-label="Subject">${escape(row.subject)}</td><td data-label="Teacher">${escape(teacherFor(row.subject))}</td>${quarterFields
+          .map((field, index) => `<td data-label="Q${index + 1}">${row[field] ?? ''}</td>`)
+          .join(
+            ''
+          )}<td data-label="Final Grade"><strong>${row.grade ?? ''}</strong></td><td data-label="Letter Grade">${escape(row.letter_grade || letterGrade(row.grade, schoolYear)?.letter || '')}</td><td data-label="Remarks">${escape(row.remarks || '')}</td></tr>`
+    )
     .join('')
-  host.innerHTML = `<table><thead><tr><th>Subject</th><th>Teacher</th><th>Q1</th><th>Q2</th><th>Grade</th><th>Letter Grade</th><th>Remarks</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`
+  const footer = body ? generalAverageRow(6, generalAverage(rows), schoolYear) : ''
+  host.innerHTML = `<table><thead><tr><th>Subject</th><th>Teacher</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Final Grade</th><th>Letter Grade</th><th>Remarks</th></tr></thead><tbody>${body ? body + footer : '<tr><td colspan="9" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`
 }
 
 // All Grades is paged one school year at a time, most recent first, each page split into its own 1st/2nd semester tables.
@@ -268,11 +273,11 @@ function renderGrades() {
   document.getElementById('grades-prev-year').disabled = gradePageIndex <= 0
   document.getElementById('grades-next-year').disabled = gradePageIndex >= gradeYears.length - 1
   const rows = year ? gradeRows.filter(row => row.school_year === year) : []
-  document.getElementById('grades-table-first').innerHTML = buildSemesterTable(rows, { semester: 'first' })
-  document.getElementById('grades-table-second').innerHTML = buildSemesterTable(rows, { semester: 'second' })
-  const average = generalAverage(rows)
-  document.getElementById('grades-average').textContent =
-    average == null ? '' : `General Average (${year || 'no records'}): ${average} (${letterGrade(average, year)?.letter || '-'})`
+  // The year's general average sits as the last row of the 2nd semester table (the 1st if the 2nd has none yet).
+  const hasSecond = semesterRows(rows).some(row => row.semester === 'second' && row.semesterGrade != null)
+  const average = { average: generalAverage(rows), schoolYear: year }
+  document.getElementById('grades-table-first').innerHTML = buildSemesterTable(rows, { semester: 'first', ...(hasSecond ? {} : average) })
+  document.getElementById('grades-table-second').innerHTML = buildSemesterTable(rows, { semester: 'second', ...(hasSecond ? average : {}) })
 }
 
 function renderTranscript() {

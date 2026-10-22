@@ -38,7 +38,13 @@ export function semesterGroups(rows = []) {
 // mode 'flat' shows the raw quarter/midterm/final fields in one row per subject-year (the
 // official record card); the default 'semester' mode splits each subject-year into two rows,
 // one per semester, showing that semester's own general average.
-export function buildSemesterTable(rows = [], { flat = false, semester = '' } = {}) {
+// Last table row with the year's general average and its letter; `before` columns are merged under the label.
+export function generalAverageRow(before, average, schoolYear) {
+  return `<tr class="average-row" data-pin-bottom><td colspan="${before}" data-label="General Average"><strong>General Average</strong></td><td data-label="Grade"><strong>${average ?? '-'}</strong></td><td data-label="Letter Grade">${escapeHtml(letterGrade(average, schoolYear)?.letter || '-')}</td><td></td></tr>`
+}
+
+// average: when given (even null), a General Average row is added under the semester rows.
+export function buildSemesterTable(rows = [], { flat = false, semester = '', average, schoolYear = '' } = {}) {
   if (flat) {
     const labels = ['School Year', 'Subject', ...SCORE_FIELDS.map(key => ACADEMIC_LABELS[key]), 'Grade', 'Letter Grade', 'Remarks']
     const head = `<tr>${labels.map(label => `<th>${label}</th>`).join('')}</tr>`
@@ -58,5 +64,6 @@ export function buildSemesterTable(rows = [], { flat = false, semester = '' } = 
         `<tr><td data-label="${labels[0]}">${escapeHtml(row.school_year)}</td><td data-label="${labels[1]}">${row.semesterLabel}</td><td data-label="${labels[2]}">${escapeHtml(row.subject)}</td><td data-label="Q1">${row.first_sem_q1 ?? ''}</td><td data-label="Q2">${row.first_sem_q2 ?? ''}</td><td data-label="Q3">${row.second_sem_q1 ?? ''}</td><td data-label="Q4">${row.second_sem_q2 ?? ''}</td><td data-label="Grade">${row.semesterGrade ?? row.grade ?? ''}</td><td data-label="Letter Grade">${escapeHtml(row.letter_grade || letterGrade(row.semesterGrade ?? row.grade, row.school_year)?.letter || '')}</td><td data-label="Remarks">${escapeHtml(row.remarks || '')}</td></tr>`
     )
     .join('')
-  return `<table><thead><tr>${labels.map(label => `<th>${label}</th>`).join('')}</tr></thead><tbody>${body || '<tr><td colspan="10" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`
+  const footer = body && average !== undefined ? generalAverageRow(7, average, schoolYear) : ''
+  return `<table><thead><tr>${labels.map(label => `<th>${label}</th>`).join('')}</tr></thead><tbody>${body ? body + footer : '<tr><td colspan="10" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`
 }

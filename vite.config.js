@@ -51,6 +51,7 @@ const pages = {
   facultyUpload: 'role-faculty/faculty-upload.html',
   facultyAttendance: 'role-faculty/faculty-attendance.html',
   facultyReports: 'role-faculty/faculty-reports.html',
+  facultyFeedback: 'role-faculty/faculty-feedback.html',
 
   // Student
   student: 'role-student/student-dashboard.html'

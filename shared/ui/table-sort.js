@@ -81,6 +81,10 @@ function sortTable(table, column, direction) {
     // Only write to the DOM when the order really changes, so the observer below settles.
     if (!sorted.every((row, position) => row === rows[position])) sorted.forEach(row => body.appendChild(row))
   }
+  // Summary rows (e.g. General Average) stay last whatever the sort.
+  const all = [...body.rows]
+  const pinned = all.filter(row => row.hasAttribute?.('data-pin-bottom'))
+  if (pinned.length && all.at(-1) !== pinned.at(-1)) pinned.forEach(row => body.appendChild(row))
   paintHeaders(table, column, direction)
 }
 

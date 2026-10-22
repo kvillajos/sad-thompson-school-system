@@ -976,8 +976,20 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 /* Recent Changes (Audit Trail): two-line cells, so keep the vertical padding tight. */
 #restore-changes-host > table td { padding-top:3px !important; padding-bottom:3px !important; line-height:1.3; }
 #restore-changes-host > table td small { line-height:1.2; }
-.scale-form { display:grid; grid-template-columns:minmax(150px,220px) minmax(0,1fr) auto; gap:16px 24px; align-items:end; margin-top:14px; }
-.scale-form .lunch-year { align-self:start; }
+/* General Average: last row of a grades table. */
+tr.average-row td { font-weight:700; border-top:2px solid var(--ui-border) !important; background:#eef3fa !important; }
+.average-row td:empty { padding:0; }
+.feedback-form { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px 16px; margin-top:12px; }
+.feedback-form label { display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:600; color:var(--ui-muted); }
+.feedback-form .full { grid-column:1 / -1; }
+.feedback-form select, .feedback-form textarea { width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #b9c8dc; border-radius:10px; font:inherit; font-size:14px; color:var(--ui-text); background:#fff; }
+.feedback-form textarea { resize:vertical; }
+.feedback-actions { display:flex; justify-content:flex-end; }
+@media (max-width:700px) { .feedback-form { grid-template-columns:1fr; } .feedback-actions button { width:100%; } }
+.scale-form { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px 24px; align-items:end; margin-top:4px; }
+.scale-year { display:flex; align-items:center; gap:10px; margin:0; font-size:13px; font-weight:600; color:var(--ui-muted); white-space:nowrap; }
+.scale-year select { height:40px; min-width:150px; padding:0 12px; border:1px solid #b9c8dc; border-radius:10px; background:#fff; color:var(--ui-text); font:inherit; font-size:14px; font-weight:600; cursor:pointer; }
+.scale-year select:focus { outline:2px solid #9dbcf4; outline-offset:1px; border-color:var(--ui-blue-dark); }
 .admin-table-wrap .scale-table { width:100%; margin:0; }
 .admin-table-wrap .scale-table td { padding:4px 8px; }
 .scale-table input { width:100%; max-width:240px; height:34px; padding:0 10px; box-sizing:border-box; border:1px solid var(--ui-border); border-radius:8px; font:inherit; }

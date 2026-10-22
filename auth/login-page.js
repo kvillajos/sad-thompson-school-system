@@ -104,7 +104,7 @@ loginForm.addEventListener('submit', async e => {
     return
   }
   if (lookupError || !email) {
-    // find_login_email's throttle (v45) raises a readable message; any other failure stays generic.
+    // find_login_email's throttle (v46) raises a readable message; any other failure stays generic.
     failLogin(/too many sign-in attempts/i.test(lookupError?.message) ? lookupError.message : LOGIN_FAILURE_MESSAGE, username, password)
     return
   }

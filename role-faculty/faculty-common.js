@@ -18,7 +18,8 @@ export async function loadFacultyContext(activePage = 'dashboard') {
     ['Grades', '/role-faculty/faculty-grades.html', '✎', 'grades'],
     ['Bulk Upload', '/role-faculty/faculty-upload.html', '⇧', 'upload'],
     ['Attendance', '/role-faculty/faculty-attendance.html', '✓', 'attendance'],
-    ['Reports', '/role-faculty/faculty-reports.html', '▧', 'reports']
+    ['Reports', '/role-faculty/faculty-reports.html', '▧', 'reports'],
+    ['Feedback', '/role-faculty/faculty-feedback.html', '✉', 'feedback']
   ]
   mountSidebar(
     navigation.map(([label, href, icon, page]) => ({ label, href, icon, active: page === activePage })),

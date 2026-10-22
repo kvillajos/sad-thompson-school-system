@@ -315,6 +315,34 @@
     color: #f2d89f !important;
   }
 
+  html[data-theme='dark'] .admin-table-wrap tbody tr.average-row:nth-child(n) td {
+    background: #22324a !important;
+  }
+
+  /* Report card / transcript previews stay black-on-white paper (beats the navy headers and striped rows). */
+  html[data-theme='dark'] .pdf-sheet table.doc-table tr:nth-child(n) th,
+  html[data-theme='dark'] .pdf-sheet table.doc-table tr:nth-child(n) td {
+    background: #fff !important;
+    color: #000 !important;
+    border-color: #000 !important;
+  }
+
+  /* Bulk Upload sample: an Excel-like sheet in dark colours (beats the striped table rules). */
+  html[data-theme='dark'] .admin-table-wrap .excel-sample {
+    border-color: #2f5a41 !important;
+  }
+
+  html[data-theme='dark'] .admin-table-wrap .excel-sample tbody tr:nth-child(n) td {
+    background: #182230 !important;
+    color: #e5edf7 !important;
+    border-color: #2b3a4d !important;
+  }
+
+  html[data-theme='dark'] .admin-table-wrap .excel-sample tbody tr:nth-child(n) td.excel-head {
+    background: #1d3326 !important;
+    color: #c9f0d6 !important;
+  }
+
   html[data-theme='dark'] .mail-row.notice {
     background-color: #1d3326 !important;
     color: #c9f0d6 !important;

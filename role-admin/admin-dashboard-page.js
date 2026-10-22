@@ -230,7 +230,10 @@ const feedbackFields = item =>
     ['Priority', priorityBadge(item.priority)],
     ['Issue/Concern', withBreaks(item.pain_point)],
     ['Suggested fix', withBreaks(item.suggested_fix || '-')],
-    ['Submitted', `${escape(item.submitted_by || '-')} &middot; ${formatDate(item.created_at, true)}`]
+    [
+      'Submitted',
+      `${escape(item.submitted_by || '-')} (${item.submitted_role === 'faculty' ? 'Faculty' : 'Registrar'}) &middot; ${formatDate(item.created_at, true)}`
+    ]
   ]
     .map(([label, value]) => `<p><strong>${label}:</strong> ${value}</p>`)
     .join('')
@@ -333,7 +336,9 @@ function openFixedList() {
 async function loadRegistrarFeedback() {
   const { data, error } = await supabase
     .from('registrar_feedback')
-    .select('id,area,priority,pain_point,suggested_fix,submitted_by,created_at,status,fixed_reason,fixed_by,fixed_at,proof_files')
+    .select(
+      'id,area,priority,pain_point,suggested_fix,submitted_by,submitted_role,created_at,status,fixed_reason,fixed_by,fixed_at,proof_files'
+    )
     .order('created_at', { ascending: false })
     .limit(100)
   if (error) {
@@ -347,7 +352,7 @@ async function loadRegistrarFeedback() {
     open
       .map(
         item =>
-          `<tr class="feedback-row" data-feedback="${item.id}"><td>${escape(item.area)}</td><td>${priorityBadge(item.priority)}</td><td title="Press to read the full text">${escape(short(item.pain_point))}</td><td>${escape(short(item.suggested_fix || '-'))}</td><td>${escape(item.submitted_by || '-')}</td><td>${formatDate(item.created_at, true)}</td><td><button type="button" data-fix-feedback="${item.id}">Mark as fixed</button></td></tr>`
+          `<tr class="feedback-row" data-feedback="${item.id}"><td>${escape(item.area)}</td><td>${priorityBadge(item.priority)}</td><td title="Press to read the full text">${escape(short(item.pain_point))}</td><td>${escape(short(item.suggested_fix || '-'))}</td><td>${escape(item.submitted_by || '-')}<br><small>${item.submitted_role === 'faculty' ? 'Faculty' : 'Registrar'}</small></td><td>${formatDate(item.created_at, true)}</td><td><button type="button" data-fix-feedback="${item.id}">Mark as fixed</button></td></tr>`
       )
       .join('') || '<tr><td colspan="7">No open feedback.</td></tr>'
   feedbackTable.querySelectorAll('[data-fix-feedback]').forEach(button => {

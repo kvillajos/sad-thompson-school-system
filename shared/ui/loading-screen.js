@@ -14,7 +14,7 @@ loadingScreen.setAttribute('role', 'status')
 loadingScreen.setAttribute('aria-label', 'Loading Thompson Christian School Management System')
 if (!loadingScreen.children.length) {
   loadingScreen.innerHTML = `
-    <div class="loading-mark" aria-hidden="true">T</div>
+    <img class="loading-mark" src="/assets/logo.png" alt="" aria-hidden="true" />
     <p class="loading-title">TCSMS</p>
     <p class="loading-subtitle">Preparing your workspace</p>
     <div class="loading-spinner" aria-hidden="true"></div>
@@ -33,7 +33,7 @@ if (!loadingStyles.isConnected)
     place-content: center;
     justify-items: center;
     gap: .5rem;
-    background: #102a43;
+    background: #091c3c;
     color: #f7fbff;
     opacity: 1;
     transition: opacity .35s ease, visibility .35s ease;
@@ -48,17 +48,12 @@ if (!loadingStyles.isConnected)
     pointer-events: none;
   }
   .loading-mark {
-    display: grid;
-    place-items: center;
-    width: 4.25rem;
-    height: 4.25rem;
+    display: block;
+    width: 6rem;
+    height: 6rem;
     margin-bottom: .4rem;
-    border: 2px solid #f0b429;
-    border-radius: 50%;
-    color: #f0b429;
-    font-family: Georgia, serif;
-    font-size: 2rem;
-    font-weight: 700;
+    border-radius: 14px;
+    object-fit: contain;
     animation: loading-pulse 1.8s ease-in-out infinite;
   }
   .loading-title {
