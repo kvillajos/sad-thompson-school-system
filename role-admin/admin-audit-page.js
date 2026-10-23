@@ -6,8 +6,25 @@ import { todayDateValue } from '../shared/lib/attendance.js'
 import { mountAdminShell } from './admin-page.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { mountRestoreChanges } from '../shared/ui/restore-changes.js'
+import { mountFilterBar } from '../shared/ui/filter-bar.js'
 
 await mountAdminShell('audit')
+
+let auditLogs = []
+
+// Mount Filter Bar component
+const filterBarContainer = document.getElementById('filter-bar-container')
+if (filterBarContainer) {
+  mountFilterBar({
+    container: filterBarContainer,
+    rows: auditLogs,
+    filters: ['schoolYear', 'gradeLevel'],
+    onFilter: (filteredLogs) => {
+      const table = document.getElementById('audit-table')
+      table.innerHTML = filteredLogs.map(auditRow).join('') || '<tr><td colspan="4">No audit events recorded.</td></tr>'
+    }
+  })
+}
 
 // "field: value" lines instead of a raw JSON blob; nested objects stay compact.
 const detailText = details => Object.entries(details || {}).map(([key, value]) => `${key.replaceAll('_', ' ')}: ${value !== null && typeof value === 'object' ? JSON.stringify(value) : value ?? '-'}`).join('\n') || '-'
@@ -17,7 +34,8 @@ async function loadAudit() {
   const table = document.getElementById('audit-table')
   const { data, error } = await supabase.from('audit_logs').select('created_at,action,entity_type,entity_id,details').order('created_at', { ascending: false }).limit(50)
   if (error) return table.innerHTML = errorRow(4, error, 'Load audit log')
-  table.innerHTML = (data || []).map(auditRow).join('') || '<tr><td colspan="4">No audit events recorded.</td></tr>'
+  auditLogs = data || []
+  table.innerHTML = auditLogs.map(auditRow).join('') || '<tr><td colspan="4">No audit events recorded.</td></tr>'
 }
 
 function auditRowsHtml(rows) {
