@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <title>Student Dashboard | TCSMS</title>
+    <style>
+      /* Boxed card containers for individual information items */
+      .student-card-grid > div {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .student-card-grid > div:hover {
+        border-color: #cbd5e1;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+      }
+
+      .student-card-grid dt {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #64748b;
+        margin-bottom: 4px;
+      }
+
+      .student-card-grid dd {
+        font-size: 0.925rem;
+        font-weight: 600;
+        color: #0f172a;
+        margin: 0;
+        word-break: break-word;
+      }
+
+      .student-card-grid > div.wide {
+        grid-column: 1 / -1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#102a43"></div>
+    <main class="student-portal-container">
+      <!-- DASHBOARD PANEL -->
+      <section data-panel="dashboard">
+        <div class="admin-page-head"><div><h2>Dashboard</h2></div></div>
+        <div class="admin-table-wrap student-card">
+          <div id="dash-photo" class="student-card-photo" aria-hidden="true"></div>
+          <div class="student-card-body">
+            <div class="student-card-head">
+              <h3 id="dash-name"></h3>
+              <span id="dash-status" class="badge"></span>
+            </div>
+            <p class="student-card-id">LRN <span id="dash-lrn"></span></p>
+            <dl id="dash-details" class="student-card-grid"></dl>
+          </div>
+        </div>
+        <div id="announcements-host" style="margin-top:20px"></div>
+      </section>
+
+      <!-- GRADES PANEL -->
+      <section data-panel="grades" class="hidden">
+        <div class="admin-page-head"><div><h2>Grades</h2></div></div>
+<<<<<<< HEAD:student-dashboard.html
+        <div class="filter-controls-row" style="display:flex;gap:16px;margin-bottom:16px;">
+          <label class="form-field">
+            <span>School Year</span>
+            <select id="grade-year-filter" class="form-select">
+              <option value="">All school years</option>
+            </select>
+          </label>
+          <label class="form-field">
+            <span>Semester</span>
+            <select id="grade-semester-filter" class="form-select">
+              <option value="">Both semesters</option>
+              <option value="first">1st Semester</option>
+              <option value="second">2nd Semester</option>
+            </select>
+          </label>
+        </div>
+        <p id="grades-average" class="admin-note" style="font-weight:600;color:var(--text-primary,#102a43);margin-bottom:12px;"></p>
+        <section class="admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>School Year</th>
+                <th>Semester</th>
+                <th>Subject</th>
+                <th>Q1</th>
+                <th>Q2</th>
+                <th>Q3</th>
+                <th>Q4</th>
+                <th>Grade</th>
+                <th>Letter</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody id="grades-table">
+              <tr><td colspan="10">Loading grades...</td></tr>
+            </tbody>
+          </table>
+        </section>
+=======
+        <section class="admin-table-wrap"><div class="admin-section-title"><h3 id="current-grades-title">Current Term</h3></div><div id="current-grades-table"><p>Loading grades...</p></div></section>
+        <div class="admin-page-head" style="margin-top:24px"><div><h3>All Grades</h3></div></div>
+        <p id="grades-average" class="admin-note"></p>
+        <div class="admin-actions"><button type="button" id="grades-prev-year" class="admin-secondary">‹ Prev</button><span id="grades-year-label" class="admin-note"></span><button type="button" id="grades-next-year" class="admin-secondary">Next ›</button></div>
+        <div class="admin-section-title"><h3>1st Semester</h3></div>
+        <section class="admin-table-wrap" id="grades-table-first"><p>Loading grades...</p></section>
+        <div class="admin-section-title" style="margin-top:16px"><h3>2nd Semester</h3></div>
+        <section class="admin-table-wrap" id="grades-table-second"><p>Loading grades...</p></section>
+>>>>>>> 239c6373f6b8591e189ccca7b169bc0c635432b0:role-student/student-dashboard.html
+      </section>
+
+      <!-- TRANSCRIPT PANEL -->
+      <section data-panel="transcript" class="hidden">
+        <div class="admin-page-head"><div><h2>Unofficial Transcript</h2></div></div>
+<<<<<<< HEAD:student-dashboard.html
+        <div class="filter-controls-row" style="margin-bottom:16px;">
+          <label class="form-field">
+            <span>School Year</span>
+            <select id="transcript-year-filter" class="form-select">
+              <option value="">All school years</option>
+            </select>
+          </label>
+        </div>
+        <div id="transcript-preview" class="admin-table-wrap" style="margin-top:16px"></div>
+        <div style="margin-top:16px;">
+          <button class="admin-primary" id="print-unofficial-transcript" type="button">Print / Export PDF</button>
+        </div>
+=======
+        <label>School Year <select id="transcript-year-filter"><option value="">All school years</option></select></label>
+        <div id="transcript-preview" class="pdf-sheet" style="width:auto;margin-top:16px;overflow-x:auto"></div>
+        <button class="admin-primary" id="print-unofficial-transcript" type="button">View PDF</button>
+>>>>>>> 239c6373f6b8591e189ccca7b169bc0c635432b0:role-student/student-dashboard.html
+      </section>
+
+      <!-- SCHEDULE PANEL -->
+      <section data-panel="schedule" class="hidden">
+        <div class="admin-page-head"><div><h2>Schedule</h2></div></div>
+        <div class="schedule-head">
+          <h3 id="schedule-section"></h3>
+          <span id="schedule-caption" class="admin-note"></span>
+        </div>
+        <section class="admin-table-wrap" id="schedule-days" style="margin-top:16px;">
+          <p>Loading schedule...</p>
+        </section>
+      </section>
+
+      <!-- PROFILE PANEL -->
+      <section data-panel="profile" class="hidden">
+        <div class="admin-page-head"><div><h2>My Profile</h2></div></div>
+        <div class="profile-grid">
+          <section class="admin-table-wrap">
+            <div class="admin-section-title"><h3>Student Information</h3></div>
+            <dl id="profile-info-grid" class="student-card-grid"></dl>
+            <p class="admin-note" style="margin-top:16px;margin-bottom:0">To change your password, use the profile menu in the top-right corner.</p>
+          </section>
+
+          <div class="profile-side">
+            <section class="admin-table-wrap">
+              <div class="admin-section-title"><h3>Profile Picture</h3></div>
+              <div class="pfp-card">
+                <div id="profile-picture-preview" class="student-card-photo pfp-big" aria-label="Profile picture"></div>
+                <input type="file" id="profile-picture-input" accept="image/png,image/jpeg,image/webp" hidden>
+                <button class="admin-secondary" type="button" id="choose-picture">Change photo</button>
+                <div id="picture-actions" class="pfp-actions hidden">
+                  <button class="admin-primary" type="button" id="save-picture">Save photo</button>
+                  <button class="admin-secondary" type="button" id="cancel-picture">Cancel</button>
+                </div>
+                <small class="admin-note" id="picture-hint">PNG, JPG or WEBP, up to 3 MB.</small>
+              </div>
+<<<<<<< HEAD:student-dashboard.html
+            </section>
+
+            <section class="admin-table-wrap edit-request-card" style="margin-top:16px;">
+              <div class="admin-section-title"><h3>Request an Edit</h3></div>
+              <p class="admin-note">Need to correct your details? Send a request. An administrator reviews it before anything changes.</p>
+              <p class="admin-note" id="edit-request-status" hidden></p>
+              <button class="admin-primary" type="button" id="open-edit-request">Request edit</button>
+            </section>
+=======
+              <small class="admin-note" id="picture-hint">PNG, JPG or WEBP, up to 3 MB.</small>
+            </div>
+          </section>
+          <section class="admin-table-wrap edit-request-card"><div class="admin-section-title"><h3>Request an Edit</h3></div>
+            <p class="admin-note" id="edit-request-status" hidden></p>
+            <button class="admin-primary" type="button" id="open-edit-request">Request edit</button>
+          </section>
+>>>>>>> 239c6373f6b8591e189ccca7b169bc0c635432b0:role-student/student-dashboard.html
+          </div>
+        </div>
+
+        <section class="admin-table-wrap" style="margin-top:16px">
+          <div class="admin-section-title"><h3>Attendance Record</h3></div>
+          <p id="attendance-summary" class="admin-note" style="margin-bottom:12px;"></p>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="attendance-table">
+              <tr><td colspan="2">Loading attendance...</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </section>
+    </main>
+
+    <!-- EDIT REQUEST MODAL -->
+    <div id="edit-request-modal" class="admin-modal hidden">
+      <div class="admin-modal-box profile-modal-box edit-request-box">
+        <div class="admin-modal-head">
+          <h3>Request Profile Edit</h3>
+          <button type="button" id="edit-request-close" aria-label="Close">x</button>
+        </div>
+        <form id="edit-request-form" class="profile-form" novalidate>
+          <p class="admin-note admin-full">Change only what you need. Fields you leave alone stay as they are.</p>
+          <label>First Name<input name="first_name" maxlength="80"></label>
+          <label>Middle Name<input name="middle_name" maxlength="80"></label>
+          <label>Last Name<input name="last_name" maxlength="80"></label>
+          <label>Date of Birth<input name="date_of_birth" type="date"></label>
+          <label>Contact Number<input name="contact_number" maxlength="40"></label>
+          <label>Guardian<input name="guardian_name" maxlength="120"></label>
+          <label>Relationship<input name="guardian_relationship" maxlength="60"></label>
+          <label>Guardian Phone<input name="guardian_phone" maxlength="40"></label>
+          <label class="admin-full">Guardian Email<input name="guardian_email" type="email" maxlength="120"></label>
+          <label class="admin-full">Address<input name="address" maxlength="200"></label>
+          <label class="admin-full">Medical Notes<textarea name="medical_notes" rows="3" maxlength="1000"></textarea></label>
+          <label class="admin-full">Reason (optional)<input name="reason" maxlength="200" placeholder="e.g. We moved to a new address"></label>
+          <div class="admin-actions admin-full">
+            <button type="button" class="admin-cancel" id="edit-request-cancel">Cancel</button>
+            <button class="admin-primary" type="submit">Submit request</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <section id="student-transcript-print" class="transcript-print-card" aria-hidden="true"></section>
+    <script type="module" src="/role-student/student-dashboard-page.js"></script>
+  </body>
+</html>
