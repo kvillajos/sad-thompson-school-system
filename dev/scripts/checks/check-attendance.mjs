@@ -13,11 +13,27 @@ assert.deepEqual(attendanceRecord(11, {}), { student_id: 11, status: 'Present', 
 assert.deepEqual(attendanceRecord(11, { status: 'Late', remarks: ' traffic ' }), { student_id: 11, status: 'Late', remarks: 'traffic' })
 assert.equal(attendanceRecord(11, { status: 'Sick' }), null, 'an invalid status is rejected')
 assert.equal(todayDateValue(new Date(2026, 8, 5)), '2026-09-05', 'zero-padded month and day')
+
 assert.equal(
-  attendanceSummaryLine({ present: 18, late: 1, absent: 1, excused: 0, total: 20 }),
-  '18/20 present (90%) - 1 late, 1 absent, 0 excused'
+  attendanceSummaryLine(
+    { present: 18, late: 1, absent: 2, excused: 1, total: 22 },
+    180
+  ),
+  'Absences: 2 · Days present: 178 of 180'
 )
+
+assert.equal(
+  attendanceSummaryLine({ absent: 2, total: 3 }),
+  'Absences: 2'
+)
+
+assert.equal(
+  attendanceSummaryLine({ absent: 0 }, 180),
+  'Absences: 0 · Days present: 180 of 180'
+)
+
 assert.equal(attendanceSummaryLine(null), 'No attendance recorded yet.')
+
 
 // --- the faculty attendance page ------------------------------------------
 const root = resolve(import.meta.dirname, '../../..')

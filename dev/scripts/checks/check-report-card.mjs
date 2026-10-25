@@ -35,7 +35,27 @@ assert.ok(
   ['86', '87', '89'].every(q => html.includes(`>${q}<`)),
   'quarter grades (stored as first_sem_q1..second_sem_q2) must fill the Quarter 1-4 columns'
 )
-assert.ok(html.includes('45/48 present'), 'attendance summary must appear')
+assert.ok(html.includes('Absences: 1'), 'attendance summary must appear')
+ const monthly = buildReportCard({
+  student: { first_name: 'Ana', last_name: 'Santos' },
+  gradeLevel: 'Grade 5',
+  schoolYear: '2026-2027',
+  attendance: { absent: 3, total: 10 },
+  schoolDays: [
+    { month: 6, days: 20 },
+    { month: 7, days: 22 }
+  ],
+  monthlyAbsences: {
+    6: 2,
+    7: 1
+  }
+})
+
+assert.ok(monthly.includes('<td>June</td>'), 'June must appear in the monthly attendance table')
+assert.ok(monthly.includes('<td style="text-align:center;">18</td>'), 'June must show 18 days present')
+assert.ok(monthly.includes('<td style="text-align:center;">2</td>'), 'June must show 2 days absent')
+assert.ok(monthly.includes('<td>July</td>'), 'July must appear in the monthly attendance table')
+assert.ok(monthly.includes('<td style="text-align:center;">21</td>'), 'July must show 21 days present')
 assert.ok(html.includes('Keep up the good work'), 'remarks must appear')
 assert.ok(
   html.includes('Class Adviser') && html.includes('Parent / Guardian') && html.includes('School Principal'),

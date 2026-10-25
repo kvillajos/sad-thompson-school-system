@@ -2,7 +2,7 @@
 import { escapeHtml } from '../lib/html.js'
 import { generalAverage, scaleFor, PASSING_GRADE } from '../lib/grades.js'
 
-export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, academicRows = [], attendance, remarks, scale }) {
+export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, academicRows = [], attendance, schoolDays = [], monthlyAbsences = {}, remarks, scale }) {
   const bands = scale || scaleFor(schoolYear)
   // 1. Exclude any duplicate database row where subject is named "General Average"
   const cleanRows = (academicRows || []).filter(r => {
@@ -151,9 +151,57 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
           </div>
         </div>
 
-        <div class="attendance-remarks" style="margin-top: 20px; font-size: 10.5pt;">
-          <p><strong>Attendance:</strong> ${totals.present}/${totals.total} present, ${totals.late} late, ${totals.absent} absent, ${totals.excused} excused</p>
-          <p><strong>Remarks:</strong> ${escapeHtml(remarks || 'None')}</p>
+                <div class="attendance-remarks" style="margin-top: 20px; font-size: 10.5pt;">
+          <p><strong>Attendance Summary</strong></p>
+          <p>Absences: ${Number(totals.absent) || 0}</p>
+          <p>Days present: ${
+            schoolDays.length
+              ? `${schoolDays.reduce((sum, row) => sum + Number(row.days || 0), 0) - (Number(totals.absent) || 0)} of ${schoolDays.reduce((sum, row) => sum + Number(row.days || 0), 0)}`
+              : 'School days not entered'
+          }</p>
+
+          <table class="doc-table" style="width: 100%; margin-top: 12px; font-size: 10pt;">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>School Days</th>
+                <th>Days Present</th>
+                <th>Days Absent</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${[
+                { number: 6, name: 'June' },
+                { number: 7, name: 'July' },
+                { number: 8, name: 'August' },
+                { number: 9, name: 'September' },
+                { number: 10, name: 'October' },
+                { number: 11, name: 'November' },
+                { number: 12, name: 'December' },
+                { number: 1, name: 'January' },
+                { number: 2, name: 'February' },
+                { number: 3, name: 'March' }
+              ].map(month => {
+                const record = schoolDays.find(row => Number(row.month) === month.number)
+                const days = record ? Number(record.days) : null
+                const absent = record && Number.isFinite(Number(monthlyAbsences[month.number]))
+                  ? Math.min(days, Number(monthlyAbsences[month.number]))
+                  : null
+                const present = days != null && absent != null ? days - absent : null
+
+                return `
+                  <tr>
+                    <td>${month.name}</td>
+                    <td style="text-align:center;">${days ?? '-'}</td>
+                    <td style="text-align:center;">${present ?? '-'}</td>
+                    <td style="text-align:center;">${absent ?? '-'}</td>
+                  </tr>
+                `
+              }).join('')}
+            </tbody>
+          </table>
+
+          <p style="margin-top: 12px;"><strong>Remarks:</strong> ${escapeHtml(remarks || 'None')}</p>
         </div>
 
         <div class="signatures" style="display: flex; justify-content: space-between; gap: 24px; margin-top: 32px; font-size: 10.5pt;">
