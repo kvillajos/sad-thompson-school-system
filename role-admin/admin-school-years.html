@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <title>School Years | TCSMS</title>
+  </head>
+  <body class="admin-shell">
+    <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
+    <main>
+      <div class="admin-page-head">
+        <div><h2>School Years</h2></div>
+      </div>
+      <div class="admin-filterbar">
+        <input maxlength="9" id="year-search" type="search" placeholder="Search school year" />
+        <button id="add-year" class="admin-primary admin-action" type="button">+ Add School Year</button>
+      </div>
+      <section class="admin-table-wrap admin-school-years-list">
+        <table>
+          <thead>
+            <tr>
+              <th>School Year</th>
+              <th>Start Date</th>
+              <th>End Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="years-table">
+            <tr>
+              <td colspan="5">Loading school years...</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <div id="year-modal" class="admin-modal hidden">
+      <div class="admin-modal-box section-box">
+        <div class="admin-modal-head">
+          <h3 id="year-modal-title">Add School Year</h3>
+          <button type="button" id="close-year">x</button>
+        </div>
+        <form id="year-form">
+          <input type="hidden" name="original_label" />
+          <label>School Year<input maxlength="9" name="label" placeholder="e.g. 2026-2027" pattern="\d{4}-\d{4}" required /></label>
+          <label>Start Date<input name="start_date" type="date" required /></label>
+          <label>End Date<input name="end_date" type="date" required /></label>
+          <p class="admin-full" id="year-hint" style="margin:0;font-size:13px;color:var(--ui-muted)"></p>
+          <div class="admin-actions">
+            <button type="button" id="cancel-year" class="admin-cancel">Cancel</button>
+            <button type="submit" class="admin-primary">Save School Year</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <script type="module" src="/role-admin/admin-school-years-page.js"></script>
+  </body>
+</html>
