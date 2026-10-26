@@ -576,24 +576,30 @@ $('confirm-auto-assign').onclick = () => {
 let studentSchoolYearRows = []
 let studentDirectoryView = 'current'
 
-// Get the previous school year.
-// Example: 2026-2027 -> 2025-2026
-function getPreviousSchoolYear(schoolYear) {
-  const startYear = Number(String(schoolYear).split('-')[0])
-
-  if (!Number.isFinite(startYear)) {
-    return ''
-  }
-
-  return `${startYear - 1}-${startYear}`
-}
-
 function getStudentSchoolYearRecord(studentId, schoolYear) {
   return studentSchoolYearRows.find(
     row =>
       String(row.student_id) === String(studentId) &&
       row.school_year === schoolYear
   )
+}
+
+function getLatestHistoricalSchoolYearRecord(studentId, schoolYear) {
+  const currentStartYear = Number(String(schoolYear).split('-')[0])
+  if (!Number.isInteger(currentStartYear)) return null
+
+  return studentSchoolYearRows
+    .filter(row => String(row.student_id) === String(studentId))
+    .filter(row => {
+      const match = /^(\d{4})-(\d{4})$/.exec(row.school_year)
+      return match && Number(match[2]) === Number(match[1]) + 1 && Number(match[1]) < currentStartYear
+    })
+    .reduce((latest, row) => {
+      if (!latest || Number(row.school_year.slice(0, 4)) > Number(latest.school_year.slice(0, 4))) {
+        return row
+      }
+      return latest
+    }, null)
 }
 
 // Update the selected filter button.
@@ -613,7 +619,6 @@ export function renderStudentDirectory() {
   ).trim().toLowerCase()
 
   const schoolYear = currentSchoolYear()
-  const previousSchoolYear = getPreviousSchoolYear(schoolYear)
 
   // Filter a separate list. Do not modify state.students because
   // other registrar features also depend on the complete student list.
@@ -623,15 +628,15 @@ export function renderStudentDirectory() {
       schoolYear
     )
 
-    const previousRecord = getStudentSchoolYearRecord(
+    const lastEnrolledRecord = getLatestHistoricalSchoolYearRecord(
       student.student_id,
-      previousSchoolYear
+      schoolYear
     )
 
     return {
       student,
       currentRecord,
-      previousRecord
+      lastEnrolledRecord
     }
   })
 
@@ -639,7 +644,7 @@ export function renderStudentDirectory() {
     rows = rows.filter(row => row.currentRecord)
   } else if (studentDirectoryView === 'not-reenrolled') {
     rows = rows.filter(
-      row => row.previousRecord && !row.currentRecord
+      row => row.lastEnrolledRecord && !row.currentRecord
     )
   }
 
@@ -654,14 +659,13 @@ export function renderStudentDirectory() {
 
   $('student-directory-table').innerHTML =
     rows
-      .map(({ student, previousRecord }) => {
+      .map(({ student, lastEnrolledRecord }) => {
         const isNotReenrolled =
           studentDirectoryView === 'not-reenrolled'
 
-        // For students who have not re-enrolled, show their
-        // grade from the previous school year.
+        // Show returnees' grade from their most recent enrolled year.
         const displayedGrade = isNotReenrolled
-          ? previousRecord?.grade_level ?? student.grade_level
+          ? lastEnrolledRecord?.grade_level ?? student.grade_level
           : student.grade_level
 
         const grade = displayedGrade == null
@@ -677,7 +681,7 @@ export function renderStudentDirectory() {
                type="button"
                class="admin-primary"
                data-reenroll-student="${escapeHtml(student.student_id)}"
-             >Re-enroll</button>`
+             >Enroll for ${escapeHtml(schoolYear)}</button>`
           : ''
 
         return `
@@ -691,6 +695,7 @@ export function renderStudentDirectory() {
             )}</td>
             <td>${escapeHtml(student.gender || student.sex || '-')}</td>
             <td>${escapeHtml(grade)}</td>
+            <td>${escapeHtml(isNotReenrolled ? lastEnrolledRecord?.school_year || '-' : '-')}</td>
             <td>${escapeHtml(section)}</td>
             <td>${statusBadge(
               isNotReenrolled
@@ -709,7 +714,7 @@ export function renderStudentDirectory() {
         `
       })
       .join('') ||
-    '<tr><td colspan="8" class="empty-state">No students found for this filter.</td></tr>'
+    '<tr><td colspan="9" class="empty-state">No students found for this filter.</td></tr>'
 
   updateStudentDirectoryFilterButtons()
 
@@ -735,11 +740,9 @@ export function renderStudentDirectory() {
             return
           }
 
-          const previousSchoolYear = getPreviousSchoolYear(schoolYear)
-
-          const previousRecord = getStudentSchoolYearRecord(
+          const lastEnrolledRecord = getLatestHistoricalSchoolYearRecord(
             studentId,
-            previousSchoolYear
+            schoolYear
           )
 
           const student = state.students.find(
@@ -747,7 +750,7 @@ export function renderStudentDirectory() {
           )
 
           const gradeLevel =
-            previousRecord?.grade_level ?? student?.grade_level
+            lastEnrolledRecord?.grade_level ?? student?.grade_level
 
           if (gradeLevel == null) {
             toast('Cannot re-enroll: the student grade level is missing.', 'error')
