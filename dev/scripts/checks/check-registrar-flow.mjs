@@ -13,6 +13,8 @@ const root = resolve(import.meta.dirname, '../../..')
 const read = name => readFileSync(join(root, name), 'utf8')
 const html = read('role-registrar/student-records.html')
 const folder = mkdtempSync(join(tmpdir(), 'registrar-flow-'))
+const testCurrentStartYear = new Date().getMonth() + 1 >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1
+const testCurrentSchoolYear = `${testCurrentStartYear}-${testCurrentStartYear + 1}`
 
 const stubAuth = `const STUDENTS = [
   { student_id: 11, lrn_number: 'TCS-1', first_name: 'Amistoso', last_name: 'Amistoso', grade_level: 10, gender: 'Male', enrollment_status: 'Enrolled' },
@@ -27,16 +29,33 @@ const SECTIONS = [
   { section_id: 2, section_name: 'St. Monica', grade_level: 9, capacity: 2 },
   { section_id: 3, section_name: 'St. Mark', grade_level: 10, capacity: 2 }
 ]
-const DATA = { students: STUDENTS, enrollments: ENROLLMENTS, sections: SECTIONS, admission_applications: [], academic_history: [], drafts: [] }
+const DATA = {
+  students: STUDENTS,
+  enrollments: ENROLLMENTS,
+  sections: SECTIONS,
+  student_school_years: [
+    { student_id: 11, school_year: '${testCurrentSchoolYear}', grade_level: 10, section_id: 3 },
+    { student_id: 12, school_year: '${testCurrentStartYear - 1}-${testCurrentStartYear}', grade_level: 8, section_id: null },
+    { student_id: 21, school_year: '${testCurrentStartYear - 3}-${testCurrentStartYear - 2}', grade_level: 7, section_id: null },
+    { student_id: 21, school_year: '${testCurrentStartYear - 2}-${testCurrentStartYear - 1}', grade_level: 8, section_id: null }
+  ],
+  admission_applications: [],
+  academic_history: [],
+  drafts: []
+}
 function query(table) {
   const result = { data: DATA[table] || [], error: null }
   const proxy = new Proxy({}, { get(_t, prop) {
     if (prop === 'then') return (onFulfilled, onRejected) => Promise.resolve(result).then(onFulfilled, onRejected)
+    if (prop === 'upsert') return (payload, options) => {
+      window.__calls.upsert.push({ table, payload, options })
+      return Promise.resolve({ error: null })
+    }
     return () => proxy
   } })
   return proxy
 }
-window.__calls = { rpc: [] }
+window.__calls = { rpc: [], upsert: [] }
 export const supabase = {
   rpc(name, args) { window.__calls.rpc.push({ name, args }); const data = name === 'apply_section_assignments' ? { placed: (args.p_assignments || []).length } : null; return Promise.resolve({ data, error: null }) },
   from(table) { return query(table) }
@@ -67,6 +86,28 @@ const out = {}
 try {
   await waitFor(() => document.querySelector('#enrollment-table tr'), 'enrollment rows')
   out.enrollmentRows = document.querySelectorAll('#enrollment-table tr').length
+  out.defaultDirectoryIds = [...document.querySelectorAll('#student-directory-table tr')].map(row => row.cells[0]?.textContent.trim())
+  document.querySelector('[data-student-view="not-reenrolled"]').click()
+  out.notReenrolledRows = [...document.querySelectorAll('#student-directory-table tr')].map(row => ({
+    id: row.cells[0]?.textContent.trim(),
+    grade: row.cells[4]?.textContent.trim(),
+    lastYear: row.cells[5]?.textContent.trim(),
+    action: row.cells[8]?.textContent.replace(/\\s+/g, ' ').trim()
+  }))
+  document.querySelector('[data-reenroll-student="21"]').click()
+  await waitFor(() => window.__calls.upsert.length > 0, 're-enrollment upsert')
+  out.reEnrollUpsert = window.__calls.upsert[0]
+  document.querySelector('[data-student-view="all"]').click()
+  const directorySearch = document.querySelector('#student-directory-search')
+  directorySearch.value = 'Bautista'
+  directorySearch.dispatchEvent(new Event('input', { bubbles: true }))
+  out.directoryRows = document.querySelectorAll('#student-directory-table tr').length
+  URL.createObjectURL = blob => { window.__csvBlob = blob; return 'blob:csv-test' }
+  URL.revokeObjectURL = () => {}
+  HTMLAnchorElement.prototype.click = function () { window.__downloadName = this.download }
+  document.querySelector('#export-student-directory').click()
+  out.directoryCsv = (await window.__csvBlob.text()).replace(/^\uFEFF/, '')
+  out.exportFilename = window.__downloadName
   document.querySelector('#auto-assign-sections').click()
   await waitFor(() => !document.querySelector('#auto-assign-modal').classList.contains('hidden'), 'auto-assign modal')
   out.autoCount = document.querySelector('#auto-assign-count').textContent
@@ -151,6 +192,7 @@ try {
     'role-registrar/registrar-requests.js',
     'shared/ui/override-form.js',
     'shared/ui/search-picker.js',
+    'shared/ui/table-copy.js',
     'shared/lib/sectioning.js',
     'shared/ui/announcements.js',
     'shared/ui/restore-changes.js',
@@ -203,6 +245,29 @@ try {
   assert.equal(data.failure, undefined)
   assert.deepEqual(data.errors, [])
   assert.equal(data.enrollmentRows, 3, 'all directory students should list in Manage Enrollment')
+  assert.deepEqual(data.defaultDirectoryIds, ['TCS-1'], 'Current SY is the default directory view')
+  assert.equal(data.notReenrolledRows.length, 2, 'include previous-year students and students who skipped a year')
+  assert.deepEqual(data.notReenrolledRows[1], {
+    id: 'TCS-3',
+    grade: 'Grade 8',
+    lastYear: `${testCurrentStartYear - 2}-${testCurrentStartYear - 1}`,
+    action: `View Enroll for ${testCurrentSchoolYear}`
+  }, 'use the latest recorded school year for a returning student who skipped a year')
+  assert.deepEqual(data.reEnrollUpsert, {
+    table: 'student_school_years',
+    payload: {
+      student_id: '21',
+      school_year: testCurrentSchoolYear,
+      grade_level: 8,
+      section_id: null
+    },
+    options: { onConflict: 'student_id,school_year' }
+  }, 're-enrollment creates the current-year row using the latest enrolled grade')
+  assert.equal(data.directoryRows, 1, 'directory CSV uses the currently filtered row')
+  assert.match(data.directoryCsv, /"Student ID","Name","Birth Date","Gender","Grade","Last Enrolled Year","Section","Enrollment Status"/)
+  assert.match(data.directoryCsv, /"TCS-2","Bautista Bautista"/)
+  assert.doesNotMatch(data.directoryCsv, /Actions|View|Amistoso|Cortez/)
+  assert.match(data.exportFilename, /^student-directory-\d{4}-\d{2}-\d{2}\.csv$/)
   assert.equal(data.autoCount, '2', 'auto-assign should plan the 2 section-less students')
   assert.ok(data.summaryShown)
   assert.ok(data.rpc1.length >= 2, 'both section-less students should be assigned')

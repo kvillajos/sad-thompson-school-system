@@ -1,6 +1,6 @@
 // Runnable check for the table-copy clipboard helpers: npm run check:copy
 import assert from 'node:assert/strict'
-import { cleanText, toTsv, toHtml, isTextNumber } from '../../../shared/ui/table-copy.js'
+import { cleanText, toTsv, toCsv, toHtml, isTextNumber } from '../../../shared/ui/table-copy.js'
 
 assert.equal(cleanText('  Adam \n  Min\u00a0 '), 'Adam Min')
 assert.equal(
@@ -11,6 +11,11 @@ assert.equal(
   'LRN\tName\n012345678901\t"Ana ""A"" Cruz"'
 )
 assert.equal(toTsv([['a\tb', 'c\nd']]), '"a\tb"\t"c\nd"', 'tabs and newlines inside a cell are quoted')
+assert.equal(
+  toCsv([['Student ID', 'Name', 'Birth Date'], ['0012', '=HYPERLINK("x")', '-']], [0]),
+  '"Student ID","Name","Birth Date"\r\n"=""0012""","\'=HYPERLINK(""x"")","-"',
+  'CSV preserves identifier text and neutralizes formulas in other cells'
+)
 assert.ok(isTextNumber('012345678901') && isTextNumber('0123') && !isTextNumber('95') && !isTextNumber('12.5'))
 assert.match(toHtml([['012345678901', 'A & B']]), /<td style="mso-number-format:'\@'">012345678901<\/td><td>A &amp; B<\/td>/)
 console.log('table copy checks passed')
