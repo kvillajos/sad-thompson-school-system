@@ -43,6 +43,7 @@ shared/
     restore-changes.js        "Restore Changes" list (admin audit trail + registrar tab)
     search-picker.js          type-to-search dropdown (replaces <datalist>)
     override-form.js          section capacity override (registrar requests it, admin applies it)
+    photo-upload.js           staff-only profile photo upload (mounted in Manage Accounts)
   lib/                        data + logic
     auth-client.js            Supabase client, requireRole, signOut
     session-timeout.js        idle / background logout clocks
@@ -116,6 +117,8 @@ ordering bugs. Keep it that way.
   refuses new sections, students, applications and promotion requests in a grade that is switched off. To add
   grades back: `update grade_levels set offered = true where grade_level between 0 and 6;`
 - **Changes**: append a new numbered block at the end of that file. Ask before running SQL on the live project.
+- New SQL awaiting lead review goes in `dev/database/pending/` and must not be run against the live project or copied
+  into the consolidated backup until approved.
 - Enrollment status is fixed by `students_enrollment_status_check`: `Enrolled | Pending | Graduated | Transferred`.
   Adding one needs a new migration block.
 

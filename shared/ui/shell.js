@@ -350,15 +350,16 @@ function openProfileModal(user, roleLabel, profile) {
     /[&<>"']/g,
     character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]
   )
+  const canChangePicture = [1, 2].includes(Number(user?.role_id))
   modal.innerHTML = `<div class="admin-modal-box profile-modal-box">
     <div class="admin-modal-head"><h3>Edit Profile</h3><button type="button" id="tcsms-profile-close">x</button></div>
     <form id="tcsms-profile-form" class="profile-form" novalidate>
-      <div><div class="pfp-edit-wrap"><img id="tcsms-profile-preview" class="profile-picture-preview" alt="Current profile picture"><button type="button" class="pfp-edit-btn" id="tcsms-profile-edit-pic" aria-label="Change profile picture" aria-haspopup="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><div class="pfp-menu hidden" id="tcsms-profile-menu"><button type="button" id="tcsms-profile-upload">Upload image</button><button type="button" id="tcsms-profile-camera">Use camera</button><button type="button" id="tcsms-profile-remove" class="danger">Remove picture</button></div></div><div class="profile-identity"><p class="profile-readonly"><b>Username:</b> ${String(user?.username || '-')}</p><p class="profile-readonly"><b>Role:</b> ${safeRole}</p></div></div>
+      <div><div class="pfp-edit-wrap"><img id="tcsms-profile-preview" class="profile-picture-preview" alt="Current profile picture">${canChangePicture ? '<button type="button" class="pfp-edit-btn" id="tcsms-profile-edit-pic" aria-label="Change profile picture" aria-haspopup="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><div class="pfp-menu hidden" id="tcsms-profile-menu"><button type="button" id="tcsms-profile-upload">Upload image</button><button type="button" id="tcsms-profile-camera">Use camera</button><button type="button" id="tcsms-profile-remove" class="danger">Remove picture</button></div>' : ''}</div><div class="profile-identity"><p class="profile-readonly"><b>Username:</b> ${String(user?.username || '-')}</p><p class="profile-readonly"><b>Role:</b> ${safeRole}</p></div></div>
       <label class="admin-full">First Name<input id="tcsms-profile-first-name" maxlength="80"></label>
       <label class="admin-full">Middle Name<input id="tcsms-profile-middle-name" maxlength="80"></label>
       <label class="admin-full">Last Name<input id="tcsms-profile-last-name" maxlength="80"></label>
       <label class="admin-full">Email<input id="tcsms-profile-email" maxlength="150" type="email" data-current="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])}" placeholder="${String(user?.email || '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])}"></label>
-      <input id="tcsms-profile-picture" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+      ${canChangePicture ? '<input id="tcsms-profile-picture" type="file" accept="image/png,image/jpeg,image/webp" hidden>' : ''}
       <div class="admin-actions"><button type="button" id="tcsms-profile-cancel" class="admin-cancel">Cancel</button><button class="admin-primary" type="submit">Confirm Changes</button></div>
     </form>
   </div>`
@@ -477,7 +478,10 @@ function openProfileModal(user, roleLabel, profile) {
         const upload = await supabase.storage.from('profile-pictures').upload(path, picture, { upsert: false })
         if (upload.error) return toast(describeError(upload.error, 'Upload picture'), 'error')
         const publicUrl = supabase.storage.from('profile-pictures').getPublicUrl(path).data.publicUrl
-        const pictureResult = await supabase.rpc('update_own_profile_picture', { p_url: publicUrl })
+        const pictureResult = await supabase.rpc('staff_update_profile_picture', {
+          p_user_id: user.user_id,
+          p_url: publicUrl
+        })
         if (pictureResult.error) return toast(describeError(pictureResult.error, 'Save picture'), 'error')
         setProfilePicture(publicUrl)
         return true
@@ -487,96 +491,100 @@ function openProfileModal(user, roleLabel, profile) {
     close()
     toast(changed ? 'Profile changes sent. An administrator will review them.' : 'Profile picture updated.')
   })
-  const previewPicture = blob => {
-    modal.profilePictureBlob = blob
-    const preview = modal.querySelector('#tcsms-profile-preview')
-    preview.classList.remove('profile-picture-placeholder')
-    preview.alt = 'Selected profile picture'
-    preview.src = URL.createObjectURL(blob)
-  }
-  const cropImage = (source, name = 'profile.png') =>
-    new Promise(resolve => {
-      const crop = document.createElement('div')
-      crop.className = 'admin-modal'
-      crop.innerHTML = `<div class="admin-modal-box profile-crop-box"><div class="admin-modal-head"><h3>Crop Profile Picture</h3><button type="button" data-crop-close>x</button></div><div class="crop-stage"><canvas width="240" height="240" id="tcsms-crop-canvas"></canvas><div class="crop-circle"></div></div><small class="crop-hint">Keep your face inside the circle.</small><label>Zoom<input type="range" id="tcsms-crop-zoom" min="1" max="3" step="0.01" value="1"></label><label>Horizontal Position<input type="range" id="tcsms-crop-x" min="0" max="100" value="50"></label><label>Vertical Position<input type="range" id="tcsms-crop-y" min="0" max="100" value="50"></label><div class="admin-actions"><button type="button" class="admin-cancel" data-crop-cancel>Cancel</button><button type="button" class="admin-primary" data-crop-save>Use Cropped Image</button></div></div>`
-      document.body.appendChild(crop)
-      const canvas = crop.querySelector('canvas')
-      const context = canvas.getContext('2d')
-      const draw = () => {
-        const zoom = Number(crop.querySelector('#tcsms-crop-zoom').value)
-        const side = Math.min(source.width, source.height) / zoom
-        const left = ((source.width - side) * Number(crop.querySelector('#tcsms-crop-x').value)) / 100
-        const top = ((source.height - side) * Number(crop.querySelector('#tcsms-crop-y').value)) / 100
-        context.clearRect(0, 0, 240, 240)
-        context.drawImage(source, left, top, side, side, 0, 0, 240, 240)
-      }
-      crop.querySelectorAll('input').forEach(input => input.addEventListener('input', draw))
-      draw()
-      const close = () => {
-        crop.remove()
-        resolve(null)
-      }
-      crop.querySelector('[data-crop-close]').onclick = crop.querySelector('[data-crop-cancel]').onclick = close
-      crop.querySelector('[data-crop-save]').onclick = () =>
-        canvas.toBlob(blob => {
-          crop.remove()
-          resolve(new File([blob], name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' }))
-        }, 'image/png')
-    })
-  const chooseImage = file => {
-    if (!file || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type))
-      return toast('Use a PNG, JPG, or WEBP image for the profile picture.', 'error')
-    const image = new Image()
-    image.onload = async () => {
-      const blob = await cropImage(image, file.name)
-      if (blob) previewPicture(blob)
+  if (canChangePicture) {
+    const previewPicture = blob => {
+      modal.profilePictureBlob = blob
+      const preview = modal.querySelector('#tcsms-profile-preview')
+      preview.classList.remove('profile-picture-placeholder')
+      preview.alt = 'Selected profile picture'
+      preview.src = URL.createObjectURL(blob)
     }
-    image.src = URL.createObjectURL(file)
-  }
-  const menu = modal.querySelector('#tcsms-profile-menu')
-  modal.querySelector('#tcsms-profile-edit-pic').onclick = event => {
-    event.stopPropagation()
-    menu.classList.toggle('hidden')
-  }
-  modal.addEventListener('click', () => menu.classList.add('hidden'))
-  modal.querySelector('#tcsms-profile-upload').onclick = () => modal.querySelector('#tcsms-profile-picture').click()
-  modal.querySelector('#tcsms-profile-picture').onchange = event => chooseImage(event.target.files?.[0])
-  modal.querySelector('#tcsms-profile-camera').onclick = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      const camera = document.createElement('div')
-      camera.className = 'admin-modal'
-      camera.innerHTML = `<div class="admin-modal-box camera-box"><div class="admin-modal-head"><h3>Take Profile Picture</h3><button type="button" data-camera-close>x</button></div><video autoplay playsinline style="width:100%"></video><div class="admin-actions"><button type="button" class="admin-cancel" data-camera-cancel>Cancel</button><button type="button" class="admin-primary" data-camera-capture>Capture</button></div></div>`
-      document.body.appendChild(camera)
-      const video = camera.querySelector('video')
-      video.srcObject = stream
-      const stop = () => {
-        stream.getTracks().forEach(track => track.stop())
-        camera.remove()
-      }
-      camera.querySelector('[data-camera-close]').onclick = camera.querySelector('[data-camera-cancel]').onclick = stop
-      camera.querySelector('[data-camera-capture]').onclick = async () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = video.videoWidth
-        canvas.height = video.videoHeight
-        canvas.getContext('2d').drawImage(video, 0, 0)
-        const image = new Image()
-        image.onload = async () => {
-          stop()
-          const blob = await cropImage(image)
-          if (blob) previewPicture(blob)
+    const cropImage = (source, name = 'profile.png') =>
+      new Promise(resolve => {
+        const crop = document.createElement('div')
+        crop.className = 'admin-modal'
+        crop.innerHTML = `<div class="admin-modal-box profile-crop-box"><div class="admin-modal-head"><h3>Crop Profile Picture</h3><button type="button" data-crop-close>x</button></div><div class="crop-stage"><canvas width="240" height="240" id="tcsms-crop-canvas"></canvas><div class="crop-circle"></div></div><small class="crop-hint">Keep your face inside the circle.</small><label>Zoom<input type="range" id="tcsms-crop-zoom" min="1" max="3" step="0.01" value="1"></label><label>Horizontal Position<input type="range" id="tcsms-crop-x" min="0" max="100" value="50"></label><label>Vertical Position<input type="range" id="tcsms-crop-y" min="0" max="100" value="50"></label><div class="admin-actions"><button type="button" class="admin-cancel" data-crop-cancel>Cancel</button><button type="button" class="admin-primary" data-crop-save>Use Cropped Image</button></div></div>`
+        document.body.appendChild(crop)
+        const canvas = crop.querySelector('canvas')
+        const context = canvas.getContext('2d')
+        const draw = () => {
+          const zoom = Number(crop.querySelector('#tcsms-crop-zoom').value)
+          const side = Math.min(source.width, source.height) / zoom
+          const left = ((source.width - side) * Number(crop.querySelector('#tcsms-crop-x').value)) / 100
+          const top = ((source.height - side) * Number(crop.querySelector('#tcsms-crop-y').value)) / 100
+          context.clearRect(0, 0, 240, 240)
+          context.drawImage(source, left, top, side, side, 0, 0, 240, 240)
         }
-        image.src = canvas.toDataURL('image/png')
+        crop.querySelectorAll('input').forEach(input => input.addEventListener('input', draw))
+        draw()
+        const close = () => {
+          crop.remove()
+          resolve(null)
+        }
+        crop.querySelector('[data-crop-close]').onclick = crop.querySelector('[data-crop-cancel]').onclick = close
+        crop.querySelector('[data-crop-save]').onclick = () =>
+          canvas.toBlob(blob => {
+            crop.remove()
+            resolve(new File([blob], name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' }))
+          }, 'image/png')
+      })
+    const chooseImage = file => {
+      if (!file || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type))
+        return toast('Use a PNG, JPG, or WEBP image for the profile picture.', 'error')
+      const image = new Image()
+      image.onload = async () => {
+        const blob = await cropImage(image, file.name)
+        if (blob) previewPicture(blob)
       }
-    } catch {
-      toast('The camera is not available. Check that this site is allowed to use it, or upload an image instead.', 'error')
+      image.src = URL.createObjectURL(file)
     }
-  }
-  modal.querySelector('#tcsms-profile-remove').onclick = async () => {
-    const result = await confirmProfileChange(user.email, () => supabase.rpc('remove_own_profile_picture'))
-    if (result) {
-      setProfilePicture(null)
-      toast('Profile picture removed.')
+    const menu = modal.querySelector('#tcsms-profile-menu')
+    modal.querySelector('#tcsms-profile-edit-pic').onclick = event => {
+      event.stopPropagation()
+      menu.classList.toggle('hidden')
+    }
+    modal.addEventListener('click', () => menu.classList.add('hidden'))
+    modal.querySelector('#tcsms-profile-upload').onclick = () => modal.querySelector('#tcsms-profile-picture').click()
+    modal.querySelector('#tcsms-profile-picture').onchange = event => chooseImage(event.target.files?.[0])
+    modal.querySelector('#tcsms-profile-camera').onclick = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+        const camera = document.createElement('div')
+        camera.className = 'admin-modal'
+        camera.innerHTML = `<div class="admin-modal-box camera-box"><div class="admin-modal-head"><h3>Take Profile Picture</h3><button type="button" data-camera-close>x</button></div><video autoplay playsinline style="width:100%"></video><div class="admin-actions"><button type="button" class="admin-cancel" data-camera-cancel>Cancel</button><button type="button" class="admin-primary" data-camera-capture>Capture</button></div></div>`
+        document.body.appendChild(camera)
+        const video = camera.querySelector('video')
+        video.srcObject = stream
+        const stop = () => {
+          stream.getTracks().forEach(track => track.stop())
+          camera.remove()
+        }
+        camera.querySelector('[data-camera-close]').onclick = camera.querySelector('[data-camera-cancel]').onclick = stop
+        camera.querySelector('[data-camera-capture]').onclick = async () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+          canvas.getContext('2d').drawImage(video, 0, 0)
+          const image = new Image()
+          image.onload = async () => {
+            stop()
+            const blob = await cropImage(image)
+            if (blob) previewPicture(blob)
+          }
+          image.src = canvas.toDataURL('image/png')
+        }
+      } catch {
+        toast('The camera is not available. Check that this site is allowed to use it, or upload an image instead.', 'error')
+      }
+    }
+    modal.querySelector('#tcsms-profile-remove').onclick = async () => {
+      const result = await confirmProfileChange(user.email, () =>
+        supabase.rpc('staff_update_profile_picture', { p_user_id: user.user_id, p_url: null })
+      )
+      if (result) {
+        setProfilePicture(null)
+        toast('Profile picture removed.')
+      }
     }
   }
 }
