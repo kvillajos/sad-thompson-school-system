@@ -8,6 +8,7 @@ import { describeError } from '../shared/lib/errors.js'
 import { loadSections, loadEnrollments, renderStudentDirectory } from './registrar-sectioning.js'
 import { renderAcademicStudents } from './registrar-academic.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
+import { confirmDialog } from '../shared/ui/dialog.js'
 
 // Label values ("Grade 7"), which gradeToNumber() reads back.
 $('promotion-grade').innerHTML = OFFERED_GRADES.map(grade => `<option>${gradeLabel(grade)}</option>`).join('')
@@ -120,8 +121,16 @@ $('shift-mode').onchange = () => {
   $('shift-section-field').classList.toggle('hidden', transferring)
   $('shift-form').querySelector('button.btn').textContent = transferring ? 'Send for Approval' : 'Process Shift'
 }
+// Third mode, "Swap with a student", lives in registrar-swap.js.
+mountSwapMode({
+  onDone: async () => {
+    await Promise.all([loadSections(), loadEnrollments(), loadStudents()])
+    await refreshShiftSections()
+  }
+})
 
 $('shift-form').addEventListener('submit', async e => {
+  if ($('shift-mode').value === 'swap') return // handled by registrar-swap.js
   e.preventDefault()
   const studentId = Number($('shift-student').value)
   const reason = $('shift-reason').value.trim()
@@ -193,3 +202,93 @@ $('feedback-form').addEventListener('submit', e => {
     e.target.reset()
   })
 })
+
+// Third mode of the Shift / Transfer form: "Swap with a student".
+// Student A is picked in the table as usual, the target section is picked in the existing
+// section list (full sections included), then student B is picked from that section.
+// onDone reloads the registrar lists after a successful swap.
+function mountSwapMode({ onDone }) {
+  const mode = $('shift-mode')
+  mode.insertAdjacentHTML('beforeend', '<option value="swap">Swap with a student</option>')
+  const swapField = document.createElement('div')
+  swapField.innerHTML = `<label id="swap-student-field" class="hidden">Student to swap with
+      <select id="swap-student-b"><option value="">Choose a section first</option></select>
+      <small>The two students trade sections. Section sizes stay the same, so a full section is fine.</small>
+    </label>`
+  $('shift-section-field').after(swapField.firstElementChild)
+
+  const studentName = id => {
+    const student = state.students.find(item => String(item.student_id) === String(id))
+    return student ? `${student.first_name || ''} ${student.last_name || ''}`.trim() : String(id)
+  }
+  const sectionName = id => state.sections.find(section => String(section.section_id) === String(id))?.section_name || 'the section'
+
+  let refreshToken = 0
+  async function refreshStudentB() {
+    if (mode.value !== 'swap') return
+    const select = $('swap-student-b')
+    const sectionId = $('shift-section').value
+    const token = ++refreshToken
+    if (!$('shift-student').value || !sectionId) {
+      select.innerHTML = '<option value="">Select a student and a section first</option>'
+      return
+    }
+    const { data, error } = await supabase.from('enrollments').select('student_id').eq('section_id', sectionId).eq('status', 'active')
+    if (token !== refreshToken) return
+    if (error) return toast(describeError(error, 'Load the section students'), 'error')
+    const ids = new Set((data || []).map(row => String(row.student_id)))
+    const students = state.students
+      .filter(student => ids.has(String(student.student_id)) && String(student.student_id) !== String($('shift-student').value))
+      .sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`))
+    select.innerHTML = students.length
+      ? students
+          .map(
+            student =>
+              `<option value="${student.student_id}">${escapeHtml(student.lrn_number || student.student_id)} - ${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`)}</option>`
+          )
+          .join('')
+      : '<option value="">No students in this section</option>'
+  }
+
+  mode.addEventListener('change', () => {
+    const swapping = mode.value === 'swap'
+    $('swap-student-field').classList.toggle('hidden', !swapping)
+    if (!swapping) return
+    $('shift-section-field').classList.remove('hidden')
+    $('shift-form').querySelector('button.btn').textContent = 'Swap Students'
+    refreshStudentB()
+  })
+  // The section list is rebuilt whenever student A changes; the student B list follows it.
+  new MutationObserver(refreshStudentB).observe($('shift-section'), { childList: true })
+  $('shift-section').addEventListener('change', refreshStudentB)
+
+  $('shift-form').addEventListener('submit', async event => {
+    if (mode.value !== 'swap') return
+    event.preventDefault()
+    const studentA = Number($('shift-student').value)
+    const studentB = Number($('swap-student-b').value)
+    const reason = $('shift-reason').value.trim()
+    if (!studentA) return toast('Select student A first.', 'error')
+    if (!$('shift-section').value) return toast('Select the section of the student to swap with.', 'error')
+    if (!studentB) return toast('Select the student to swap with.', 'error')
+    if (!reason) return toast('Enter a reason for this action.', 'error')
+    const sectionA = state.studentSections.get(String(studentA)) || 'No Section'
+    const confirmed = await confirmDialog(
+      `Swap ${studentName(studentA)} (${sectionA}) with ${studentName(studentB)} (${sectionName($('shift-section').value)})? Each student moves into the other's section. Section sizes stay the same. This is recorded in the audit trail.`,
+      { title: 'Swap students', confirmText: 'Swap' }
+    )
+    if (!confirmed) return
+    await withBusy(event.target.querySelector('button.btn'), 'Swapping…', async () => {
+      const { error } = await supabase.rpc('swap_student_sections', {
+        p_student_a: studentA,
+        p_student_b: studentB,
+        p_reason: reason
+      })
+      if (error) return toast(describeError(error, 'Swap students'), 'error')
+      toast('Students swapped successfully.')
+      $('shift-reason').value = ''
+      $('swap-student-b').innerHTML = '<option value="">Choose a section first</option>'
+      await onDone()
+    })
+  })
+}
