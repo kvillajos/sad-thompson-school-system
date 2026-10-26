@@ -14,7 +14,7 @@ No frameworks, no network, no live database. Each check is a plain Node script u
 | Kind | Checks | What they prove |
 | --- | --- | --- |
 | **Pure logic** (Node only) | `copy`, `daytabs`, `edit-lock`, `edit-request`, `errors`, `fetch-all`, `pages`, `schedule-days`, `sectioning`, `semester`, `sort`, `timeout`, `transcript` | The pure helpers in `shared/lib`, `shared/ui` and `shared/documents` behave correctly |
-| **Static source / SQL guards** | `attendance`, `audit`, `e2e`, `faculty`, `grades-upload`, `key-boundary`, `print`, `rbac`, `report-card`, `shared-helpers` | Page wiring, RLS/audit policy shape in `dev/database/backupsqlmigration.sql`, no service-role key in browser code, no re-declared `escapeHtml` |
+| **Static source / SQL guards** | `attendance`, `audit`, `e2e`, `faculty`, `grades-upload`, `key-boundary`, `photo-staff-only`, `print`, `rbac`, `report-card`, `shared-helpers` | Page wiring, RLS/audit policy shape in `dev/database/backupsqlmigration.sql`, photo-write restrictions in the pending v51 SQL, no service-role key in browser code, no re-declared `escapeHtml` |
 | **Headless browser** (Chrome or Edge) | `admin-lock`, `dialogs`, `pdf`, `registrar`, `registrar-flow` | Real page markup + scripts run with a stubbed Supabase client |
 
 Browser checks use the first installed Chrome/Edge (override with `BROWSER_PATH`). They print
@@ -67,5 +67,18 @@ Sign-off: ____________________ Date: __________
 ### Student portal
 
 Verify Dashboard, Grades semester/year filters, Transcript preview/print, Schedule, Profile, and Attendance.
+
+Sign-off: ____________________ Date: __________
+
+### Profile photos
+
+Use a staging/preview project with student, registrar, and administrator accounts.
+
+1. Sign in as a student. Confirm the current photo still appears on the dashboard and profile, but the student dashboard and shared profile menu have no photo upload, camera, or remove controls.
+2. Apply the pending v51 SQL to staging only.
+3. As a student, attempt a direct upload/update through the authenticated client. Confirm Storage rejects insert/update in `profile-pictures` and `update_own_profile_picture` is not executable.
+4. Sign in as an administrator and open Manage Accounts > View / Edit for a student and a staff account. Change each photo and confirm the displayed photo refreshes.
+5. Attempt an unsupported file type and a file larger than 3 MB. Confirm each is rejected and the existing photo remains unchanged.
+6. Sign in as a registrar and confirm the `profile-pictures` Storage insert/update policies and staff photo update RPC allow the registrar role. Confirm faculty and students are denied.
 
 Sign-off: ____________________ Date: __________

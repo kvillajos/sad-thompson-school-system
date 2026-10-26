@@ -353,65 +353,6 @@ async function loadAttendance() {
     '<tr><td colspan="2">No attendance recorded yet.</td></tr>'
 }
 
-
-// Profile picture: pick a file -> instant preview with Save/Cancel -> upload.
-const pictureInput = document.getElementById('profile-picture-input')
-const pictureActions = document.getElementById('picture-actions')
-const pictureHint = document.getElementById('picture-hint')
-const hintText = pictureHint.textContent
-let previewUrl = null
-const resetPicture = () => {
-  if (previewUrl) URL.revokeObjectURL(previewUrl)
-  previewUrl = null
-  pictureInput.value = ''
-  pictureActions.classList.add('hidden')
-  pictureHint.textContent = hintText
-  pictureHint.style.color = ''
-  showProfilePicture(student?.profile_picture_url)
-}
-document.getElementById('choose-picture').onclick = () => pictureInput.click()
-document.getElementById('cancel-picture').onclick = resetPicture
-pictureInput.onchange = () => {
-  const file = pictureInput.files?.[0]
-  if (!file) return
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024) {
-    resetPicture()
-    pictureHint.textContent = "That file can't be used. Choose a PNG, JPG or WEBP up to 3 MB."
-    pictureHint.style.color = '#c0392b'
-    return
-  }
-  if (previewUrl) URL.revokeObjectURL(previewUrl)
-  previewUrl = URL.createObjectURL(file)
-  document.getElementById('profile-picture-preview').innerHTML = `<img src="${previewUrl}" alt="New profile picture preview">`
-  pictureHint.textContent = file.name
-  pictureHint.style.color = ''
-  pictureActions.classList.remove('hidden')
-}
-document.getElementById('save-picture').onclick = async () => {
-  const file = pictureInput.files?.[0]
-  if (!file) return
-  const button = document.getElementById('save-picture')
-  button.disabled = true
-  button.textContent = 'Saving...'
-  try {
-    const path = `${user.student_id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-    const { error: uploadError } = await supabase.storage.from('profile-pictures').upload(path, file, { upsert: false })
-    if (uploadError) throw uploadError
-    const { data: publicUrlData } = supabase.storage.from('profile-pictures').getPublicUrl(path)
-    const { error: rpcError } = await supabase.rpc('update_own_profile_picture', { p_url: publicUrlData.publicUrl })
-    if (rpcError) throw rpcError
-    student = { ...student, profile_picture_url: publicUrlData.publicUrl }
-    resetPicture()
-    pictureHint.textContent = 'Profile picture updated.'
-  } catch (error) {
-    pictureHint.textContent = describeError(error, 'Save photo')
-    pictureHint.style.color = '#c0392b'
-  } finally {
-    button.disabled = false
-    button.textContent = 'Save photo'
-  }
-}
-
 document.getElementById('grades-prev-year').onclick = () => {
   gradePageIndex--
   renderGrades()
