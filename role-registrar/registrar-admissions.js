@@ -9,11 +9,20 @@ import { generalAverage, letterGrade } from '../shared/lib/grades.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
+import { isSeniorHigh, strandOptions } from '../shared/lib/strands.js'
 
 // Label values ("Grade 7"), so an application's stored grade still selects through gradeSelectLabel().
-document
-  .querySelector('#application-form [name=grade_level]')
-  .insertAdjacentHTML('beforeend', OFFERED_GRADES.map(grade => `<option>${gradeLabel(grade)}</option>`).join(''))
+const applicationGrade = document.querySelector('#application-form [name=grade_level]')
+applicationGrade.insertAdjacentHTML('beforeend', OFFERED_GRADES.map(grade => `<option>${gradeLabel(grade)}</option>`).join(''))
+// Grades 11-12 applicants choose a strand; it decides which sections they can be placed in.
+const applicationStrand = document.querySelector('#application-form [name=strand]')
+applicationStrand.innerHTML = strandOptions()
+function syncApplicationStrand() {
+  const senior = applicationGrade.value !== '' && isSeniorHigh(gradeToNumber(applicationGrade.value))
+  document.querySelector('#application-form .application-strand-field').hidden = !senior
+  if (!senior) applicationStrand.value = ''
+}
+applicationGrade.addEventListener('change', syncApplicationStrand)
 
 // Grade is stored as a number but the select options are labels, so map back on resume.
 const gradeSelectLabel = value =>
@@ -109,6 +118,7 @@ $('remove-application-photo').onclick = () => {
 }
 function clearApplicationForm() {
   $('application-form').reset()
+  syncApplicationStrand()
   $('application-id').value = ''
   removeSavedPhoto = false
   setApplicationPhoto(null)
@@ -145,6 +155,7 @@ function validateApplication(form) {
     errors.push(`Address must be ${ADDRESS_MIN} to ${ADDRESS_MAX} characters (now ${address.length}).`)
   if (!data.birth_date) errors.push('Birth date is required.')
   if (!data.grade_level) errors.push('Grade level is required.')
+  else if (isSeniorHigh(gradeToNumber(data.grade_level)) && !data.strand) errors.push('Choose a strand for Grades 11-12.')
   return { data, errors }
 }
 
@@ -175,6 +186,7 @@ async function saveApplication(data, status) {
     prior_school: data.prior_school || null,
     prior_grade: data.prior_grade || null,
     grade_level: data.grade_level ? gradeToNumber(data.grade_level) : null,
+    strand: data.strand || null,
     special_program: data.special_program || null,
     status,
     ...(removeSavedPhoto ? { profile_picture_url: null } : {})
@@ -197,9 +209,7 @@ async function saveApplication(data, status) {
       return
     }
     toast('Application submitted successfully. It is now waiting for admin approval.')
-    $('application-form').reset()
-    $('application-id').value = ''
-    setApplicationPhoto(null)
+    clearApplicationForm()
   } else {
     toast('Draft saved. You can resume it later from the draft list.')
     if (!$('drafts-modal').classList.contains('hidden')) openDrafts()
@@ -298,6 +308,8 @@ function resumeApplication(id) {
   })
   // Grade is stored as a number, the select options are labels like "Grade 1".
   form.elements.namedItem('grade_level').value = gradeSelectLabel(application.grade_level)
+  syncApplicationStrand()
+  applicationStrand.value = application.strand || ''
   setApplicationPhoto(application.profile_picture_url || null)
   updateAddressCount()
   $('drafts-modal').classList.add('hidden')
@@ -416,6 +428,7 @@ const APPLICATION_FIELDS = [
   ['Birth Date', 'birth_date'],
   ['Sex', 'sex'],
   ['Grade Level', 'grade_level'],
+  ['Strand', 'strand'],
   ['Address', 'address'],
   ['Contact Number', 'contact_number'],
   ['Guardian Name', 'guardian_name'],

@@ -199,6 +199,7 @@ try {
     'shared/ui/dialog.js',
     'shared/lib/html.js',
     'shared/lib/grade-levels.js',
+    'shared/lib/strands.js',
     'shared/lib/errors.js',
     'shared/lib/grades.js',
     'shared/lib/grading-scale.js',

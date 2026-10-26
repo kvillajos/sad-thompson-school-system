@@ -14,6 +14,7 @@ import {
   subjectDisplayName
 } from '../shared/lib/html.js'
 import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
+import { STRANDS } from '../shared/lib/strands.js'
 import { describeError } from '../shared/lib/errors.js'
 import { mountAdminShell } from './admin-page.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
@@ -26,6 +27,12 @@ const subjectForm = document.getElementById('subject-form')
 const gradePicker = document.getElementById('subject-grade-picker')
 gradePicker.innerHTML = gradeLevelCheckboxes('grade_level', { includeAll: true, allLabel: 'All Grades', grades: OFFERED_GRADES })
 bindExclusiveGradePicker(gradePicker)
+const strandPicker = document.getElementById('subject-strand-picker')
+strandPicker.innerHTML = STRANDS.map(
+  strand =>
+    `<label class="grade-option" title="${escape(strand.name)}"><input type="checkbox" name="strands" value="${escape(strand.code)}"><span class="grade-check" aria-hidden="true"></span><span>${escape(strand.code)}</span></label>`
+).join('')
+const SEMESTER_LABELS = { 1: '1st Sem', 2: '2nd Sem' }
 let subjects = []
 
 function closeModal(modal, form) {
@@ -35,7 +42,7 @@ function closeModal(modal, form) {
 }
 async function loadData() {
   const subjectResult = await supabase.from('subjects').select('*').order('subject_code')
-  if (subjectResult.error) return (document.getElementById('subjects-table').innerHTML = errorRow(5, subjectResult.error, 'Load subjects'))
+  if (subjectResult.error) return (document.getElementById('subjects-table').innerHTML = errorRow(8, subjectResult.error, 'Load subjects'))
   subjects = subjectResult.data || []
   renderSubjects()
 }
@@ -57,6 +64,9 @@ function renderSubjects() {
     <td data-label="Code">${escape(item.subject_code)}</td>
     <td data-label="Subject">${escape(subjectDisplayName(item.subject_name))}</td>
     <td data-label="Grade">${escape(gradeLevelSummary(item.grade_level))}</td>
+    <td data-label="Type">${escape(item.subject_type || '-')}</td>
+    <td data-label="Semester">${escape(SEMESTER_LABELS[item.semester] || 'Whole year')}</td>
+    <td data-label="Strand">${escape(item.strands?.join(', ') || 'All')}</td>
     <td data-label="Status">${activeStatus(item.is_active)}</td>
     <td data-label="Actions">
       <button class="admin-view" data-edit-subject="${item.subject_id}">Edit</button>
@@ -65,7 +75,7 @@ function renderSubjects() {
   </tr>
 `
       )
-      .join('') || '<tr><td colspan="5">No matching subjects.</td></tr>'
+      .join('') || '<tr><td colspan="8">No matching subjects.</td></tr>'
 
   document
     .querySelectorAll('[data-edit-subject]')
@@ -78,6 +88,9 @@ function openSubject(item) {
   subjectForm.elements.subject_code.value = item?.subject_code || ''
   subjectForm.elements.subject_name.value = item?.subject_name || ''
   setGradePicker(gradePicker, item ? item.grade_level : null)
+  subjectForm.elements.subject_type.value = item?.subject_type || ''
+  subjectForm.elements.semester.value = item?.semester || ''
+  strandPicker.querySelectorAll('input').forEach(box => (box.checked = Boolean(item?.strands?.includes(box.value))))
   subjectForm.elements.is_active.value = String(item?.is_active ?? true)
   subjectForm.elements.description.value = item?.description || ''
   document.getElementById('subject-modal-title').textContent = item ? 'Edit Subject' : 'Add Subject'
@@ -106,10 +119,14 @@ subjectForm.onsubmit = event => {
   if (gradeLevel !== null && !gradeLevel.length) return toast('Select at least one grade, or All Grades.', 'error')
   return withBusy(event.submitter || subjectForm.querySelector('[type="submit"]'), 'Saving…', async () => {
     const values = Object.fromEntries(new FormData(subjectForm).entries())
+    const strands = [...strandPicker.querySelectorAll('input:checked')].map(box => box.value)
     const payload = {
       subject_code: values.subject_code.trim().toUpperCase(),
       subject_name: values.subject_name.trim(),
       grade_level: gradeLevel,
+      subject_type: values.subject_type || null,
+      semester: values.semester ? Number(values.semester) : null,
+      strands: strands.length ? strands : null,
       description: values.description.trim() || null,
       is_active: values.is_active === 'true',
       updated_at: new Date().toISOString()

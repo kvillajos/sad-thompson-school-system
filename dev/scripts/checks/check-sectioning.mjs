@@ -19,7 +19,7 @@ const sections = [
   { section_id: 3, section_name: 'STEM A', grade_level: 11, capacity: 30 }
 ]
 
-// Grades 11-12 are out of scope until strands are modelled.
+// The default run covers Grades 7-10; Senior High is assigned only when its grades are chosen.
 const plan = planBalancedAssignments({
   students: [...makeStudents(7, 9, 9), ...makeStudents(11, 5, 5)],
   sections,
@@ -131,5 +131,30 @@ assert.deepEqual(
 assert.equal(
   planBalancedAssignments({ students: left, sections, grades: [7], random: seeded(1) }).assignments.some(row => row.student_id === 1),
   false
+)
+
+// Senior High: students only land in a section of their own strand; a student without a strand is reported.
+const shsSections = [
+  { section_id: 11, section_name: 'Matalino', grade_level: 11, strand: 'STEM', capacity: 5 },
+  { section_id: 12, section_name: 'Masigasig', grade_level: 11, strand: 'ABM', capacity: 5 }
+]
+const shsStudents = [
+  ...makeStudents(11, 2, 2).map(s => ({ ...s, strand: 'STEM' })),
+  { student_id: 11900, grade_level: 11, gender: 'Female', strand: 'ABM' },
+  { student_id: 11901, grade_level: 11, gender: 'Male', strand: 'HUMSS' },
+  { student_id: 11902, grade_level: 11, gender: 'Male' }
+]
+const shsPlan = planBalancedAssignments({ students: shsStudents, sections: shsSections, grades: [11], random: seeded(3) })
+const placedIn = new Map(shsPlan.assignments.map(row => [row.student_id, row.section_id]))
+assert.ok(
+  shsStudents.filter(s => s.strand === 'STEM').every(s => placedIn.get(s.student_id) === 11),
+  'STEM students go to the STEM section'
+)
+assert.equal(placedIn.get(11900), 12, 'ABM student goes to the ABM section')
+assert.match(shsPlan.unplaced.find(row => row.student_id === 11901).reason, /No HUMSS section/)
+assert.match(shsPlan.unplaced.find(row => row.student_id === 11902).reason, /No strand chosen/)
+assert.deepEqual(
+  studentsForSection(shsStudents, { gradeLevel: 11, sectionId: 12, strand: 'ABM' }).map(s => s.student_id),
+  [11900]
 )
 console.log('sectioning checks passed')

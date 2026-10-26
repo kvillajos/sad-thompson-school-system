@@ -44,7 +44,10 @@ if (context) {
   }
   // A stored final that differs from the quarter average was typed in by the faculty; keep it as an override.
   const edited = record => record.final != null && Number(record.final) !== derivedGrade({ ...record, final: null })
+  // A Senior High semester subject is graded only in its own semester's two quarters (1st: Q1-Q2, 2nd: Q3-Q4).
+  const OFF_SEMESTER = { 1: ['second_sem_q1', 'second_sem_q2'], 2: ['first_sem_q1', 'first_sem_q2'] }
   const render = () => {
+    const offFields = OFF_SEMESTER[selected().chosen?.semester] || []
     $('grade-table').innerHTML =
       gradeRows
         .map(row => {
@@ -52,9 +55,10 @@ if (context) {
           const student = row.student || {}
           const name = `${student.first_name || ''} ${student.last_name || ''}`.trim()
           const cells = SCORE_FIELDS.filter(field => field !== 'final')
-            .map(
-              field =>
-                `<td${field === 'midterm' ? ' style="display:none !important"' : ` data-label="${SCORE_LABELS[field]}"`}><input type="number" min="0" max="100" step="0.01" data-field="${field}" aria-label="${escapeHtml(`${field.replaceAll('_', ' ')} for ${name}`)}" value="${record[field] ?? ''}"${record.locked ? ' disabled' : ''}></td>`
+            .map(field =>
+              offFields.includes(field)
+                ? `<td data-label="${SCORE_LABELS[field]}" title="Not taught this semester">-</td>`
+                : `<td${field === 'midterm' ? ' style="display:none !important"' : ` data-label="${SCORE_LABELS[field]}"`}><input type="number" min="0" max="100" step="0.01" data-field="${field}" aria-label="${escapeHtml(`${field.replaceAll('_', ' ')} for ${name}`)}" value="${record[field] ?? ''}"${record.locked ? ' disabled' : ''}></td>`
             )
             .join('')
           return `<tr data-student-id="${row.student_id}"><td data-label="Student">${record.locked ? '<span title="Submitted and locked">&#128274;</span> ' : ''}${escapeHtml(student.lrn_number || row.student_id)}<br><small>${escapeHtml(name)}</small></td>${cells}<td data-label="Final Grade"><input type="number" min="0" max="100" step="0.01" data-field="final" aria-label="Final grade for ${escapeHtml(name)}" value="${record.final ?? ''}"${edited(record) ? ' data-user-edited="true"' : ''}${record.locked ? ' disabled' : ''}></td><td data-label="Letter Grade"><input type="text" maxlength="3" readonly tabindex="-1" data-field="letter_grade" aria-label="Letter grade for ${escapeHtml(name)}" value="${escapeHtml(record.letter_grade || '')}"${record.locked ? ' disabled' : ''}></td><td data-label="Remarks"><input type="text" maxlength="100" data-field="remarks" aria-label="Remarks for ${escapeHtml(name)}" value="${escapeHtml(record.remarks || '')}"${record.locked ? ' disabled' : ''}>${record.locked ? ' <button type="button" class="admin-view" data-correct>Request correction</button>' : ''}</td></tr>`

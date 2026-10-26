@@ -38,7 +38,7 @@ export function mountCopyYear(host, onCopied) {
       const { data: sourceSections, error: sourceError } = await fetchAll(() =>
         supabase
           .from('sections')
-          .select('section_id,section_name,grade_level,capacity,room,semester,faculty_assigned')
+          .select('section_id,section_name,grade_level,strand,capacity,room,semester,faculty_assigned')
           .eq('academic_year', sourceYear)
           .order('grade_level')
           .order('section_name')
@@ -130,6 +130,7 @@ export function mountCopyYear(host, onCopied) {
         const sectionRows = plan.sectionsToCreate.map(({ section }) => ({
           section_name: section.section_name,
           grade_level: section.grade_level,
+          strand: section.strand,
           capacity: section.capacity,
           min_capacity: Math.min(10, Number(section.capacity)),
           room: section.room,

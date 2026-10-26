@@ -119,6 +119,11 @@ ordering bugs. Keep it that way.
 - **Changes**: append a new numbered block at the end of that file. Ask before running SQL on the live project.
 - New SQL awaiting lead review goes in `dev/database/pending/` and must not be run against the live project or copied
   into the consolidated backup until approved.
+- **Subjects and strands** (v52): Junior High subjects are named by topic, one per grade (e.g. Grade 9 "Chemistry").
+  Senior High uses the K-12 strands in table `strands` (STEM, ABM, HUMSS, GAS, TVL-CSS, TVL-MSES, TVL-PLUMB);
+  each subject has `subject_type`, `semester` (1, 2 or null = whole year) and `strands` (null = every strand).
+  Grades 11-12 students and sections carry one strand, and placement only matches the same strand. The catalog and
+  the demo data generator live in `dev/scripts/seed/curriculum.mjs` and `seed-curriculum.mjs`.
 - Enrollment status is fixed by `students_enrollment_status_check`: `Enrolled | Pending | Graduated | Transferred`.
   Adding one needs a new migration block.
 

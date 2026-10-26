@@ -26,13 +26,16 @@
               <th>Code</th>
               <th>Subject</th>
               <th>Grade Level</th>
+              <th>Type</th>
+              <th>Semester</th>
+              <th>Strand</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="subjects-table">
             <tr>
-              <td colspan="5">Loading subjects...</td>
+              <td colspan="8">Loading subjects...</td>
             </tr>
           </tbody>
         </table>
@@ -75,6 +78,25 @@
           <div class="admin-full">
             <label>Grade Level</label>
             <div id="subject-grade-picker" class="grade-picker grade-picker-compact"></div>
+          </div>
+          <label
+            >Type<select name="subject_type">
+              <option value="">Not set</option>
+              <option>Core</option>
+              <option>Applied</option>
+              <option>Specialized</option>
+              <option value="School">School-specific</option>
+            </select></label
+          ><label
+            >Semester<select name="semester">
+              <option value="">Whole year</option>
+              <option value="1">1st Semester</option>
+              <option value="2">2nd Semester</option>
+            </select></label
+          >
+          <div class="admin-full">
+            <label>Strand (Senior High; none checked = every strand)</label>
+            <div id="subject-strand-picker" class="grade-picker grade-picker-compact"></div>
           </div>
           <label
             >Status<select name="is_active">

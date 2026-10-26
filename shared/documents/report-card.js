@@ -70,22 +70,38 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
       </tr>
     `
 
-  // 4. Build table rows adhering to DepEd sequence
+  // 4. Build table rows adhering to DepEd sequence. Only standard rows that have a grade are printed: the
+  // catalog names subjects by topic (e.g. "Chemistry"), so a fixed empty "Science" row would be noise.
   const shown = new Set()
-  const tableRowsHtml =
-    depedSubjects
-      .map(item => {
-        const record = gradeMap.get(item.keys.find(key => gradeMap.has(key))) || {}
-        shown.add(record)
-        return subjectRow(record, item.title, item.isSub)
-      })
-      .join('') +
-    // Subjects outside the Form 138 list (e.g. Senior High: Economics, Practical Research) still count in the
-    // General Average, so they must be listed too, after the standard subjects.
-    cleanRows
-      .filter(record => !shown.has(record))
-      .map(record => subjectRow(record, record.subject))
-      .join('')
+  const standardRows = depedSubjects
+    .map(item => {
+      const record = gradeMap.get(item.keys.find(key => gradeMap.has(key)))
+      if (!record) return ''
+      shown.add(record)
+      return subjectRow(record, item.title, item.isSub)
+    })
+    .join('')
+  // Subjects outside the Form 138 list still count in the General Average, so they are listed after the standard
+  // ones. Senior High subjects run for one semester (scores only in Q1-Q2 or only in Q3-Q4), so they are grouped
+  // under a 1st / 2nd Semester heading.
+  const hasScores = (record, fields) => fields.some(field => record[field] != null)
+  const termOf = record => {
+    const first = hasScores(record, ['first_sem_q1', 'first_sem_q2'])
+    const second = hasScores(record, ['second_sem_q1', 'second_sem_q2'])
+    return first && !second ? 1 : second && !first ? 2 : 0
+  }
+  const otherRecords = cleanRows.filter(record => !shown.has(record))
+  const termHeading = term =>
+    term ? `<tr><td colspan="7" style="text-align: left; font-weight: bold;">${term === 1 ? '1st' : '2nd'} Semester</td></tr>` : ''
+  const otherRows = otherRecords.some(termOf)
+    ? [0, 1, 2]
+        .map(term => {
+          const rows = otherRecords.filter(record => termOf(record) === term)
+          return rows.length ? termHeading(term) + rows.map(record => subjectRow(record, record.subject)).join('') : ''
+        })
+        .join('')
+    : otherRecords.map(record => subjectRow(record, record.subject)).join('')
+  const tableRowsHtml = standardRows + otherRows
 
   return `
     <link rel="stylesheet" href="/css/documents.css">

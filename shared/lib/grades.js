@@ -31,6 +31,7 @@ export function classOptions(schedules = []) {
       section_id: Number(schedule.section_id),
       subject_id: Number(schedule.subject_id),
       subject_name: schedule.subjects?.subject_name || '',
+      semester: schedule.subjects?.semester ?? null,
       label: `${schedule.sections?.section_name || 'Section'} - ${schedule.subjects?.subject_name || 'Subject'}`
     })
   })

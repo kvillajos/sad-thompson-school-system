@@ -25,7 +25,7 @@ export async function loadSections() {
   // Past-year sections are history (report cards, attendance); only current and upcoming ones can take students.
   const { data, error } = await supabase
     .from('sections')
-    .select('section_id,section_name,grade_level,capacity,faculty_assigned')
+    .select('section_id,section_name,grade_level,strand,capacity,faculty_assigned')
     .gte('academic_year', currentSchoolYear())
     .order('grade_level')
     .order('section_name')
@@ -364,14 +364,16 @@ function placementRows() {
   $('placement-section').innerHTML = sections
     .map(
       s =>
-        `<option value="${s.section_id}">${escapeHtml(s.section_name)} (${Math.max(0, s.capacity - (sectionCounts[s.section_id] || 0))} of ${s.capacity} seats left)</option>`
+        `<option value="${s.section_id}">${escapeHtml(s.section_name)}${s.strand ? ` · ${escapeHtml(s.strand)}` : ''} (${Math.max(0, s.capacity - (sectionCounts[s.section_id] || 0))} of ${s.capacity} seats left)</option>`
     )
     .join('')
   if (sections.some(section => String(section.section_id) === currentSection)) $('placement-section').value = currentSection
   const search = $('placement-search').value.trim().toLowerCase()
+  const chosenSection = sections.find(section => String(section.section_id) === $('placement-section').value)
   return studentsForSection(state.students, {
     gradeLevel: grade,
     sectionId: $('placement-section').value,
+    strand: chosenSection?.strand,
     enrolledByStudent: state.enrolledByStudent
   }).filter(
     student =>

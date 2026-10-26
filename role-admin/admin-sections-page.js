@@ -11,6 +11,7 @@ import { mountAdminShell } from './admin-page.js'
 import { mountOverrideForm } from '../shared/ui/override-form.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { mountCopyYear } from './copy-year.js'
+import { isSeniorHigh, strandOptions } from '../shared/lib/strands.js'
 await mountAdminShell('sections')
 mountOverrideForm(document.getElementById('override-form'), {
   rpc: 'admin_place_override',
@@ -63,6 +64,8 @@ const openForm = section => {
   form.elements.section_id.value = section?.section_id || ''
   form.elements.section_name.value = section?.section_name || ''
   form.elements.grade_level.value = section?.grade_level ?? ''
+  form.elements.strand.innerHTML = strandOptions(section?.strand || '')
+  syncStrandField()
   form.elements.capacity.value = section?.capacity || 40
   form.elements.academic_year.value = section?.academic_year || currentSchoolYear()
   form.elements.room.value = section?.room || ''
@@ -76,6 +79,13 @@ document.getElementById('close-section').onclick = close
 document.getElementById('cancel-section').onclick = close
 document.getElementById('section-grade').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades', grades: OFFERED_GRADES })
 form.elements.grade_level.innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'Select Grade Level', grades: OFFERED_GRADES })
+// Grades 11-12 sections belong to one strand; auto-assign and placement only put matching students in them.
+function syncStrandField() {
+  const senior = isSeniorHigh(form.elements.grade_level.value)
+  form.querySelector('.section-strand-field').hidden = !senior
+  form.elements.strand.required = senior
+}
+form.elements.grade_level.addEventListener('change', syncStrandField)
 async function loadSections() {
   const table = document.getElementById('sections-table')
   if (!moderators.length) {
@@ -84,7 +94,7 @@ async function loadSections() {
   }
   const { data, error } = await supabase
     .from('sections')
-    .select('section_id,section_name,grade_level,capacity,academic_year,faculty_assigned,room')
+    .select('section_id,section_name,grade_level,strand,capacity,academic_year,faculty_assigned,room')
     .gte('academic_year', currentSchoolYear())
     .order('grade_level')
     .order('section_name')
@@ -119,7 +129,7 @@ function renderSections() {
                 <strong>${escape(section.section_name)}</strong>
             </td>
             <td data-label="Grade">
-                ${Number(section.grade_level) === 0 ? 'Kindergarten' : `Grade ${section.grade_level}`}
+                ${Number(section.grade_level) === 0 ? 'Kindergarten' : `Grade ${section.grade_level}`}${section.strand ? ` · ${escape(section.strand)}` : ''}
             </td>
             <td data-label="Academic Year">
                 ${escape(section.academic_year || '-')}
@@ -183,6 +193,7 @@ form.onsubmit = event => {
     const payload = {
       section_name: values.section_name.trim(),
       grade_level: Number(values.grade_level),
+      strand: isSeniorHigh(values.grade_level) ? values.strand || null : null,
       capacity: Number(values.capacity),
       academic_year: values.academic_year.trim(),
       room: values.room.trim() || null,

@@ -34,12 +34,17 @@ function splitByGender(students) {
 // Graduated, transferred and withdrawn students have left the school and must not be placed again.
 export const isPlaceable = student => !['Graduated', 'Transferred', 'Withdrawn'].includes(student.enrollment_status)
 
-// Students that may be placed into one section: exactly that grade level, still in school, and not
+// A Senior High section belongs to one strand (STEM, ABM, ...); only students of that strand may join it.
+// Sections and students without a strand (Junior High) match each other.
+export const sameStrand = (student, section) => (student.strand || '') === (section?.strand || '')
+
+// Students that may be placed into one section: exactly that grade level and strand, still in school, and not
 // already sitting in that same section.
-export function studentsForSection(students, { gradeLevel, sectionId, enrolledByStudent = new Map() }) {
+export function studentsForSection(students, { gradeLevel, sectionId, strand = null, enrolledByStudent = new Map() }) {
   return students.filter(
     student =>
       Number(student.grade_level) === Number(gradeLevel) &&
+      sameStrand(student, { strand }) &&
       isPlaceable(student) &&
       Number(enrolledByStudent.get(student.student_id)) !== Number(sectionId)
   )
@@ -63,33 +68,37 @@ export function planBalancedAssignments({
   const unplaced = []
   const inScope = new Set(grades.map(Number))
 
-  const byGrade = new Map()
+  // Students are dealt per grade level and strand (Junior High has no strand, so it is one group per grade).
+  const byGroup = new Map()
   students.forEach(student => {
     const grade = Number(student.grade_level)
     if (!inScope.has(grade) || !isPlaceable(student)) return
     if (enrolledByStudent.get(student.student_id)) return // already has a section
     if (excludedStudentIds.has(Number(student.student_id))) return // registrar excluded them
-    if (!byGrade.has(grade)) byGrade.set(grade, [])
-    byGrade.get(grade).push(student)
+    const key = `${grade}|${student.strand || ''}`
+    if (!byGroup.has(key)) byGroup.set(key, { grade, strand: student.strand || '', students: [] })
+    byGroup.get(key).students.push(student)
   })
-  ;[...byGrade.keys()]
-    .sort((a, b) => a - b)
-    .forEach(grade => {
+  ;[...byGroup.values()]
+    .sort((a, b) => a.grade - b.grade || a.strand.localeCompare(b.strand))
+    .forEach(({ grade, strand, students: groupStudents }) => {
       const gradeSections = sections
-        .filter(section => Number(section.grade_level) === grade)
+        .filter(section => Number(section.grade_level) === grade && sameStrand({ strand }, section))
         .sort((a, b) => String(a.section_name).localeCompare(String(b.section_name)))
         .map(section => ({ ...section, free: Math.max(0, Number(section.capacity || 0) - Number(section.enrolled || 0)) }))
 
       if (!gradeSections.length) {
-        byGrade
-          .get(grade)
-          .forEach(student =>
-            unplaced.push({ student_id: student.student_id, grade_level: grade, reason: 'No section exists for this grade level' })
-          )
+        const gradeHasSections = sections.some(section => Number(section.grade_level) === grade)
+        const reason = !gradeHasSections
+          ? 'No section exists for this grade level'
+          : strand
+            ? `No ${strand} section exists for this grade level`
+            : 'No strand chosen for this Senior High student'
+        groupStudents.forEach(student => unplaced.push({ student_id: student.student_id, grade_level: grade, reason }))
         return
       }
 
-      const pools = splitByGender(shuffle(byGrade.get(grade), random))
+      const pools = splitByGender(shuffle(groupStudents, random))
       const tally = new Map(gradeSections.map(section => [section.section_id, { boys: 0, girls: 0, others: 0 }]))
       const passes = [
         ['boys', pools.boys],

@@ -31,8 +31,12 @@ export async function loadFacultyContext(activePage = 'dashboard') {
   const facultyName = profile ? `${profile.first_name} ${profile.last_name}` : user.username
   const scheduleResult = await supabase
     .from('subject_schedules')
-    .select('subject_id,section_id,room,day_of_week,start_time,end_time,subjects(subject_name),sections(section_name)')
+    .select(
+      'subject_id,section_id,room,day_of_week,start_time,end_time,subjects(subject_name,semester),sections!inner(section_name,academic_year)'
+    )
     .ilike('faculty_name', facultyName)
+    // Only this school year's classes: copied or past years' timetables are not this year's load.
+    .eq('sections.academic_year', currentSchoolYear())
     .order('day_of_week')
     .order('start_time')
   const schedules = scheduleResult.data || []
