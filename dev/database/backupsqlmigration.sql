@@ -4266,3 +4266,765 @@ commit;
 
 -- Check (run separately afterwards): where feedback comes from.
 -- select submitted_role, status, count(*) from registrar_feedback group by submitted_role, status;
+
+
+-- ============================================================
+-- BEGIN v47-school-years.sql  (applied live 2026-10-26 by khyle)
+-- school_years table, status helpers, no-overlap trigger, backfill, swap_student_sections RPC.
+-- ============================================================================
+-- v47-school-years.sql
+-- Task: Khyle / branch khyle-school-years
+-- School Years table. One row per year, status computed from dates (never stored).
+-- Safe to run twice.
+
+create table if not exists public.school_years (
+  label      text primary key check (label ~ '^\d{4}-\d{4}$'),
+  start_date date not null,
+  end_date   date not null,
+  created_at timestamptz not null default now(),
+  constraint school_years_end_after_start check (end_date > start_date)
+);
+
+-- Same helper as in v47b (create or replace, so running both is harmless).
+-- Admins, and server-side sessions with no logged-in user, may change past years.
+-- ADJUST if your project defines admins differently. It calls public.is_admin() when that
+-- function exists; otherwise it falls back to the role claim in the JWT.
+create or replace function public.school_year_user_is_admin()
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    return true;
+  end if;
+  return coalesce(public.current_app_role(), 0) = 1;
+end;
+$$;
+
+-- Status is computed from the dates: Upcoming / Active / Past.
+create or replace function public.school_year_status(p_label text)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when (now() at time zone 'Asia/Manila')::date < sy.start_date then 'Upcoming'
+    when (now() at time zone 'Asia/Manila')::date > sy.end_date   then 'Past'
+    else 'Active'
+  end
+  from public.school_years sy
+  where sy.label = p_label;
+$$;
+
+-- Two years' dates may not overlap.
+create or replace function public.school_years_no_overlap()
+returns trigger
+language plpgsql
+as $$
+declare
+  clash text;
+begin
+  select sy.label into clash
+  from public.school_years sy
+  where sy.label <> case when tg_op = 'UPDATE' then old.label else new.label end
+    and sy.start_date <= new.end_date
+    and sy.end_date   >= new.start_date
+  limit 1;
+
+  if clash is not null then
+    raise exception 'School year % overlaps % (dates may not overlap)', new.label, clash
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_school_years_no_overlap on public.school_years;
+create trigger trg_school_years_no_overlap
+  before insert or update on public.school_years
+  for each row execute function public.school_years_no_overlap();
+
+-- Backfill: every distinct YYYY-YYYY value found in any school_year / academic_year
+-- text column in the public schema. Default dates: June 1 to May 31.
+-- A value that cannot be inserted (for example overlapping dates) is reported and skipped.
+do $$
+declare
+  r record;
+  y text;
+begin
+  for r in
+    select c.table_name, c.column_name
+    from information_schema.columns c
+    join information_schema.tables t
+      on t.table_schema = c.table_schema
+     and t.table_name   = c.table_name
+     and t.table_type   = 'BASE TABLE'
+    where c.table_schema = 'public'
+      and c.column_name in ('school_year', 'academic_year')
+      and c.data_type in ('text', 'character varying')
+      and not (c.table_name = 'school_years' and c.column_name = 'label')
+  loop
+    for y in
+      execute format(
+        'select distinct %I from public.%I where %I ~ %L',
+        r.column_name, r.table_name, r.column_name, '^\d{4}-\d{4}$'
+      )
+    loop
+      begin
+        insert into public.school_years (label, start_date, end_date)
+        values (
+          y,
+          make_date(split_part(y, '-', 1)::int, 6, 1),
+          make_date(split_part(y, '-', 2)::int, 5, 31)
+        )
+        on conflict (label) do nothing;
+      exception when others then
+        raise notice 'Skipped year % from %.%: %', y, r.table_name, r.column_name, sqlerrm;
+      end;
+    end loop;
+  end loop;
+end $$;
+
+-- Access: everyone signed in can read; only admins can add, rename or edit years.
+alter table public.school_years enable row level security;
+
+drop policy if exists school_years_read on public.school_years;
+create policy school_years_read on public.school_years
+  for select to authenticated using (true);
+
+drop policy if exists school_years_admin_write on public.school_years;
+create policy school_years_admin_write on public.school_years
+  for all to authenticated
+  using (public.school_year_user_is_admin())
+  with check (public.school_year_user_is_admin());
+
+-- ---------------------------------------------------------------------------
+-- Swap two students between sections (fixes "override should switch with a full classroom").
+-- Both students must have an active enrollment in the same school year and grade level, in
+-- different sections. Each moves into the other's section in one transaction, so no section
+-- gains or loses a student and capacity is respected without admin approval. Writes an audit entry.
+-- ---------------------------------------------------------------------------
+create or replace function public.swap_student_sections(p_student_a integer, p_student_b integer, p_reason text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  ea       enrollments%rowtype;
+  eb       enrollments%rowtype;
+  sec_a    sections%rowtype;
+  sec_b    sections%rowtype;
+  name_a   text;
+  name_b   text;
+  actor_name text;
+begin
+  if coalesce(current_app_role(), 0) not in (1, 2) then
+    raise exception 'Not authorized';
+  end if;
+  if nullif(trim(p_reason), '') is null then
+    raise exception 'A reason is required';
+  end if;
+  if p_student_a is null or p_student_b is null or p_student_a = p_student_b then
+    raise exception 'Choose two different students';
+  end if;
+
+  -- Lock both students in a fixed order so two swaps at the same time cannot deadlock.
+  perform 1 from students where student_id in (p_student_a, p_student_b) order by student_id for update;
+
+  select first_name || ' ' || last_name into name_a from students where student_id = p_student_a;
+  if not found then raise exception 'Student not found'; end if;
+  select first_name || ' ' || last_name into name_b from students where student_id = p_student_b;
+  if not found then raise exception 'Student not found'; end if;
+
+  select * into ea from enrollments
+    where student_id = p_student_a and status = 'active' order by created_at desc limit 1;
+  if not found or ea.section_id is null then raise exception '% is not placed in a section', name_a; end if;
+  select * into eb from enrollments
+    where student_id = p_student_b and status = 'active' order by created_at desc limit 1;
+  if not found or eb.section_id is null then raise exception '% is not placed in a section', name_b; end if;
+
+  if ea.section_id = eb.section_id then
+    raise exception 'Both students are already in the same section';
+  end if;
+  if ea.school_year is distinct from eb.school_year then
+    raise exception 'Both students must be enrolled in the same school year';
+  end if;
+  if public.school_year_status(ea.school_year) = 'Past' then
+    raise exception 'School year % is Past and read-only', ea.school_year;
+  end if;
+
+  -- Lock both sections in a fixed order, then read them.
+  perform 1 from sections where section_id in (ea.section_id, eb.section_id) order by section_id for update;
+  select * into sec_a from sections where section_id = ea.section_id;
+  select * into sec_b from sections where section_id = eb.section_id;
+
+  if sec_a.grade_level is distinct from sec_b.grade_level or ea.grade_level is distinct from eb.grade_level then
+    raise exception 'Both students must be in the same grade level';
+  end if;
+  perform public.placement_guard(p_student_a, sec_b);
+  perform public.placement_guard(p_student_b, sec_a);
+
+  -- Moving the first student briefly fills the other section; the swap as a whole keeps every
+  -- section at the same size, so the capacity guard is switched off for this transaction only.
+  perform set_config('app.capacity_override', 'on', true);
+  update enrollments
+     set section_id = case when id = ea.id then eb.section_id else ea.section_id end
+   where id in (ea.id, eb.id);
+  perform set_config('app.capacity_override', 'off', true);
+
+  select username::text into actor_name from users
+    where lower(email) = lower(auth.jwt() ->> 'email') and is_active limit 1;
+
+  insert into audit_logs(actor, action, entity_type, entity_id, details)
+  values (actor_name, 'SWAP_SECTIONS', 'student', p_student_a, jsonb_build_object(
+    'student_a', p_student_a,
+    'student_b', p_student_b,
+    'section_a_before', ea.section_id,
+    'section_a_before_name', sec_a.section_name,
+    'section_b_before', eb.section_id,
+    'section_b_before_name', sec_b.section_name,
+    'school_year', ea.school_year,
+    'reason', trim(p_reason)
+  ));
+
+  insert into notifications(title, message, entity_type, entity_id)
+  values ('Student Section Swap',
+          format('%s (%s) and %s (%s) swapped sections.', name_a, sec_a.section_name, name_b, sec_b.section_name),
+          'student', p_student_a);
+
+  return jsonb_build_object(
+    'student_a', name_a, 'now_in_a', sec_b.section_name,
+    'student_b', name_b, 'now_in_b', sec_a.section_name
+  );
+end;
+$$;
+
+grant execute on function public.swap_student_sections(integer, integer, text) to authenticated;
+
+-- END v47-school-years.sql
+
+
+-- ============================================================
+-- BEGIN v48-student-school-years.sql  (applied live 2026-10-26 by john)
+-- student_school_years table, RLS, history backfill, sync trigger on enrollments.
+-- ============================================================================
+-- v48-student-school-years.sql
+-- Track student enrollment separately for each school year.
+
+BEGIN;
+
+-- =========================================================
+-- 1. CREATE STUDENT SCHOOL-YEAR TABLE
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS public.student_school_years (
+    student_id INTEGER NOT NULL
+        REFERENCES public.students(student_id)
+        ON DELETE CASCADE,
+
+    school_year TEXT NOT NULL
+        CHECK (school_year ~ '^[0-9]{4}-[0-9]{4}$'),
+
+    grade_level INTEGER,
+
+    section_id INTEGER
+        REFERENCES public.sections(section_id)
+        ON DELETE SET NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (student_id, school_year)
+);
+
+-- =========================================================
+-- 2. ENABLE ROW LEVEL SECURITY
+-- =========================================================
+
+ALTER TABLE public.student_school_years
+    ENABLE ROW LEVEL SECURITY;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON TABLE public.student_school_years
+TO authenticated;
+
+-- Role 1 is Admin and role 2 is Registrar, matching the application role guards.
+DROP POLICY IF EXISTS student_school_years_admin_registrar_select
+ON public.student_school_years;
+CREATE POLICY student_school_years_admin_registrar_select
+ON public.student_school_years
+FOR SELECT
+TO authenticated
+USING (
+    (SELECT current_app_role()) = ANY (ARRAY[1, 2])
+);
+
+DROP POLICY IF EXISTS student_school_years_admin_registrar_insert
+ON public.student_school_years;
+CREATE POLICY student_school_years_admin_registrar_insert
+ON public.student_school_years
+FOR INSERT
+TO authenticated
+WITH CHECK (
+    (SELECT current_app_role()) = ANY (ARRAY[1, 2])
+);
+
+DROP POLICY IF EXISTS student_school_years_admin_registrar_update
+ON public.student_school_years;
+CREATE POLICY student_school_years_admin_registrar_update
+ON public.student_school_years
+FOR UPDATE
+TO authenticated
+USING (
+    (SELECT current_app_role()) = ANY (ARRAY[1, 2])
+)
+WITH CHECK (
+    (SELECT current_app_role()) = ANY (ARRAY[1, 2])
+);
+
+DROP POLICY IF EXISTS student_school_years_admin_registrar_delete
+ON public.student_school_years;
+CREATE POLICY student_school_years_admin_registrar_delete
+ON public.student_school_years
+FOR DELETE
+TO authenticated
+USING (
+    (SELECT current_app_role()) = ANY (ARRAY[1, 2])
+);
+
+DROP POLICY IF EXISTS student_school_years_student_select
+ON public.student_school_years;
+CREATE POLICY student_school_years_student_select
+ON public.student_school_years
+FOR SELECT
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1
+        FROM public.users u
+        WHERE lower(u.email::text) =
+              lower(auth.jwt() ->> 'email')
+          AND u.student_id =
+              student_school_years.student_id
+    )
+);
+
+-- =========================================================
+-- 3. BACKFILL THE CURRENT SCHOOL YEAR
+-- =========================================================
+
+-- The school year runs from June through May.
+-- October falls within the school year that began in June of that calendar year.
+WITH current_sy AS (
+    SELECT
+        CASE
+            WHEN EXTRACT(MONTH FROM CURRENT_DATE) >= 6
+            THEN EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER
+            ELSE EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER - 1
+        END AS start_year
+)
+INSERT INTO public.student_school_years (
+    student_id,
+    school_year,
+    grade_level,
+    section_id
+)
+SELECT
+    s.student_id,
+    current_sy.start_year::TEXT
+        || '-'
+        || (current_sy.start_year + 1)::TEXT,
+    s.grade_level,
+    NULL
+FROM public.students s
+CROSS JOIN current_sy
+WHERE s.enrollment_status = 'Enrolled'
+ON CONFLICT (student_id, school_year)
+DO NOTHING;
+
+-- =========================================================
+-- 4. BACKFILL HISTORICAL ENROLLMENT YEARS
+-- =========================================================
+
+-- Include completed and inactive enrollments: these rows record enrollment history,
+-- not only current status. If multiple enrollments resolve to one year, retain the latest.
+WITH historical_enrollments AS (
+    SELECT DISTINCT ON (
+        e.student_id,
+        COALESCE(NULLIF(s.academic_year, ''), e.school_year)
+    )
+        e.student_id,
+        COALESCE(NULLIF(s.academic_year, ''), e.school_year) AS school_year,
+        e.grade_level,
+        e.section_id,
+        e.enrolled_at,
+        e.id
+    FROM public.enrollments e
+    LEFT JOIN public.sections s
+        ON s.section_id = e.section_id
+    ORDER BY
+        e.student_id,
+        COALESCE(NULLIF(s.academic_year, ''), e.school_year),
+        e.enrolled_at DESC NULLS LAST,
+        e.id DESC
+)
+INSERT INTO public.student_school_years (
+    student_id,
+    school_year,
+    grade_level,
+    section_id
+)
+SELECT
+    student_id,
+    school_year,
+    grade_level,
+    section_id
+FROM historical_enrollments
+ON CONFLICT (student_id, school_year)
+DO UPDATE SET
+    grade_level = EXCLUDED.grade_level,
+    section_id = EXCLUDED.section_id;
+
+-- =========================================================
+-- 5. CREATE ENROLLMENT TRIGGER FUNCTION
+-- =========================================================
+
+CREATE OR REPLACE FUNCTION public.sync_student_school_year()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+    section_school_year TEXT;
+BEGIN
+    -- Only synchronize active enrollments.
+    IF NEW.status <> 'active' THEN
+        RETURN NEW;
+    END IF;
+
+    -- Prefer the academic year assigned to the section.
+    IF NEW.section_id IS NOT NULL THEN
+        SELECT s.academic_year
+        INTO section_school_year
+        FROM public.sections s
+        WHERE s.section_id = NEW.section_id;
+    END IF;
+
+    -- Fall back to the enrollment's school year if
+    -- the enrollment does not have a matching section.
+    IF section_school_year IS NULL THEN
+        section_school_year := NEW.school_year;
+    END IF;
+
+    INSERT INTO public.student_school_years (
+        student_id,
+        school_year,
+        grade_level,
+        section_id
+    )
+    VALUES (
+        NEW.student_id,
+        section_school_year,
+        NEW.grade_level,
+        NEW.section_id
+    )
+    ON CONFLICT (student_id, school_year)
+    DO UPDATE SET
+        grade_level = EXCLUDED.grade_level,
+        section_id = EXCLUDED.section_id;
+
+    RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION public.sync_student_school_year()
+    OWNER TO postgres;
+
+REVOKE ALL ON FUNCTION public.sync_student_school_year()
+    FROM PUBLIC, anon, authenticated;
+
+-- =========================================================
+-- 6. ATTACH TRIGGER TO ENROLLMENTS
+-- =========================================================
+
+DROP TRIGGER IF EXISTS sync_student_school_year_trigger
+ON public.enrollments;
+
+CREATE TRIGGER sync_student_school_year_trigger
+AFTER INSERT OR UPDATE OF
+    student_id,
+    school_year,
+    grade_level,
+    section_id,
+    status
+ON public.enrollments
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_student_school_year();
+
+COMMIT;
+-- END v48-student-school-years.sql
+
+
+-- ============================================================
+-- BEGIN v50-school-days.sql  (applied live 2026-10-26 by sam)
+-- school_days table (days per month per school year), admin write / staff+student read.
+-- ============================================================================
+
+begin;
+
+create table if not exists public.school_days (
+  school_year text not null,
+  month integer not null check (month between 1 and 12),
+  days integer not null check (days between 0 and 31),
+  updated_at timestamptz not null default now(),
+  updated_by text,
+  primary key (school_year, month)
+);
+
+alter table public.school_days enable row level security;
+
+revoke all on public.school_days from anon;
+
+drop policy if exists school_days_read on public.school_days;
+create policy school_days_read
+  on public.school_days
+  for select
+  to authenticated
+  using ((select current_app_role()) in (1, 2, 3, 4));
+
+drop policy if exists school_days_admin on public.school_days;
+create policy school_days_admin
+  on public.school_days
+  for all
+  to authenticated
+  using ((select current_app_role()) = 1)
+  with check ((select current_app_role()) = 1);
+
+notify pgrst, 'reload schema';
+
+commit;
+
+-- END v50-school-days.sql
+
+
+-- ============================================================
+-- BEGIN v51-photo-staff-only.sql  (applied live 2026-10-27)
+-- angela: only admin/registrar change profile photos (staff_update_profile_picture RPC, storage policies).
+-- ============================================================================
+-- TCSMS v51: only administrators and registrars may change profile photos.
+-- PostgreSQL client roles are shared by every app role, so revoke the student-facing RPC
+-- from all Data API roles and expose one role-checked staff update entry point.
+begin;
+
+revoke execute on function public.update_own_profile_picture(text) from public, anon, authenticated;
+
+create or replace function public.staff_update_profile_picture(p_user_id integer, p_url text)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  target_student_id integer;
+  expected_path text;
+begin
+  if coalesce(current_app_role(), 0) not in (1, 2) then
+    raise exception 'Only administrators and registrars may change profile pictures';
+  end if;
+
+  select student_id into target_student_id
+  from users
+  where user_id = p_user_id;
+  if not found then raise exception 'Account not found'; end if;
+
+  if target_student_id is not null then
+    expected_path := '/storage/v1/object/public/profile-pictures/' || target_student_id::text || '/';
+    if p_url is not null and position(expected_path in p_url) = 0 then
+      raise exception 'Profile picture must belong to the target account';
+    end if;
+    update students set profile_picture_url = p_url where student_id = target_student_id;
+  else
+    expected_path := '/storage/v1/object/public/profile-pictures/users/' || p_user_id::text || '/';
+    if p_url is not null and position(expected_path in p_url) = 0 then
+      raise exception 'Profile picture must belong to the target account';
+    end if;
+    update users set profile_picture_url = p_url where user_id = p_user_id;
+  end if;
+end $$;
+revoke all on function public.staff_update_profile_picture(integer, text) from public, anon;
+grant execute on function public.staff_update_profile_picture(integer, text) to authenticated;
+
+drop policy if exists profile_pictures_upload on storage.objects;
+create policy profile_pictures_upload on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'profile-pictures'
+    and (select current_app_role()) in (1, 2)
+  );
+
+drop policy if exists profile_pictures_update on storage.objects;
+create policy profile_pictures_update on storage.objects for update to authenticated
+  using (
+    bucket_id = 'profile-pictures'
+    and (select current_app_role()) in (1, 2)
+  )
+  with check (
+    bucket_id = 'profile-pictures'
+    and (select current_app_role()) in (1, 2)
+  );
+
+notify pgrst, 'reload schema';
+commit;
+
+-- END v51-photo-staff-only.sql
+
+
+-- ============================================================
+-- BEGIN v47b-school-year-links.sql  (applied live 2026-10-27)
+-- khyle: FK to school_years(label) on every school_year/academic_year column + Past-year lock triggers. Run last.
+-- ============================================================================
+-- v47b-school-year-links.sql
+-- Task: Khyle / branch khyle-school-years
+-- Runs LAST, after v47-v51. Discovers every school_year / academic_year column
+-- in the public schema (so it also covers tables other members just created),
+-- then for each one:
+--   1. makes sure every year value exists in school_years
+--   2. adds a foreign key -> school_years(label) on update cascade
+--   3. attaches a trigger that blocks insert/update/delete on Past years (admins excepted)
+-- Safe to run twice.
+
+-- Admin check. Admins (and server-side roles with no logged-in user) may change past years.
+-- ADJUST if your project defines admins differently. It calls public.is_admin() when that
+-- function exists; otherwise it falls back to the role claim in the JWT.
+create or replace function public.school_year_user_is_admin()
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    return true;
+  end if;
+  return coalesce(public.current_app_role(), 0) = 1;
+end;
+$$;
+
+-- Generic guard. The column to check is passed as the trigger argument.
+create or replace function public.block_past_school_year_changes()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  col        text := tg_argv[0];
+  old_year   text;
+  new_year   text;
+begin
+  if public.school_year_user_is_admin() then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+
+  if tg_op in ('UPDATE', 'DELETE') then
+    old_year := to_jsonb(old) ->> col;
+    if old_year is not null and public.school_year_status(old_year) = 'Past' then
+      raise exception 'School year % is Past and read-only (% on %.%)',
+        old_year, tg_op, tg_table_schema, tg_table_name
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  if tg_op in ('INSERT', 'UPDATE') then
+    new_year := to_jsonb(new) ->> col;
+    if new_year is not null and public.school_year_status(new_year) = 'Past' then
+      raise exception 'School year % is Past and read-only (% on %.%)',
+        new_year, tg_op, tg_table_schema, tg_table_name
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  return case when tg_op = 'DELETE' then old else new end;
+end;
+$$;
+
+do $$
+declare
+  r         record;
+  y         text;
+  fk_name   text;
+  trg_name  text;
+begin
+  for r in
+    select c.table_name, c.column_name
+    from information_schema.columns c
+    join information_schema.tables t
+      on t.table_schema = c.table_schema
+     and t.table_name   = c.table_name
+     and t.table_type   = 'BASE TABLE'
+    where c.table_schema = 'public'
+      and c.column_name in ('school_year', 'academic_year')
+      and c.data_type in ('text', 'character varying')
+      and not (c.table_name = 'school_years' and c.column_name = 'label')
+    order by c.table_name, c.column_name
+  loop
+    fk_name  := left(r.table_name || '_' || r.column_name || '_school_year_fkey', 63);
+    trg_name := left('trg_' || r.table_name || '_' || r.column_name || '_lock_past', 63);
+
+    -- 1. Make sure every existing year value has a row in school_years.
+    for y in
+      execute format(
+        'select distinct %I from public.%I where %I ~ %L',
+        r.column_name, r.table_name, r.column_name, '^\d{4}-\d{4}$'
+      )
+    loop
+      begin
+        insert into public.school_years (label, start_date, end_date)
+        values (
+          y,
+          make_date(split_part(y, '-', 1)::int, 6, 1),
+          make_date(split_part(y, '-', 2)::int, 5, 31)
+        )
+        on conflict (label) do nothing;
+      exception when others then
+        raise notice 'Skipped year % from %.%: %', y, r.table_name, r.column_name, sqlerrm;
+      end;
+    end loop;
+
+    -- 2. Foreign key with on update cascade (skip if it already exists).
+    if not exists (
+      select 1
+      from pg_constraint con
+      where con.conname  = fk_name
+        and con.conrelid = format('public.%I', r.table_name)::regclass
+    ) then
+      begin
+        execute format(
+          'alter table public.%I add constraint %I foreign key (%I) references public.school_years(label) on update cascade',
+          r.table_name, fk_name, r.column_name
+        );
+      exception when others then
+        raise notice 'Could not add FK on %.%: % (check for values not in YYYY-YYYY format)',
+          r.table_name, r.column_name, sqlerrm;
+      end;
+    end if;
+
+    -- 3. Past-year lock trigger (skip if it already exists).
+    if not exists (
+      select 1
+      from pg_trigger tg
+      where tg.tgname   = trg_name
+        and tg.tgrelid  = format('public.%I', r.table_name)::regclass
+        and not tg.tgisinternal
+    ) then
+      execute format(
+        'create trigger %I before insert or update or delete on public.%I for each row execute function public.block_past_school_year_changes(%L)',
+        trg_name, r.table_name, r.column_name
+      );
+    end if;
+  end loop;
+end $$;
+
+-- END v47b-school-year-links.sql
