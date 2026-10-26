@@ -12,6 +12,22 @@ export const cleanText = value =>
 const tsvField = value => (/[\t\n\r"]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value)
 export const toTsv = rows => rows.map(row => row.map(tsvField).join('\t')).join('\n')
 
+const csvField = (value, isTextColumn) => {
+  let text = String(value ?? '')
+  if (isTextColumn && /^\d+$/.test(text)) {
+    text = `="${text}"`
+  } else if (text.length > 1 && /^[=+\-@]/.test(text)) {
+    text = `'${text}`
+  }
+  return `"${text.replace(/"/g, '""')}"`
+}
+export const toCsv = (rows, textColumns = []) => {
+  const textColumnIndexes = new Set(textColumns)
+  return rows
+    .map(row => row.map((value, index) => csvField(value, textColumnIndexes.has(index))).join(','))
+    .join('\r\n')
+}
+
 const esc = value => value.replace(/[&<>"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[character])
 // Digit-only values with a leading zero or 11+ digits are identifiers, not quantities.
 export const isTextNumber = value => /^\d+$/.test(value) && (value.length >= 11 || /^0\d/.test(value))
@@ -19,7 +35,7 @@ export const toHtml = rows =>
   `<table>${rows.map(row => `<tr>${row.map(value => `<td${isTextNumber(value) ? ' style="mso-number-format:\'\@\'"' : ''}>${esc(value)}</td>`).join('')}</tr>`).join('')}</table>`
 
 const isActionHeader = text => /^actions?$/i.test(cleanText(text))
-const cellText = cell => {
+export const cellText = cell => {
   const clone = cell.cloneNode(true)
   clone.querySelectorAll('button, svg, script, style, [data-no-copy]').forEach(node => node.remove())
   return cleanText(clone.textContent)

@@ -8,6 +8,7 @@ import { currentSchoolYear } from '../shared/lib/grades.js'
 import { planBalancedAssignments, studentsForSection } from '../shared/lib/sectioning.js'
 import { statusBadge, bindViewStudentButtons } from './registrar-admissions.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
+import { cellText, toCsv } from '../shared/ui/table-copy.js'
 
 $('new-enrollment').onclick = () => document.querySelector('[data-tab="admission"]').click()
 
@@ -116,22 +117,45 @@ async function viewSectionStudents(sectionId) {
   bindViewStudentButtons($('section-students-body'))
 }
 export async function loadEnrollments() {
-  const [studentResult, enrollmentResult] = await Promise.all([
-    fetchAll(() => supabase.from('students').select('*').order('last_name').order('student_id')),
-    fetchAll(() =>
-      supabase
-        .from('enrollments')
-        .select('id,student_id,school_year,enrolled_at,status,section_id,sections(section_name)')
-        .eq('status', 'active')
-        .order('school_year', { ascending: false })
-        .order('id')
-    )
-  ])
+const [studentResult, enrollmentResult, schoolYearResult] = await Promise.all([
+  fetchAll(() =>
+    supabase
+      .from('students')
+      .select('*')
+      .order('last_name')
+      .order('student_id')
+  ),
+
+  fetchAll(() =>
+    supabase
+      .from('enrollments')
+      .select('id,student_id,school_year,enrolled_at,status,section_id,sections(section_name)')
+      .eq('status', 'active')
+      .order('school_year', { ascending: false })
+      .order('id')
+  ),
+
+  fetchAll(() =>
+    supabase
+      .from('student_school_years')
+      .select('student_id,school_year,grade_level,section_id')
+      .order('school_year', { ascending: false })
+  )
+])
   const loadError = studentResult.error || enrollmentResult.error
   if (loadError) {
     $('enrollment-table').innerHTML = errorRow(7, loadError, 'Load enrollments')
     return
   }
+  if (schoolYearResult.error) {
+  studentSchoolYearRows = []
+  toast(
+    describeError(schoolYearResult.error, 'Load student school years'),
+    'error'
+  )
+} else {
+  studentSchoolYearRows = schoolYearResult.data || []
+}
   const enrollmentByStudent = new Map((enrollmentResult.data || []).map(row => [String(row.student_id), row]))
   // Keep the directory's Section column in step after placements and shifts.
   state.studentSections = new Map([...enrollmentByStudent].map(([id, row]) => [id, row.sections?.section_name || 'No Section']))
@@ -548,19 +572,256 @@ $('confirm-auto-assign').onclick = () => {
   })
 }
 
-export function renderStudentDirectory() {
-  const search = ($('student-directory-search')?.value || '').trim().toLowerCase()
-  const rows = state.students.filter(s =>
-    `${s.lrn_number} ${s.student_id} ${s.first_name || ''} ${s.last_name || ''}`.toLowerCase().includes(search)
+// Student Directory school-year filtering
+let studentSchoolYearRows = []
+let studentDirectoryView = 'current'
+
+// Get the previous school year.
+// Example: 2026-2027 -> 2025-2026
+function getPreviousSchoolYear(schoolYear) {
+  const startYear = Number(String(schoolYear).split('-')[0])
+
+  if (!Number.isFinite(startYear)) {
+    return ''
+  }
+
+  return `${startYear - 1}-${startYear}`
+}
+
+function getStudentSchoolYearRecord(studentId, schoolYear) {
+  return studentSchoolYearRows.find(
+    row =>
+      String(row.student_id) === String(studentId) &&
+      row.school_year === schoolYear
   )
+}
+
+// Update the selected filter button.
+function updateStudentDirectoryFilterButtons() {
+  document
+    .querySelectorAll('#student-school-year-filters [data-student-view]')
+    .forEach(button => {
+      const isActive = button.dataset.studentView === studentDirectoryView
+
+      button.classList.toggle('secondary', !isActive)
+    })
+}
+
+export function renderStudentDirectory() {
+  const search = (
+    $('student-directory-search')?.value || ''
+  ).trim().toLowerCase()
+
+  const schoolYear = currentSchoolYear()
+  const previousSchoolYear = getPreviousSchoolYear(schoolYear)
+
+  // Filter a separate list. Do not modify state.students because
+  // other registrar features also depend on the complete student list.
+  let rows = state.students.map(student => {
+    const currentRecord = getStudentSchoolYearRecord(
+      student.student_id,
+      schoolYear
+    )
+
+    const previousRecord = getStudentSchoolYearRecord(
+      student.student_id,
+      previousSchoolYear
+    )
+
+    return {
+      student,
+      currentRecord,
+      previousRecord
+    }
+  })
+
+  if (studentDirectoryView === 'current') {
+    rows = rows.filter(row => row.currentRecord)
+  } else if (studentDirectoryView === 'not-reenrolled') {
+    rows = rows.filter(
+      row => row.previousRecord && !row.currentRecord
+    )
+  }
+
+  // Keep the existing search functionality.
+  rows = rows.filter(({ student }) =>
+    `${student.lrn_number || ''} ${student.student_id} ${
+      student.first_name || ''
+    } ${student.last_name || ''}`
+      .toLowerCase()
+      .includes(search)
+  )
+
   $('student-directory-table').innerHTML =
     rows
-      .map(
-        s =>
-          `<tr><td>${escapeHtml(s.lrn_number || s.student_id)}</td><td>${escapeHtml(`${s.first_name || ''} ${s.last_name || ''}`)}</td><td>${escapeHtml(s.date_of_birth || s.birth_date || '-')}</td><td>${escapeHtml(s.gender || s.sex || '-')}</td><td>${escapeHtml(s.grade_level == null ? '-' : gradeLabel(s.grade_level))}</td><td>${escapeHtml(state.studentSections.get(String(s.student_id)) || 'No Section')}</td><td>${statusBadge(s.enrollment_status || 'Enrolled')}</td><td><button class="admin-view" data-view-student="${s.student_id}">View</button></td></tr>`
-      )
-      .join('') || '<tr><td colspan="8" class="empty-state">No students found.</td></tr>'
+      .map(({ student, previousRecord }) => {
+        const isNotReenrolled =
+          studentDirectoryView === 'not-reenrolled'
+
+        // For students who have not re-enrolled, show their
+        // grade from the previous school year.
+        const displayedGrade = isNotReenrolled
+          ? previousRecord?.grade_level ?? student.grade_level
+          : student.grade_level
+
+        const grade = displayedGrade == null
+          ? '-'
+          : gradeLabel(displayedGrade)
+
+        const section = state.studentSections.get(
+          String(student.student_id)
+        ) || 'No Section'
+
+        const reEnrollButton = isNotReenrolled
+          ? `<button
+               type="button"
+               class="admin-primary"
+               data-reenroll-student="${escapeHtml(student.student_id)}"
+             >Re-enroll</button>`
+          : ''
+
+        return `
+          <tr>
+            <td>${escapeHtml(student.lrn_number || student.student_id)}</td>
+            <td>${escapeHtml(
+              `${student.first_name || ''} ${student.last_name || ''}`
+            )}</td>
+            <td>${escapeHtml(
+              student.date_of_birth || student.birth_date || '-'
+            )}</td>
+            <td>${escapeHtml(student.gender || student.sex || '-')}</td>
+            <td>${escapeHtml(grade)}</td>
+            <td>${escapeHtml(section)}</td>
+            <td>${statusBadge(
+              isNotReenrolled
+                ? 'Not Re-enrolled'
+                : student.enrollment_status || 'Enrolled'
+            )}</td>
+            <td>
+              <button
+                type="button"
+                class="admin-view"
+                data-view-student="${escapeHtml(student.student_id)}"
+              >View</button>
+              ${reEnrollButton}
+            </td>
+          </tr>
+        `
+      })
+      .join('') ||
+    '<tr><td colspan="8" class="empty-state">No students found for this filter.</td></tr>'
+
+  updateStudentDirectoryFilterButtons()
+
   bindViewStudentButtons($('student-directory-table'))
+
+  // Attach the re-enrollment action to the visible rows.
+  $('student-directory-table')
+    .querySelectorAll('[data-reenroll-student]')
+    .forEach(button => {
+      button.onclick = () =>
+        withBusy(button, 'Re-enrolling…', async () => {
+          const studentId = button.dataset.reenrollStudent
+          const schoolYear = currentSchoolYear()
+
+          const existingRecord = getStudentSchoolYearRecord(
+            studentId,
+            schoolYear
+          )
+
+          if (existingRecord) {
+            toast('This student is already enrolled for the current school year.')
+            await loadEnrollments()
+            return
+          }
+
+          const previousSchoolYear = getPreviousSchoolYear(schoolYear)
+
+          const previousRecord = getStudentSchoolYearRecord(
+            studentId,
+            previousSchoolYear
+          )
+
+          const student = state.students.find(
+            item => String(item.student_id) === String(studentId)
+          )
+
+          const gradeLevel =
+            previousRecord?.grade_level ?? student?.grade_level
+
+          if (gradeLevel == null) {
+            toast('Cannot re-enroll: the student grade level is missing.', 'error')
+            return
+          }
+
+          const { error } = await supabase
+            .from('student_school_years')
+            .upsert(
+              {
+                student_id: studentId,
+                school_year: schoolYear,
+                grade_level: gradeLevel,
+                section_id: null
+              },
+              {
+                onConflict: 'student_id,school_year'
+              }
+            )
+
+          if (error) {
+            toast(describeError(error, 'Re-enroll student'), 'error')
+            return
+          }
+
+          toast(`Student re-enrolled for ${schoolYear}.`)
+
+          // Reload the records so the student moves into Current SY.
+          await loadEnrollments()
+        })
+    })
 }
+
+function exportStudentDirectory() {
+  const tbody = $('student-directory-table')
+  const table = tbody.closest('table')
+  const headerRow = table.tHead?.rows[table.tHead.rows.length - 1]
+  if (!headerRow) return toast('Cannot export the student directory: table headers are missing.', 'error')
+
+  const columns = [...headerRow.cells]
+    .map((cell, index) => ({ index, label: cellText(cell) }))
+    .filter(column => !/^actions?$/i.test(column.label))
+  const rows = [
+    columns.map(column => column.label),
+    ...[...tbody.rows]
+      .filter(row => !row.hidden && getComputedStyle(row).display !== 'none')
+      .filter(row => row.cells.length === headerRow.cells.length && [...row.cells].every(cell => cell.colSpan === 1))
+      .map(row => columns.map(column => cellText(row.cells[column.index])))
+  ]
+  const textColumns = columns.flatMap((column, index) => (/^(student id|lrn|lrn number)$/i.test(column.label) ? [index] : []))
+  const blob = new Blob([`\uFEFF${toCsv(rows, textColumns)}`], { type: 'text/csv;charset=utf-8' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.href = url
+  link.download = `student-directory-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.append(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+$('export-student-directory').addEventListener('click', exportStudentDirectory)
+
+// Switch between the three school-year views.
+document
+  .querySelectorAll('#student-school-year-filters [data-student-view]')
+  .forEach(button => {
+    button.addEventListener('click', () => {
+      studentDirectoryView = button.dataset.studentView
+      renderStudentDirectory()
+    })
+  })
+
+// Keep the existing search behavior.
+$('student-directory-search').oninput = renderStudentDirectory
 
 $('student-directory-search').oninput = renderStudentDirectory

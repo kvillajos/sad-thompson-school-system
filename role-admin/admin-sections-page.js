@@ -10,6 +10,7 @@ import { currentSchoolYear } from '../shared/lib/grades.js'
 import { mountAdminShell } from './admin-page.js'
 import { mountOverrideForm } from '../shared/ui/override-form.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
+import { mountCopyYear } from './copy-year.js'
 await mountAdminShell('sections')
 mountOverrideForm(document.getElementById('override-form'), {
   rpc: 'admin_place_override',
@@ -281,4 +282,5 @@ document.getElementById('selected-moderator').onclick = event => {
   }
 }
 await loadSections()
+mountCopyYear(document.getElementById('copy-year-host'), loadSections)
 hideLoadingScreen()

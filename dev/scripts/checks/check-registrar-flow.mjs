@@ -67,6 +67,17 @@ const out = {}
 try {
   await waitFor(() => document.querySelector('#enrollment-table tr'), 'enrollment rows')
   out.enrollmentRows = document.querySelectorAll('#enrollment-table tr').length
+  document.querySelector('[data-student-view="all"]').click()
+  const directorySearch = document.querySelector('#student-directory-search')
+  directorySearch.value = 'Bautista'
+  directorySearch.dispatchEvent(new Event('input', { bubbles: true }))
+  out.directoryRows = document.querySelectorAll('#student-directory-table tr').length
+  URL.createObjectURL = blob => { window.__csvBlob = blob; return 'blob:csv-test' }
+  URL.revokeObjectURL = () => {}
+  HTMLAnchorElement.prototype.click = function () { window.__downloadName = this.download }
+  document.querySelector('#export-student-directory').click()
+  out.directoryCsv = (await window.__csvBlob.text()).replace(/^\uFEFF/, '')
+  out.exportFilename = window.__downloadName
   document.querySelector('#auto-assign-sections').click()
   await waitFor(() => !document.querySelector('#auto-assign-modal').classList.contains('hidden'), 'auto-assign modal')
   out.autoCount = document.querySelector('#auto-assign-count').textContent
@@ -151,6 +162,7 @@ try {
     'role-registrar/registrar-requests.js',
     'shared/ui/override-form.js',
     'shared/ui/search-picker.js',
+    'shared/ui/table-copy.js',
     'shared/lib/sectioning.js',
     'shared/ui/announcements.js',
     'shared/ui/restore-changes.js',
@@ -203,6 +215,11 @@ try {
   assert.equal(data.failure, undefined)
   assert.deepEqual(data.errors, [])
   assert.equal(data.enrollmentRows, 3, 'all directory students should list in Manage Enrollment')
+  assert.equal(data.directoryRows, 1, 'directory CSV uses the currently filtered row')
+  assert.match(data.directoryCsv, /"Student ID","Name","Birth Date","Gender","Grade","Section","Enrollment Status"/)
+  assert.match(data.directoryCsv, /"TCS-2","Bautista Bautista"/)
+  assert.doesNotMatch(data.directoryCsv, /Actions|View|Amistoso|Cortez/)
+  assert.match(data.exportFilename, /^student-directory-\d{4}-\d{2}-\d{2}\.csv$/)
   assert.equal(data.autoCount, '2', 'auto-assign should plan the 2 section-less students')
   assert.ok(data.summaryShown)
   assert.ok(data.rpc1.length >= 2, 'both section-less students should be assigned')
