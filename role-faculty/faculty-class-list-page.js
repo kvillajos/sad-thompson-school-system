@@ -1,12 +1,19 @@
 import { loadFacultyContext, escapeHtml, classSelect, rosterFor } from './faculty-common.js'
+import { mountFilterBar } from '../shared/ui/filter-bar.js'
 
 const context = await loadFacultyContext('class-list')
 if (context) {
   const select = document.getElementById('roster-class')
   const table = document.getElementById('roster-table')
   classSelect(select, context.classes)
+  const filters = mountFilterBar(document.getElementById('roster-filters'), {
+    filters: [{ key: 'gender', all: 'All genders', get: item => item.students?.gender }],
+    onChange: () => render(),
+    exportTable: () => table.closest('table'),
+    filename: 'class-list'
+  })
   const render = () => {
-    const { roster } = rosterFor(context, select.value)
+    const roster = filters.apply(rosterFor(context, select.value).roster)
 
     table.innerHTML =
       roster
@@ -16,6 +23,7 @@ if (context) {
         )
         .join('') || '<tr><td colspan="6">No active students in this class.</td></tr>'
   }
+  filters.update(context.enrollments)
   select.onchange = render
   render()
 }

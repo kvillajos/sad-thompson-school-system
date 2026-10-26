@@ -6,6 +6,8 @@ import { todayDateValue } from '../shared/lib/attendance.js'
 import { mountAdminShell } from './admin-page.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { mountRestoreChanges } from '../shared/ui/restore-changes.js'
+import { mountFilterBar, yearFilter } from '../shared/ui/filter-bar.js'
+import { currentSchoolYear } from '../shared/lib/grades.js'
 
 await mountAdminShell('audit')
 
@@ -20,15 +22,33 @@ const detailText = details =>
 const auditRow = row =>
   `<tr class="audit-card-row"><td data-label="When">${formatDate(row.created_at, true)}</td><td data-label="Action">${escape(row.action)}</td><td data-label="By">${escape([row.actor, row.ip_address].filter(Boolean).join(' · ') || '-')}</td><td data-label="Entity">${escape(`${row.entity_type || ''} ${row.entity_id || ''}`)}</td><td data-label="Details"><span class="audit-details-desktop">${escape(JSON.stringify(row.details || {}))}</span><span class="audit-details-mobile">${escape(detailText(row.details))}</span></td></tr>`
 
+// An event belongs to the school year (June to May) of the day it happened.
+const filters = mountFilterBar(document.getElementById('audit-filters'), {
+  filters: [
+    yearFilter(row => currentSchoolYear(new Date(row.created_at))),
+    { key: 'action', all: 'All actions', get: row => row.action },
+    { key: 'entity', all: 'All records', get: row => row.entity_type }
+  ],
+  onChange: () => renderAudit(),
+  exportTable: () => document.getElementById('audit-table').closest('table'),
+  filename: 'audit-events'
+})
+let auditEvents = []
+function renderAudit() {
+  document.getElementById('audit-table').innerHTML =
+    filters.apply(auditEvents).map(auditRow).join('') || '<tr><td colspan="5">No audit events match these filters.</td></tr>'
+}
 async function loadAudit() {
   const table = document.getElementById('audit-table')
   const { data, error } = await supabase
     .from('audit_logs')
     .select('created_at,actor,ip_address,action,entity_type,entity_id,details')
     .order('created_at', { ascending: false })
-    .limit(50)
+    .limit(500)
   if (error) return (table.innerHTML = errorRow(5, error, 'Load audit log'))
-  table.innerHTML = (data || []).map(auditRow).join('') || '<tr><td colspan="5">No audit events recorded.</td></tr>'
+  auditEvents = data || []
+  filters.update(auditEvents)
+  renderAudit()
 }
 
 function auditRowsHtml(rows) {

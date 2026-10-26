@@ -13,10 +13,7 @@
         <div><h2>Manage Subjects</h2></div>
       </div>
       <div class="admin-filterbar">
-        <input maxlength="100" id="subject-search" type="search" placeholder="Search subject code or name" /><select id="subject-status">
-          <option value="">All statuses</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option></select
+        <input maxlength="100" id="subject-search" type="search" placeholder="Search subject code or name" /><span id="subject-filters" class="filter-bar-host"></span
         ><button id="add-subject" class="admin-primary admin-action" type="button">+ Add Subject</button>
       </div>
       <section class="admin-table-wrap">
@@ -52,10 +49,12 @@
                 <th>Description</th>
                 <th>From</th>
                 <th>Letter</th>
+                <th aria-label="Remove band"></th>
               </tr>
             </thead>
             <tbody id="scale-rows"></tbody>
           </table>
+          <button type="button" class="admin-secondary" id="add-scale-band">+ Add band</button>
           <button class="admin-primary lunch-save" type="submit">Save scale</button>
         </form>
         <p class="admin-note" id="scale-note"></p>

@@ -12,6 +12,7 @@ import { mountOverrideForm } from '../shared/ui/override-form.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { mountCopyYear } from './copy-year.js'
 import { isSeniorHigh, strandOptions } from '../shared/lib/strands.js'
+import { mountFilterBar, yearFilter, gradeFilter, strandFilter } from '../shared/ui/filter-bar.js'
 await mountAdminShell('sections')
 mountOverrideForm(document.getElementById('override-form'), {
   rpc: 'admin_place_override',
@@ -77,7 +78,12 @@ const openForm = section => {
 document.getElementById('add-section').onclick = () => openForm()
 document.getElementById('close-section').onclick = close
 document.getElementById('cancel-section').onclick = close
-document.getElementById('section-grade').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades', grades: OFFERED_GRADES })
+const filters = mountFilterBar(document.getElementById('section-filters'), {
+  filters: [yearFilter(row => row.academic_year), gradeFilter(row => row.grade_level), strandFilter(row => row.strand)],
+  onChange: () => renderSections(),
+  exportTable: () => document.getElementById('sections-table').closest('table'),
+  filename: 'sections'
+})
 form.elements.grade_level.innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'Select Grade Level', grades: OFFERED_GRADES })
 // Grades 11-12 sections belong to one strand; auto-assign and placement only put matching students in them.
 function syncStrandField() {
@@ -95,13 +101,15 @@ async function loadSections() {
   const { data, error } = await supabase
     .from('sections')
     .select('section_id,section_name,grade_level,strand,capacity,academic_year,faculty_assigned,room')
-    .gte('academic_year', currentSchoolYear())
+    .order('academic_year', { ascending: false })
     .order('grade_level')
     .order('section_name')
   if (error) return (table.innerHTML = errorRow(7, error, 'Load sections'))
   sections = data || []
+  filters.update(sections)
+  // Past sections count the students who finished the year in them (completed), current ones the active students.
   const { data: enrollments, error: enrollmentError } = await fetchAll(() =>
-    supabase.from('enrollments').select('section_id').eq('status', 'active').order('id')
+    supabase.from('enrollments').select('section_id').in('status', ['active', 'completed']).order('id')
   )
   if (enrollmentError) return (table.innerHTML = errorRow(7, enrollmentError, 'Load section counts'))
   counts = (enrollments || []).reduce((result, row) => {
@@ -113,10 +121,7 @@ async function loadSections() {
 function renderSections() {
   const table = document.getElementById('sections-table')
   const search = document.getElementById('section-search').value.trim().toLowerCase()
-  const grade = document.getElementById('section-grade').value
-  const visibleSections = sections.filter(
-    section => (!grade || String(section.grade_level) === grade) && (!search || section.section_name.toLowerCase().includes(search))
-  )
+  const visibleSections = filters.apply(sections).filter(section => !search || section.section_name.toLowerCase().includes(search))
 
   table.innerHTML =
     visibleSections
@@ -241,7 +246,6 @@ form.onsubmit = event => {
   })
 }
 document.getElementById('section-search').oninput = renderSections
-document.getElementById('section-grade').onchange = renderSections
 function renderModerators() {
   const search = document.getElementById('moderator-search').value.trim().toLowerCase()
   const currentSectionId = form.elements.section_id.value
@@ -249,6 +253,7 @@ function renderModerators() {
   const assigned = new Set(
     sections
       .filter(section => String(section.section_id) !== String(currentSectionId))
+      .filter(section => section.academic_year === form.elements.academic_year.value.trim())
       .map(section => moderatorName(section.faculty_assigned))
       .filter(Boolean)
   )

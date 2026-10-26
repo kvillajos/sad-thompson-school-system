@@ -38,7 +38,7 @@ assert.ok(
   auditPage.includes('class="audit-details-mobile">${escape(detailText(row.details))}'),
   'mobile audit details must use readable field/value lines'
 )
-assert.match(auditPage, /\(data \|\| \[\]\)\.map\(auditRow\)/, 'live audit table must use the shared row renderer')
+assert.match(auditPage, /filters\.apply\(auditEvents\)\.map\(auditRow\)/, 'live audit table must use the shared row renderer')
 assert.match(auditPage, /\(rows \|\| \[\]\)\.map\(auditRow\)/, 'archive audit table must use the shared row renderer')
 assert.match(auditHtml, /<table class="audit-events-table">/, 'live audit table must use desktop column sizing')
 assert.match(auditPage, /<table class="audit-events-table">/, 'archive audit table must use desktop column sizing')

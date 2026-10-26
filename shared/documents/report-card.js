@@ -66,7 +66,7 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
         <td style="text-align: center;">${record.second_sem_q1 ?? ''}</td>
         <td style="text-align: center;">${record.second_sem_q2 ?? ''}</td>
         <td style="text-align: center;"><strong>${record.grade ?? ''}</strong></td>
-        <td style="text-align: center;">${escapeHtml(record.remarks || (record.grade ? (record.grade >= 75 ? 'Passed' : 'Failed') : ''))}</td>
+        <td style="text-align: center;">${escapeHtml(record.remarks || (record.grade ? (record.grade >= PASSING_GRADE ? 'Passed' : 'Failed') : ''))}</td>
       </tr>
     `
 
@@ -143,7 +143,7 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
               <td class="text-left" style="text-align: center; font-weight: bold;">General Average</td>
               <td colspan="4"></td>
               <td style="text-align: center;"><strong>${average ?? '-'}</strong></td>
-              <td style="text-align: center;">${average ? (average >= 75 ? 'Passed' : 'Failed') : ''}</td>
+              <td style="text-align: center;">${average ? (average >= PASSING_GRADE ? 'Passed' : 'Failed') : ''}</td>
             </tr>
           </tfoot>
         </table>

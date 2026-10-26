@@ -193,6 +193,7 @@ try {
     'shared/ui/override-form.js',
     'shared/ui/search-picker.js',
     'shared/ui/table-copy.js',
+    'shared/ui/filter-bar.js',
     'shared/lib/sectioning.js',
     'shared/ui/announcements.js',
     'shared/ui/restore-changes.js',

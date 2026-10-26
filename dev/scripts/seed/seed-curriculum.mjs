@@ -110,6 +110,17 @@ async function readAll(table, columns) {
   }
 }
 
+// Every subject is linked to the teachers of its area (not only the ones timetabled now), so Auto-schedule can
+// staff 2nd-semester subjects. faculty: [{ employee_no, area }].
+function facultySubjectsSql(faculty) {
+  const links = SUBJECTS.flatMap(subject => faculty.filter(t => t.area === subject.area).map(t => [sql(t.employee_no), sql(subject.code)]))
+  return `insert into faculty_subjects (profile_id, subject_id)
+select p.profile_id, s.subject_id from (values
+${values(links)}
+) v(employee_no, subject_code) join staff_profiles p on p.employee_no = v.employee_no join subjects s on s.subject_code = v.subject_code
+on conflict (profile_id, subject_id) do nothing;`
+}
+
 async function buildSql(outFile) {
   const [existingStudents, users, staff] = await Promise.all([
     readAll('students', 'student_id,lrn_number,first_name,last_name,gender,grade_level,enrollment_status'),
@@ -434,6 +445,7 @@ join staff_profiles p on p.employee_no = v.employee_no
 cross join generate_series(1, 5) d(day);
 insert into faculty_subjects (profile_id, subject_id)
 select distinct faculty_profile_id, subject_id from subject_schedules;`)
+  add(facultySubjectsSql(faculty))
 
   // School days: every weekday from June to March (attendance below uses the same days).
   add(`create temp table seed_days on commit drop as
@@ -528,9 +540,8 @@ async function createAuthLogins() {
     data.users.forEach(user => authEmails.add(user.email?.toLowerCase()))
     if (data.users.length < 1000) break
   }
-  const users = (await readAll('users', 'username,email,role_id,initial_password')).filter(
-    user => !authEmails.has(user.email.toLowerCase()) && user.initial_password
-  )
+  const pending = (await readAll('users', 'user_id,username,email,role_id,initial_password')).filter(user => user.initial_password)
+  const users = pending.filter(user => !authEmails.has(user.email.toLowerCase()))
   console.log(`${users.length} users rows have no Auth login yet.`)
   let done = 0
   for (const user of users) {
@@ -545,9 +556,31 @@ async function createAuthLogins() {
     if (++done % 50 === 0) console.log(`${done} / ${users.length}`)
   }
   console.log(`Created ${done} Auth logins.`)
+  // Same as the provision-account function: once the login exists, the stored starting password is cleared
+  // (otherwise Manage Accounts keeps offering "Provision Login" and the password stays readable).
+  const provisioned = pending.map(user => user.user_id)
+  for (let index = 0; index < provisioned.length; index += 500) {
+    const { error } = await supabase
+      .from('users')
+      .update({ initial_password: null })
+      .in('user_id', provisioned.slice(index, index + 500))
+    if (error) throw error
+  }
+  console.log(`Cleared the starting password on ${provisioned.length} provisioned accounts.`)
+}
+
+// Only the subject links (faculty_subjects) for the current staff, e.g. after adding subjects or teachers.
+async function buildLinksSql(outFile) {
+  const staff = await readAll('staff_profiles', 'employee_no,department,specialization')
+  const faculty = staff
+    .filter(person => person.department !== 'Registrar Office')
+    .map(person => ({ employee_no: person.employee_no, area: FACULTY_AREA[person.specialization] || person.specialization }))
+  writeFileSync(outFile, `begin;\n${facultySubjectsSql(faculty)}\nselect count(*) links from faculty_subjects;\ncommit;\n`)
+  console.log(`Links SQL written to ${outFile}`)
 }
 
 const [mode, outFile] = process.argv.slice(2)
 if (mode === 'sql' && outFile) await buildSql(outFile)
+else if (mode === 'links' && outFile) await buildLinksSql(outFile)
 else if (mode === 'auth') await createAuthLogins()
-else console.log('Usage: seed-curriculum.mjs sql <out.sql> | auth')
+else console.log('Usage: seed-curriculum.mjs sql <out.sql> | links <out.sql> | auth')

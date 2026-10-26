@@ -1,8 +1,7 @@
 import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
-import { escapeHtml as escape, gradeLevelOptions, gradeLevelSummary, errorRow, subjectDisplayName } from '../shared/lib/html.js'
-import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
+import { escapeHtml as escape, gradeLevelSummary, errorRow, subjectDisplayName } from '../shared/lib/html.js'
 import { formatDays, groupScheduleRows, planDayChanges } from '../shared/lib/schedule-days.js'
 import { describeError } from '../shared/lib/errors.js'
 import { mountAdminShell } from './admin-page.js'
@@ -10,10 +9,16 @@ import { confirmPassword, withBusy } from '../shared/ui/shell.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
 import { overlapsLunch, timeRange12 } from '../shared/ui/day-tabs.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
-import { currentSchoolYear } from '../shared/lib/grades.js'
+import { mountFilterBar, yearFilter, gradeFilter, strandFilter } from '../shared/ui/filter-bar.js'
+import { openAutoSchedule } from './auto-schedule.js'
 const admin = await mountAdminShell('schedules')
 
-document.getElementById('section-grade').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades', grades: OFFERED_GRADES })
+const filters = mountFilterBar(document.getElementById('schedule-filters'), {
+  filters: [yearFilter(row => row.academic_year), gradeFilter(row => row.grade_level), strandFilter(row => row.strand)],
+  onChange: () => renderSections(),
+  exportTable: () => document.getElementById('sections-table').closest('table'),
+  filename: 'schedules'
+})
 const sectionModal = document.getElementById('section-schedule-modal')
 const scheduleModal = document.getElementById('schedule-modal')
 const scheduleForm = document.getElementById('schedule-form')
@@ -29,21 +34,22 @@ function closeModal(modal, form) {
   if (form?.elements.schedule_id) form.elements.schedule_id.value = ''
 }
 function sectionLabel(section) {
-  return Number(section.grade_level) === 0 ? 'Kindergarten' : `Grade ${section.grade_level}`
+  return `${Number(section.grade_level) === 0 ? 'Kindergarten' : `Grade ${section.grade_level}`}${section.strand ? ` · ${section.strand}` : ''}`
+}
+const visibleSections = () => {
+  const search = document.getElementById('section-search').value.trim().toLowerCase()
+  return filters.apply(sections).filter(section => !search || section.section_name.toLowerCase().includes(search))
 }
 
 function renderSections() {
-  const search = document.getElementById('section-search').value.trim().toLowerCase()
-  const grade = document.getElementById('section-grade').value
-
-  const visible = sections.filter(
-    section => (!grade || String(section.grade_level) === grade) && (!search || section.section_name.toLowerCase().includes(search))
-  )
+  const visible = visibleSections()
 
   document.getElementById('sections-table').innerHTML =
     visible
       .map(section => {
-        const count = schedules.filter(item => Number(item.section_id) === Number(section.section_id)).length
+        // One subject meets on several days (one row per day); count subjects, not rows.
+        const count = new Set(schedules.filter(item => Number(item.section_id) === Number(section.section_id)).map(item => item.subject_id))
+          .size
 
         return `
       <tr class="section-card-row">
@@ -194,8 +200,8 @@ async function loadData() {
   const [sectionResult, subjectResult, scheduleResult] = await Promise.all([
     supabase
       .from('sections')
-      .select('section_id,section_name,grade_level,academic_year,room')
-      .gte('academic_year', currentSchoolYear())
+      .select('section_id,section_name,grade_level,strand,academic_year,room')
+      .order('academic_year', { ascending: false })
       .order('grade_level')
       .order('section_name'),
     supabase.from('subjects').select('subject_id,subject_code,subject_name,grade_level').eq('is_active', true).order('subject_code'),
@@ -211,6 +217,7 @@ async function loadData() {
   const loadError = sectionResult.error || subjectResult.error || scheduleResult.error
   if (loadError) return (document.getElementById('sections-table').innerHTML = errorRow(5, loadError, 'Load schedules'))
   sections = sectionResult.data || []
+  filters.update(sections)
   subjects = subjectResult.data || []
   schedules = scheduleResult.data || []
   renderSections()
@@ -343,7 +350,8 @@ function renderFacultyPicker() {
   )
 }
 document.getElementById('section-search').oninput = renderSections
-document.getElementById('section-grade').onchange = renderSections
+document.getElementById('auto-schedule-all').onclick = () => openAutoSchedule(visibleSections(), loadData)
+document.getElementById('auto-schedule-section').onclick = () => openAutoSchedule([selectedSection], loadData)
 document.getElementById('add-schedule').onclick = () => openSchedule()
 document.getElementById('close-section-schedule').onclick = () => closeModal(sectionModal)
 document.getElementById('close-schedule').onclick = () => closeModal(scheduleModal, scheduleForm)

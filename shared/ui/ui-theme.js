@@ -81,6 +81,8 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .admin-filterbar { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 14px }
 .admin-filterbar input,.admin-filterbar select { min-width:180px; padding:10px 12px; border:1px solid #b9c8dc; border-radius:11px; color:var(--ui-text); background:#fff }
 .admin-filterbar .admin-action { margin-left:auto }
+.filter-bar-host { display:contents }
+.admin-filterbar select[hidden] { display:none }
 .student-info-card { display:flex; flex-wrap:wrap; gap:10px 32px; margin-top:4px; padding:12px 16px; border:1px solid var(--ui-border); border-radius:12px; background:#f6f9fd; }
 .student-info-card[hidden] { display:none; }
 .student-info-card small { display:block; color:var(--ui-muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }

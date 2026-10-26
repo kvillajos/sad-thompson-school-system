@@ -14,7 +14,8 @@ import {
   subjectDisplayName
 } from '../shared/lib/html.js'
 import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
-import { STRANDS } from '../shared/lib/strands.js'
+import { STRANDS, isSeniorHigh } from '../shared/lib/strands.js'
+import { mountFilterBar, gradeFilter, strandFilter } from '../shared/ui/filter-bar.js'
 import { describeError } from '../shared/lib/errors.js'
 import { mountAdminShell } from './admin-page.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
@@ -34,6 +35,19 @@ strandPicker.innerHTML = STRANDS.map(
 ).join('')
 const SEMESTER_LABELS = { 1: '1st Sem', 2: '2nd Sem' }
 let subjects = []
+const filters = mountFilterBar(document.getElementById('subject-filters'), {
+  filters: [
+    gradeFilter(item => item.grade_level),
+    // A Senior High subject with no strand is taken by every strand, so it shows under each one.
+    strandFilter(item => item.strands || (item.grade_level?.some(isSeniorHigh) ? STRANDS.map(strand => strand.code) : null)),
+    { key: 'type', all: 'All types', get: item => item.subject_type },
+    { key: 'semester', all: 'All semesters', get: item => item.semester ?? 'whole', options: [['1', '1st Semester'], ['2', '2nd Semester'], ['whole', 'Whole year']] },
+    { key: 'status', all: 'All statuses', get: item => item.is_active, options: [['true', 'Active'], ['false', 'Inactive']] }
+  ],
+  onChange: () => renderSubjects(),
+  exportTable: () => document.getElementById('subjects-table').closest('table'),
+  filename: 'subjects'
+})
 
 function closeModal(modal, form) {
   modal.classList.add('hidden')
@@ -44,15 +58,14 @@ async function loadData() {
   const subjectResult = await supabase.from('subjects').select('*').order('subject_code')
   if (subjectResult.error) return (document.getElementById('subjects-table').innerHTML = errorRow(8, subjectResult.error, 'Load subjects'))
   subjects = subjectResult.data || []
+  filters.update(subjects)
   renderSubjects()
 }
 function renderSubjects() {
   const search = document.getElementById('subject-search').value.trim().toLowerCase()
-  const status = document.getElementById('subject-status').value
-  const visibleSubjects = subjects.filter(
+  const visibleSubjects = filters.apply(subjects).filter(
     item =>
-      (!status || String(item.is_active) === status) &&
-      (!search || `${item.subject_code} ${item.subject_name} ${subjectDisplayName(item.subject_name)}`.toLowerCase().includes(search))
+      !search || `${item.subject_code} ${item.subject_name} ${subjectDisplayName(item.subject_name)}`.toLowerCase().includes(search)
   )
   document.getElementById('subjects-table').innerHTML =
     visibleSubjects
@@ -144,28 +157,37 @@ document.getElementById('add-subject').onclick = () => openSubject()
 document.getElementById('close-subject').onclick = () => closeModal(subjectModal, subjectForm)
 document.getElementById('cancel-subject').onclick = () => closeModal(subjectModal, subjectForm)
 document.getElementById('subject-search').oninput = renderSubjects
-document.getElementById('subject-status').onchange = renderSubjects
 // ---- Grading scale, per school year (same pattern as lunch times on Manage Schedules). Saving relabels that
-// year's stored letter grades in the database. The passing band (75) and the bottom band stay fixed.
+// year's stored letter grades in the database. The passing band (75) and the bottom band stay fixed; bands above
+// them can be added (e.g. A+ or A-) or removed, up to MAX_BANDS in all.
 let savedScales = []
 const scaleYear = document.getElementById('scale-year')
 const scaleRows = document.getElementById('scale-rows')
 const scaleNote = document.getElementById('scale-note')
+const MAX_BANDS = 10 // grading_scales_bands_check
+const scaleRow = (band, kind) => {
+  const from =
+    kind === 'bottom'
+      ? `Below ${escape(PASSING_GRADE)}`
+      : kind === 'passing'
+        ? `${escape(band.min)} <small>(passing)</small>`
+        : `<input type="number" min="${PASSING_GRADE + 1}" max="100" step="1" required data-scale-min value="${escape(band.min ?? '')}" aria-label="Lowest grade for ${escape(band.descriptor || 'new band')}" />`
+  const remove = kind === 'edit' ? '<button type="button" class="admin-remove" data-remove-band>Remove</button>' : ''
+  return `<tr data-scale-band data-min="${escape(band.min ?? '')}"><td data-label="Description"><input required maxlength="40" data-scale-descriptor value="${escape(band.descriptor || '')}" aria-label="Description" /></td><td data-label="From">${from}</td><td data-label="Letter"><input required maxlength="3" data-scale-letter value="${escape(band.letter || '')}" aria-label="Letter for ${escape(band.descriptor || 'new band')}" /></td><td>${remove}</td></tr>`
+}
+// Remove is offered while more than one band sits above passing; Add while the scale has room.
+function syncBandButtons() {
+  const editable = scaleRows.querySelectorAll('[data-remove-band]')
+  editable.forEach(button => (button.disabled = editable.length <= 1))
+  document.getElementById('add-scale-band').disabled = scaleRows.querySelectorAll('[data-scale-band]').length >= MAX_BANDS
+}
 function fillScaleForm() {
   const own = savedScales.find(row => row.school_year === scaleYear.value)
   const bands = own?.bands?.length ? own.bands : DEFAULT_GRADING_SCALE
   scaleRows.innerHTML = bands
-    .map((band, index) => {
-      const fixed = index >= bands.length - 2
-      const from =
-        index === bands.length - 1
-          ? `Below ${escape(bands[index - 1].min)}`
-          : fixed
-            ? `${escape(band.min)} <small>(passing)</small>`
-            : `<input type="number" min="${PASSING_GRADE + 1}" max="100" step="1" required data-scale-min value="${escape(band.min)}" aria-label="Lowest grade for ${escape(band.descriptor)}" />`
-      return `<tr data-scale-band="${index}" data-min="${escape(band.min)}"><td data-label="Description"><input required maxlength="40" data-scale-descriptor value="${escape(band.descriptor)}" aria-label="Description" /></td><td data-label="From">${from}</td><td data-label="Letter"><input required maxlength="3" data-scale-letter value="${escape(band.letter)}" aria-label="Letter for ${escape(band.descriptor)}" /></td></tr>`
-    })
+    .map((band, index) => scaleRow(band, index === bands.length - 1 ? 'bottom' : index === bands.length - 2 ? 'passing' : 'edit'))
     .join('')
+  syncBandButtons()
   scaleNote.textContent = own
     ? `Last saved ${new Date(own.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${own.updated_by ? ` by ${own.updated_by}` : ''}.`
     : 'Not set for this school year yet. The DepEd scale is shown; save to set this year.'
@@ -196,14 +218,31 @@ async function loadScales() {
   fillScaleForm()
 }
 scaleYear.onchange = fillScaleForm
+document.getElementById('add-scale-band').onclick = () => {
+  scaleRows.insertAdjacentHTML('afterbegin', scaleRow({}, 'edit'))
+  syncBandButtons()
+  scaleRows.querySelector('[data-scale-min]').focus()
+}
+scaleRows.addEventListener('click', event => {
+  if (!event.target.matches('[data-remove-band]')) return
+  event.target.closest('tr').remove()
+  syncBandButtons()
+})
 document.getElementById('scale-form').onsubmit = async event => {
   event.preventDefault()
-  const rows = [...scaleRows.querySelectorAll('[data-scale-band]')]
-  const bands = rows.map(row => ({
-    min: Number(row.querySelector('[data-scale-min]')?.value ?? row.dataset.min),
-    letter: row.querySelector('[data-scale-letter]').value.trim(),
-    descriptor: row.querySelector('[data-scale-descriptor]').value.trim()
-  }))
+  // Rows may be added anywhere, so the bands are saved highest first whatever order they were typed in.
+  const entries = [...scaleRows.querySelectorAll('[data-scale-band]')]
+    .map(row => ({
+      row,
+      band: {
+        min: Number(row.querySelector('[data-scale-min]')?.value ?? row.dataset.min),
+        letter: row.querySelector('[data-scale-letter]').value.trim(),
+        descriptor: row.querySelector('[data-scale-descriptor]').value.trim()
+      }
+    }))
+    .sort((a, b) => b.band.min - a.band.min)
+  const rows = entries.map(entry => entry.row)
+  const bands = entries.map(entry => entry.band)
   const invalid = (input, message) => {
     input.setCustomValidity(message)
     input.reportValidity()
@@ -213,7 +252,7 @@ document.getElementById('scale-form').onsubmit = async event => {
     if (bands[index].min >= bands[index - 1].min)
       return invalid(
         rows[index - 1].querySelector('[data-scale-min]') || rows[index].querySelector('[data-scale-min]'),
-        'Each band must start higher than the one below it.'
+        'Two bands cannot start at the same grade.'
       )
   if (new Set(bands.map(band => band.letter.toUpperCase())).size !== bands.length)
     return invalid(rows[rows.length - 1].querySelector('[data-scale-letter]'), 'Each band needs its own letter.')

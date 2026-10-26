@@ -9,11 +9,24 @@ import { describeError, describeFunctionError } from '../shared/lib/errors.js'
 import { mountAdminShell, createStaffAccount } from './admin-page.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { mountPhotoUpload } from '../shared/ui/photo-upload.js'
+import { mountFilterBar, gradeFilter, strandFilter } from '../shared/ui/filter-bar.js'
 const admin = await mountAdminShell('accounts')
 const verify = message => confirmPassword(admin.email, message)
 const roleNames = { 1: 'Administrator', 2: 'Registrar', 3: 'Faculty', 4: 'Student' }
 let accounts = []
 let sectionByStudent = new Map()
+// A student account's grade and strand come from the student's active enrollment.
+const enrollmentOf = item => (item.student_id ? sectionByStudent.get(item.student_id) : null)
+const filters = mountFilterBar(document.getElementById('account-filters'), {
+  filters: [
+    { key: 'role', all: 'All roles', get: item => item.role_id, options: Object.entries(roleNames) },
+    gradeFilter(item => enrollmentOf(item)?.grade_level),
+    strandFilter(item => enrollmentOf(item)?.sections?.strand)
+  ],
+  onChange: () => renderAccounts(),
+  exportTable: () => document.getElementById('accounts-table').closest('table'),
+  filename: 'accounts'
+})
 async function loadAccounts() {
   const result = await fetchAll(() =>
     supabase
@@ -27,23 +40,21 @@ async function loadAccounts() {
   const table = document.getElementById('accounts-table')
   if (result.error) return (table.innerHTML = errorRow(7, result.error, 'Load accounts'))
   const enrolled = await fetchAll(() =>
-    supabase.from('enrollments').select('student_id,sections(section_name)').eq('status', 'active').order('id')
+    supabase.from('enrollments').select('student_id,grade_level,sections(section_name,strand)').eq('status', 'active').order('id')
   )
-  sectionByStudent = new Map((enrolled.data || []).map(row => [row.student_id, row.sections?.section_name]))
+  sectionByStudent = new Map((enrolled.data || []).map(row => [row.student_id, row]))
   accounts = result.data || []
+  filters.update(accounts)
   renderAccounts()
 }
 function renderAccounts() {
   const search = document.getElementById('account-search').value.trim().toLowerCase()
-  const role = document.getElementById('account-role').value
-  const rows = accounts.filter(
-    item => (!role || String(item.role_id) === role) && (!search || `${item.username} ${item.email}`.toLowerCase().includes(search))
-  )
+  const rows = filters.apply(accounts).filter(item => !search || `${item.username} ${item.email}`.toLowerCase().includes(search))
   document.getElementById('accounts-table').innerHTML =
     rows
       .map(
         item =>
-          `<tr><td>${escape(item.username)}</td><td>${escape(item.email)}</td><td>${roleNames[item.role_id] || 'Unknown'}</td><td>${activeStatus(item.is_active)}</td><td>${item.student_id ? escape(sectionByStudent.get(item.student_id) || '-') : '-'}</td><td>${formatDate(item.created_at, true)}</td><td><button class="admin-view" data-details="${item.user_id}">View / Edit</button> ${item.initial_password ? `<button class="admin-view" data-provision="${item.user_id}">Provision Login</button> ` : ''}<button class="admin-view" data-reset="${item.user_id}">Reset Password</button> <button class="admin-remove" data-manage="${item.user_id}">${item.is_active ? 'Deactivate' : 'Activate'}${item.user_id === admin.user_id ? '' : ' / Delete'}</button></td></tr>`
+          `<tr><td>${escape(item.username)}</td><td>${escape(item.email)}</td><td>${roleNames[item.role_id] || 'Unknown'}</td><td>${activeStatus(item.is_active)}</td><td>${escape(enrollmentOf(item)?.sections?.section_name || '-')}</td><td>${formatDate(item.created_at, true)}</td><td><button class="admin-view" data-details="${item.user_id}">View / Edit</button> ${item.initial_password ? `<button class="admin-view" data-provision="${item.user_id}">Provision Login</button> ` : ''}<button class="admin-view" data-reset="${item.user_id}">Reset Password</button> <button class="admin-remove" data-manage="${item.user_id}">${item.is_active ? 'Deactivate' : 'Activate'}${item.user_id === admin.user_id ? '' : ' / Delete'}</button></td></tr>`
       )
       .join('') || '<tr><td colspan="7">No accounts found.</td></tr>'
   document.querySelectorAll('[data-details]').forEach(button => (button.onclick = () => showAccountDetails(button.dataset.details)))
@@ -341,7 +352,6 @@ async function runAccountAction(userId, action, button) {
   })
 }
 document.getElementById('account-search').oninput = renderAccounts
-document.getElementById('account-role').onchange = renderAccounts
 document.getElementById('add-account').onclick = async () => {
   if (await createStaffAccount()) await loadAccounts()
 }

@@ -41,6 +41,28 @@ export const cellText = cell => {
   return cleanText(clone.textContent)
 }
 
+// Download a table as CSV: every data row the page rendered (the filtered rows), including rows the pager is
+// hiding, without the Actions column. ID-like columns (Student ID, LRN, Employee No.) stay text in Excel.
+export function downloadTableCsv(table, filename) {
+  const headerRow = table.tHead?.rows[table.tHead.rows.length - 1]
+  if (!headerRow) return false
+  const columns = [...headerRow.cells].map((cell, index) => ({ index, label: cellText(cell) })).filter(column => !isActionHeader(column.label))
+  const rows = [
+    columns.map(column => column.label),
+    ...[...(table.tBodies[0]?.rows || [])]
+      .filter(row => row.cells.length === headerRow.cells.length && [...row.cells].every(cell => cell.colSpan === 1))
+      .map(row => columns.map(column => cellText(row.cells[column.index])))
+  ]
+  const textColumns = columns.flatMap((column, index) => (/(\bid\b|lrn|student no|employee no)/i.test(column.label) ? [index] : []))
+  const url = URL.createObjectURL(new Blob([`﻿${toCsv(rows, textColumns)}`], { type: 'text/csv;charset=utf-8' }))
+  const link = Object.assign(document.createElement('a'), { href: url, download: `${filename}-${new Date().toISOString().slice(0, 10)}.csv` })
+  document.body.append(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return true
+}
+
 function onCopy(event) {
   const selection = window.getSelection()
   if (!selection || selection.isCollapsed || !selection.rangeCount) return

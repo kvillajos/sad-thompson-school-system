@@ -1,6 +1,7 @@
 // transcript.js
 import { escapeHtml } from '../lib/html.js'
 import { semesterGroups } from '../lib/semester-grades.js'
+import { PASSING_GRADE } from '../lib/grades.js'
 
 export function buildTranscript({ student = {}, rows = [], mode = 'official', schoolYear = '', sectionName = '' } = {}) {
   const unofficial = mode === 'unofficial'
@@ -21,7 +22,7 @@ export function buildTranscript({ student = {}, rows = [], mode = 'official', sc
         <tr>
           <td class="text-left">${escapeHtml(row.subject)}</td>
           <td>${rating ?? '-'}</td>
-          <td>${escapeHtml(row.remarks || (rating >= 75 ? 'Passed' : 'Failed'))}</td>
+          <td>${escapeHtml(row.remarks || (rating >= PASSING_GRADE ? 'Passed' : 'Failed'))}</td>
         </tr>
       `
               })

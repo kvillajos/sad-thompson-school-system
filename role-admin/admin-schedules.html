@@ -13,7 +13,8 @@
         <div><h2>Manage Schedules</h2></div>
       </div>
       <div class="admin-filterbar">
-        <input maxlength="100" id="section-search" type="search" placeholder="Search section name" /><select id="section-grade"></select>
+        <input maxlength="100" id="section-search" type="search" placeholder="Search section name" /><span id="schedule-filters" class="filter-bar-host"></span
+        ><button id="auto-schedule-all" class="admin-primary admin-action" type="button">Auto-schedule listed sections</button>
       </div>
       <section class="admin-table-wrap schedule-sections-list">
         <table>
@@ -59,7 +60,8 @@
         <div class="admin-modal-head">
           <div><h3 id="section-schedule-title">Section Schedule</h3></div>
           <div class="schedule-overview-actions">
-            <button id="add-schedule" class="admin-primary" type="button">+ Add Subject</button
+            <button id="auto-schedule-section" class="admin-secondary" type="button">Auto-schedule</button
+            ><button id="add-schedule" class="admin-primary" type="button">+ Add Subject</button
             ><button type="button" id="close-section-schedule">x</button>
           </div>
         </div>

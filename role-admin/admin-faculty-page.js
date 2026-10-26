@@ -6,8 +6,18 @@ import { describeError, describeFunctionError } from '../shared/lib/errors.js'
 import { mountAdminShell, createStaffAccount, facultyFields } from './admin-page.js'
 import { confirmPassword, withBusy } from '../shared/ui/shell.js'
 import { confirmDialog, formDialog } from '../shared/ui/dialog.js'
+import { mountFilterBar } from '../shared/ui/filter-bar.js'
 const user = await mountAdminShell('faculty')
 let faculty = []
+const filters = mountFilterBar(document.getElementById('faculty-filters'), {
+  filters: [
+    { key: 'department', all: 'All departments', get: item => item.department },
+    { key: 'specialization', all: 'All specializations', get: item => item.specialization }
+  ],
+  onChange: () => renderFaculty(),
+  exportTable: () => document.getElementById('faculty-table').closest('table'),
+  filename: 'faculty'
+})
 let subjects = []
 let assignments = []
 let assigningProfileId = null
@@ -26,15 +36,18 @@ async function loadFaculty() {
   const loadError = facultyResult.error || subjectResult.error || assignmentResult.error
   if (loadError) return (table.innerHTML = errorRow(8, loadError, 'Load faculty'))
   faculty = facultyResult.data || []
+  filters.update(faculty)
   subjects = subjectResult.data || []
   assignments = assignmentResult.data || []
   renderFaculty()
 }
 function renderFaculty() {
   const search = document.getElementById('faculty-search').value.trim().toLowerCase()
-  const rows = faculty.filter(item =>
-    `${item.first_name} ${item.last_name} ${item.department} ${item.specialization} ${item.employee_no}`.toLowerCase().includes(search)
-  )
+  const rows = filters
+    .apply(faculty)
+    .filter(item =>
+      `${item.first_name} ${item.last_name} ${item.department} ${item.specialization} ${item.employee_no}`.toLowerCase().includes(search)
+    )
   document.getElementById('faculty-table').innerHTML =
     rows
       .map(item => {

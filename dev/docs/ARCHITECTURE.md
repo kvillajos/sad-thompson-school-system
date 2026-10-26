@@ -24,6 +24,7 @@ auth/                         scripts for the four pages above (login-page.js, .
 role-admin/                   7 admin pages
   admin-page.js               mountAdminShell (admin nav + shell), shared faculty form fields
   edit-lock.js                registrar edit-lock rule (pure)
+  auto-schedule.js            Manage Schedules > Auto-schedule preview and Apply
 role-registrar/               student-records.html (one page, tabbed) + its modules, see below
 role-faculty/                 6 faculty pages
   faculty-common.js           loadFacultyContext (shell + assigned classes), class picker, roster
@@ -42,6 +43,7 @@ shared/
     announcements.js          announcement list + login maintenance banner
     restore-changes.js        "Restore Changes" list (admin audit trail + registrar tab)
     search-picker.js          type-to-search dropdown (replaces <datalist>)
+    filter-bar.js             School Year / Grade / Strand / ... filters + Export CSV on list pages
     override-form.js          section capacity override (registrar requests it, admin applies it)
     photo-upload.js           staff-only profile photo upload (mounted in Manage Accounts)
   lib/                        data + logic
@@ -56,6 +58,8 @@ shared/
     attendance.js             attendance sheet + summary line (pure)
     semester-grades.js        semester tables + averages (pure)
     schedule-days.js          multi-day schedule diff/grouping (pure)
+    schedule-plan.js          auto-schedule planner: daily slots around lunch/break, no double-booking (pure)
+    strands.js                Senior High strands (table strands)
     sectioning.js             who may join a section + balanced auto-assign allocator (pure)
   documents/                  printable documents
     report-card.js, transcript.js   pure HTML builders

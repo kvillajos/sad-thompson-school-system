@@ -8,7 +8,8 @@ import { currentSchoolYear } from '../shared/lib/grades.js'
 import { planBalancedAssignments, studentsForSection } from '../shared/lib/sectioning.js'
 import { statusBadge, bindViewStudentButtons } from './registrar-admissions.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
-import { cellText, toCsv } from '../shared/ui/table-copy.js'
+import { downloadTableCsv } from '../shared/ui/table-copy.js'
+import { mountFilterBar, gradeFilter, strandFilter } from '../shared/ui/filter-bar.js'
 
 $('new-enrollment').onclick = () => document.querySelector('[data-tab="admission"]').click()
 
@@ -615,6 +616,15 @@ function updateStudentDirectoryFilterButtons() {
     })
 }
 
+// Grade, section and strand on top of the Current SY / Not re-enrolled / All views (Export CSV stays John's button).
+const directoryFilters = mountFilterBar($('student-directory-filters'), {
+  filters: [
+    gradeFilter(row => row.student.grade_level),
+    { key: 'section', all: 'All sections', get: row => state.studentSections.get(String(row.student.student_id)) },
+    strandFilter(row => row.student.strand)
+  ],
+  onChange: () => renderStudentDirectory()
+})
 export function renderStudentDirectory() {
   const search = (
     $('student-directory-search')?.value || ''
@@ -649,6 +659,9 @@ export function renderStudentDirectory() {
       row => row.lastEnrolledRecord && !row.currentRecord
     )
   }
+
+  directoryFilters.update(rows)
+  rows = directoryFilters.apply(rows)
 
   // Keep the existing search functionality.
   rows = rows.filter(({ student }) =>
@@ -787,31 +800,8 @@ export function renderStudentDirectory() {
 }
 
 function exportStudentDirectory() {
-  const tbody = $('student-directory-table')
-  const table = tbody.closest('table')
-  const headerRow = table.tHead?.rows[table.tHead.rows.length - 1]
-  if (!headerRow) return toast('Cannot export the student directory: table headers are missing.', 'error')
-
-  const columns = [...headerRow.cells]
-    .map((cell, index) => ({ index, label: cellText(cell) }))
-    .filter(column => !/^actions?$/i.test(column.label))
-  const rows = [
-    columns.map(column => column.label),
-    ...[...tbody.rows]
-      .filter(row => !row.hidden && getComputedStyle(row).display !== 'none')
-      .filter(row => row.cells.length === headerRow.cells.length && [...row.cells].every(cell => cell.colSpan === 1))
-      .map(row => columns.map(column => cellText(row.cells[column.index])))
-  ]
-  const textColumns = columns.flatMap((column, index) => (/^(student id|lrn|lrn number)$/i.test(column.label) ? [index] : []))
-  const blob = new Blob([`\uFEFF${toCsv(rows, textColumns)}`], { type: 'text/csv;charset=utf-8' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-  link.href = url
-  link.download = `student-directory-${new Date().toISOString().slice(0, 10)}.csv`
-  document.body.append(link)
-  link.click()
-  link.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  if (!downloadTableCsv($('student-directory-table').closest('table'), 'student-directory'))
+    toast('Cannot export the student directory: table headers are missing.', 'error')
 }
 
 $('export-student-directory').addEventListener('click', exportStudentDirectory)
