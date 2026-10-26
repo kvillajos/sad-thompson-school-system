@@ -22,9 +22,18 @@ export function todayDateValue(now = new Date()) {
 
 // attendance_totals() RPC payload -> the one-line summary the student dashboard and the
 // registrar academic modal both show, so they can never phrase it differently.
-export function attendanceSummaryLine(totals) {
-  const safe = totals || { present: 0, late: 0, absent: 0, excused: 0, total: 0 }
-  if (!safe.total) return 'No attendance recorded yet.'
-  const rate = Math.round((safe.present / safe.total) * 1000) / 10
-  return `${safe.present}/${safe.total} present (${rate}%) - ${safe.late} late, ${safe.absent} absent, ${safe.excused} excused`
+
+export function attendanceSummaryLine(totals, schoolDaysTotal = null) {
+  const absences = Number(totals?.absent) || 0
+
+  if (schoolDaysTotal == null || !Number.isFinite(Number(schoolDaysTotal))) {
+    return totals?.total
+      ? `Absences: ${absences}`
+      : 'No attendance recorded yet.'
+  }
+
+  const total = Number(schoolDaysTotal)
+  const daysPresent = total - absences
+
+  return `Absences: ${absences} · Days present: ${daysPresent} of ${total}`
 }

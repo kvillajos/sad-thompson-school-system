@@ -1,3 +1,4 @@
+import { mountSchoolDays } from './school-days.js'
 import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
@@ -213,5 +214,9 @@ document.getElementById('scale-form').onsubmit = async event => {
   await loadScales()
 }
 
-await Promise.all([loadData(), loadScales()])
+await Promise.all([
+  loadData(),
+  loadScales(),
+  mountSchoolDays(document.getElementById('school-days-card'))
+])
 hideLoadingScreen()
