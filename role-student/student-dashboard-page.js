@@ -287,28 +287,72 @@ function renderTranscript() {
   document.getElementById('student-transcript-print').innerHTML = html
 }
 
+
 async function loadAttendance() {
   const table = document.getElementById('attendance-table')
-  if (!user.student_id) return (table.innerHTML = '<tr><td colspan="2">No student record linked.</td></tr>')
-  // The list covers the same school year as the totals (a session's year is its section's academic_year),
-  // so a record from another year can't show up in the list but not in the counts.
+
+  if (!user.student_id) {
+    table.innerHTML = '<tr><td colspan="2">No student record linked.</td></tr>'
+    return
+  }
+
   let historyQuery = supabase
     .from('attendance')
     .select('attendance_date,status,sections!inner(academic_year)')
     .eq('student_id', user.student_id)
-  if (schoolYear) historyQuery = historyQuery.eq('sections.academic_year', schoolYear)
-  const [totals, history] = await Promise.all([
-    supabase.rpc('attendance_totals', { p_student_id: user.student_id, p_school_year: schoolYear || null }),
-    historyQuery.order('attendance_date', { ascending: false }).limit(20)
+
+  if (schoolYear) {
+    historyQuery = historyQuery.eq('sections.academic_year', schoolYear)
+  }
+
+  const [totals, history, schoolDaysResult] = await Promise.all([
+    supabase.rpc('attendance_totals', {
+      p_student_id: user.student_id,
+      p_school_year: schoolYear || null
+    }),
+
+    historyQuery
+      .order('attendance_date', { ascending: false })
+      .limit(20),
+
+    schoolYear
+      ? supabase
+          .from('school_days')
+          .select('days')
+          .eq('school_year', schoolYear)
+      : Promise.resolve({ data: null, error: null })
   ])
-  document.getElementById('attendance-summary').textContent = totals.error
-    ? describeError(totals.error, 'Load attendance totals')
-    : `${schoolYear ? `S.Y. ${schoolYear}: ` : ''}${attendanceSummaryLine(totals.data)}`
-  if (history.error) return (table.innerHTML = errorRow(2, history.error, 'Load attendance'))
+
+  const summary = document.getElementById('attendance-summary')
+
+  if (totals.error) {
+    summary.textContent = describeError(totals.error, 'Load attendance totals')
+  } else {
+    const schoolDays = schoolDaysResult.data
+    const schoolDaysTotal =
+      !schoolDaysResult.error && schoolDays?.length
+        ? schoolDays.reduce((sum, row) => sum + Number(row.days || 0), 0)
+        : null
+
+    summary.textContent =
+      `${schoolYear ? `S.Y. ${schoolYear}: ` : ''}` +
+      attendanceSummaryLine(totals.data, schoolDaysTotal)
+  }
+
+  if (history.error) {
+    table.innerHTML = errorRow(2, history.error, 'Load attendance')
+    return
+  }
+
   table.innerHTML =
-    (history.data || []).map(a => `<tr><td>${formatDate(a.attendance_date)}</td><td>${escape(a.status)}</td></tr>`).join('') ||
+    (history.data || [])
+      .map(a =>
+        `<tr><td>${formatDate(a.attendance_date)}</td><td>${escape(a.status)}</td></tr>`
+      )
+      .join('') ||
     '<tr><td colspan="2">No attendance recorded yet.</td></tr>'
 }
+
 
 // Profile picture: pick a file -> instant preview with Save/Cancel -> upload.
 const pictureInput = document.getElementById('profile-picture-input')
