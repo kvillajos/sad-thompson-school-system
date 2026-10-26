@@ -535,10 +535,10 @@ from (
 async function createAuthLogins() {
   const authEmails = new Set()
   for (let page = 1; ; page += 1) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 })
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 })
     if (error) throw error
     data.users.forEach(user => authEmails.add(user.email?.toLowerCase()))
-    if (data.users.length < 1000) break
+    if (data.users.length < 200) break
   }
   const pending = (await readAll('users', 'user_id,username,email,role_id,initial_password')).filter(user => user.initial_password)
   const users = pending.filter(user => !authEmails.has(user.email.toLowerCase()))
