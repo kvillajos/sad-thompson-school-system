@@ -129,7 +129,7 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .admin-table-wrap { overflow:auto; background:var(--ui-surface-strong); border:1px solid #e5ebf4; border-radius:16px; padding:18px; box-shadow:0 8px 24px rgba(7,27,58,.06) }
 .admin-table-wrap + .admin-table-wrap { margin-top:18px; }
 .admin-section-title { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 14px; }
-.admin-section-title h3 { margin:0; color:var(--ui-blue-dark); font-size:16px; }
+.admin-section-title h3 { margin:0; color:var(--ui-blue-dark); font-size:18px; }
 .admin-table-wrap table { width:100%; border-collapse:collapse; min-width:760px }
 .admin-table-wrap th { background:var(--ui-navy); color:#fff; text-align:left; padding:11px 12px; font-size:12px }
 .admin-table-wrap th:first-child { border-radius:10px 0 0 10px; }
