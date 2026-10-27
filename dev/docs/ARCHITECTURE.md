@@ -75,7 +75,7 @@ shared/
 public/                       copied as-is to the site root
   assets/                     logo.png, bg.jpg
   fonts/                      Inter (self-hosted: the CSP only allows fonts from this site), OFL licence
-  css/                        theme-dark, responsive-tablet, responsive-mobile, documents, admin-polish
+  css/                        theme-dark, responsive-mobile (page-specific phone rules), documents, admin-polish
                               (loaded by applyUiTheme() after the shared theme, so they win)
 supabase/functions/provision-account/   Edge Function: create / deactivate / activate / reset accounts
 
