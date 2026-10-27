@@ -967,6 +967,30 @@ button[aria-busy="true"]::before { content:''; display:inline-block; width:12px;
 @keyframes tcsms-spin { to { transform:rotate(360deg); } }
 .toast { cursor:pointer; }
 .caps-warning { margin:6px 0 0; color:var(--ui-warning); font-size:12px; font-weight:700; }
+/* ---- Side drawers ----
+   Create/edit forms and record details (.drawer on the .admin-modal or registrar .modal) slide in from the right,
+   so the list they came from stays in view. The title row sticks to the top, the form's last action row sticks to
+   the bottom, and the content scrolls between them. Confirmations, prompts and pickers stay centred dialogs. */
+:is(.admin-modal, .modal).drawer { --drawer-pad:28px; display:flex; justify-content:flex-end; align-items:stretch; padding:0 !important; overflow:hidden !important; }
+:is(.admin-modal, .modal).drawer > :is(.admin-modal-box, .modalbox) { width:min(600px, 100vw) !important; max-width:none !important; height:100%; max-height:none !important; margin:0; box-sizing:border-box; padding:0 var(--drawer-pad) !important; border-radius:16px 0 0 16px; overflow-y:auto; overscroll-behavior:contain; box-shadow:-16px 0 40px rgba(9,28,60,.18); animation:drawer-in .3s var(--ui-ease); }
+:is(.admin-modal, .modal).drawer.drawer-wide > :is(.admin-modal-box, .modalbox) { width:min(840px, 100vw) !important; }
+@keyframes drawer-in { from { opacity:.4; transform:translateX(48px); } }
+:is(.admin-modal, .modal).drawer > :is(.admin-modal-box, .modalbox) > :is(.admin-modal-head, .modalhead) { position:sticky; top:0; z-index:5; margin:0 calc(var(--drawer-pad) * -1) 22px !important; padding:20px var(--drawer-pad) 16px !important; border-bottom:1px solid var(--ui-line); background:var(--ui-surface-strong) !important; }
+:is(.admin-modal, .modal).drawer > :is(.admin-modal-box, .modalbox) > :is(.admin-modal-head, .modalhead) :is(h2, h3) { font-size:18px !important; font-weight:650; }
+:is(.admin-modal, .modal).drawer > :is(.admin-modal-box, .modalbox) > :last-child:not(:is(.admin-actions, .actions)) { margin-bottom:28px; }
+:is(.admin-modal, .modal).drawer > :is(.admin-modal-box, .modalbox) > .admin-actions:last-child, :is(.admin-modal, .modal).drawer > :is(.admin-modal-box, .modalbox) > form > .admin-actions:last-child, :is(.admin-modal, .modal).drawer > :is(.admin-modal-box, .modalbox) > .actions:last-child { position:sticky; bottom:0; z-index:4; margin:24px calc(var(--drawer-pad) * -1) 0 !important; padding:16px var(--drawer-pad) 20px !important; border-top:1px solid var(--ui-line); background:var(--ui-surface-strong); }
+/* When the drawer box is the form itself (formDialog), its actions sit at the bottom even when the form is short. */
+:is(.admin-modal, .modal).drawer > form.admin-modal-box { display:flex; flex-direction:column; }
+:is(.admin-modal, .modal).drawer > form.admin-modal-box > .admin-actions:last-child { margin-top:auto !important; }
+/* The schedule form lays out its own padding: only its title and footer need to stick. */
+:is(.admin-modal, .modal).drawer > .schedule-form-box { padding:0 !important; }
+:is(.admin-modal, .modal).drawer > .schedule-form-box > .schedule-form-head { margin:0 0 8px !important; padding:22px 28px 16px !important; }
+.drawer .schedule-actions { position:sticky; bottom:0; z-index:4; }
+@media (max-width:700px) {
+  :is(.admin-modal, .modal).drawer { --drawer-pad:18px; }
+  :is(.admin-modal, .modal).drawer > :is(.admin-modal-box, .modalbox) { width:100vw !important; border-radius:0; }
+}
+@media (prefers-reduced-motion: reduce) { :is(.admin-modal, .modal).drawer > * { animation:none; } }
 `
 
 const SPAM_GUARD_MS = 600
@@ -1208,6 +1232,8 @@ function installTableActionMenus() {
         dropdown.appendChild(action)
       })
       menu.append(toggle, dropdown)
+      // Picking an action closes the menu (the button's own handler has already run by the time this bubbles up).
+      dropdown.addEventListener('click', event => event.target.closest('button, a') && closeMenus())
       // Append, not replace: only the buttons/links move into the menu, so anything else in the cell
       // (e.g. the Remarks input next to "Request correction" on a locked grade row) stays visible.
       cell.append(menu)

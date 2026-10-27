@@ -82,7 +82,8 @@ async function editFaculty(profileId) {
       { name: 'last_name', label: 'Last name', value: item.last_name, required: true, maxlength: 80 },
       ...facultyFields(item)
     ],
-    confirmText: 'Save changes'
+    confirmText: 'Save changes',
+    drawer: true
   })
   if (!values) return
   const changes = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, value === '' ? null : value]))

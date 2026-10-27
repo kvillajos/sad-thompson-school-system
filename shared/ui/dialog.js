@@ -4,11 +4,11 @@ import { escapeHtml } from '../lib/html.js'
 // Escape and the header close button resolve like Cancel (see the global handler in ui-theme.js).
 let dialogCount = 0
 
-function openDialog({ title, bodyHtml, actionsHtml, tag = 'div' }) {
+function openDialog({ title, bodyHtml, actionsHtml, tag = 'div', drawer = false }) {
   const id = `tcsms-dialog-${++dialogCount}`
   const returnFocus = document.activeElement
   const modal = document.createElement('div')
-  modal.className = 'admin-modal stack-above'
+  modal.className = `admin-modal stack-above${drawer ? ' drawer' : ''}`
   modal.innerHTML = `<${tag} class="admin-modal-box dialog-box" role="dialog" aria-modal="true" aria-labelledby="${id}-title"><div class="admin-modal-head"><h3 id="${id}-title">${escapeHtml(title)}</h3><button type="button" data-dialog-cancel aria-label="Close">×</button></div>${bodyHtml}<div class="admin-actions">${actionsHtml}</div></${tag}>`
   document.body.appendChild(modal)
   const close = () => {
@@ -51,7 +51,8 @@ export function confirmDialog(
 // fields: [{ name, label, type, required, min, max, step, maxlength, multiline, placeholder, hint, value, accept, multiple }]
 // A type 'file' field resolves to an array of Files.
 // Resolves with { name: value } or null on cancel. The browser's own form validation blocks bad input inline.
-export function formDialog({ title, message = '', fields, confirmText = 'Submit', danger = false }) {
+// drawer: open as a side drawer (create/edit forms) instead of a centred dialog (quick prompts).
+export function formDialog({ title, message = '', fields, confirmText = 'Submit', danger = false, drawer = false }) {
   return new Promise(resolve => {
     const field = f => {
       const attrs = [
@@ -77,6 +78,7 @@ export function formDialog({ title, message = '', fields, confirmText = 'Submit'
     const { modal, close } = openDialog({
       title,
       tag: 'form',
+      drawer,
       bodyHtml: paragraphs(message) + `<div class="dialog-fields">${fields.map(field).join('')}</div>`,
       actionsHtml: `<button type="button" class="admin-secondary" data-dialog-cancel>Cancel</button><button type="submit" class="${danger ? 'admin-danger' : 'admin-primary'}">${escapeHtml(confirmText)}</button>`
     })

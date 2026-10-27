@@ -71,7 +71,8 @@ export async function createStaffAccount(roleId = null) {
         roleId ? field : { ...field, label: `${field.label.replace(' (optional)', '')} (faculty only)` }
       )
     ],
-    confirmText: 'Create account'
+    confirmText: 'Create account',
+    drawer: true
   })
   if (!values) return null
   toast('Creating account…')

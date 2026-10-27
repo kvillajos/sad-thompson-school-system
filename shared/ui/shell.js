@@ -286,7 +286,7 @@ function openProfileModal(user, roleLabel, profile) {
   document.getElementById('tcsms-profile-modal')?.remove()
   const modal = document.createElement('div')
   modal.id = 'tcsms-profile-modal'
-  modal.className = 'admin-modal'
+  modal.className = 'admin-modal drawer'
   const safeRole = String(roleLabel).replace(
     /[&<>"']/g,
     character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]

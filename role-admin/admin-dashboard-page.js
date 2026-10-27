@@ -240,7 +240,7 @@ const feedbackFields = item =>
 
 function feedbackModal(title, bodyHtml, actionsHtml) {
   const modal = document.createElement('div')
-  modal.className = 'admin-modal stack-above'
+  modal.className = 'admin-modal stack-above drawer'
   modal.innerHTML = `<div class="admin-modal-box" role="dialog" aria-modal="true" style="width:min(100%,520px)"><div class="admin-modal-head"><h3>${title}</h3><button type="button" data-close aria-label="Close">x</button></div><div style="max-height:60vh;overflow:auto">${bodyHtml}</div><div class="admin-actions">${actionsHtml}</div></div>`
   document.body.appendChild(modal)
   modal.onclick = event => {
