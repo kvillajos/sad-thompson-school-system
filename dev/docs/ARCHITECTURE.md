@@ -25,11 +25,14 @@ role-admin/                   7 admin pages
   admin-page.js               mountAdminShell (admin nav + shell), shared faculty form fields
   edit-lock.js                registrar edit-lock rule (pure)
   auto-schedule.js            Manage Schedules > Auto-schedule preview and Apply
+  admin-overview.js           dashboard stat strip and enrollment charts (read-only counts)
 role-registrar/               student-records.html (one page, tabbed) + its modules, see below
 role-faculty/                 6 faculty pages
   faculty-common.js           loadFacultyContext (shell + assigned classes), class picker, roster
   unsaved.js                  guardUnsaved: warn before losing typed grades/attendance
+  faculty-overview.js         dashboard stat strip, grade distribution and attendance charts
 role-student/                 student-dashboard.html
+  student-overview.js         dashboard stat strip and subject-grades chart (uses the page's loaded data)
 
 shared/
   ui/                         browser-facing modules
@@ -41,6 +44,7 @@ shared/
     loading-screen.js         full-page loader
     table-sort.js, table-pages.js, table-copy.js   sortable, paged, copyable tables (auto-installed)
     table-layout.js           sticky headers + filter bars, phone cards, loading placeholders (auto-installed)
+    charts.js                 stat strip + small one-series charts (columns, bars, dot plot, line) for dashboards
     day-tabs.js               schedule day tabs
     announcements.js          announcement list + login maintenance banner
     restore-changes.js        "Restore Changes" list (admin audit trail + registrar tab)

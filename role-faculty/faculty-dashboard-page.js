@@ -6,11 +6,13 @@ import { loadFacultyContext, escapeHtml, dayNames } from './faculty-common.js'
 import { errorRow } from '../shared/lib/html.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
+import { mountFacultyOverview } from './faculty-overview.js'
 
 const context = await loadFacultyContext('dashboard')
 if (context) {
   const $ = id => document.getElementById(id)
   mountAnnouncements($('announcements-host'), 'faculty')
+  mountFacultyOverview($('dash-overview'), context)
   if (context.scheduleError)
     $('schedule-days').innerHTML =
       `<p class="note" role="alert">${escapeHtml(describeError(context.scheduleError, 'Load your schedule'))}</p>`

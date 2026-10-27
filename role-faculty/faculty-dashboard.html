@@ -10,8 +10,14 @@
     <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
     <main>
       <div class="admin-page-head">
-        <div><h2>Faculty Dashboard</h2></div>
+        <div><h2>Dashboard</h2><p id="dash-today"></p></div>
+        <div class="dash-actions">
+          <a class="admin-secondary" href="/role-faculty/faculty-attendance.html">Take attendance</a>
+          <a class="admin-secondary" href="/role-faculty/faculty-upload.html">Upload grades</a>
+          <a class="admin-primary" href="/role-faculty/faculty-grades.html">Enter grades</a>
+        </div>
       </div>
+      <div id="dash-overview"></div>
       <div id="announcements-host"></div>
       <section class="admin-table-wrap hidden" id="notice-section">
         <div class="admin-section-title"><h3>Notices</h3></div>

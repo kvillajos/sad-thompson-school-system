@@ -33,6 +33,7 @@ const sharedTheme = /* css */ `
   --ui-danger: #c0392b;
   --ui-warning: #b7791f;
   --ui-skeleton: #e6ecf4;
+  --chart-1: #1756d1;             /* chart marks (one series); validated on the light and dark surfaces */
   --ui-focus: 0 0 0 3px rgba(23,86,209,.2);
   --ui-radius-sm: 8px;
   --ui-radius: 10px;
@@ -940,6 +941,73 @@ button[aria-busy="true"]::before { content:''; display:inline-block; width:12px;
 @keyframes tcsms-spin { to { transform:rotate(360deg); } }
 .toast { cursor:pointer; }
 .caps-warning { margin:6px 0 0; color:var(--ui-warning); font-size:12px; font-weight:700; }
+/* ---- Dashboards: date and quick actions in the page head, a stat strip, chart cards ---- */
+.visually-hidden { position:absolute !important; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.admin-page-head #dash-today { margin:4px 0 0; color:var(--ui-muted); font-size:13.5px; }
+.dash-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+/* One card split into tiles by 1px gaps (the strip's background shows through as the dividers). */
+.stat-strip { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:1px; margin:0 0 20px; overflow:hidden; border:1px solid var(--ui-line); border-radius:var(--ui-radius-lg); background:var(--ui-line); box-shadow:var(--ui-shadow-sm); }
+.stat-tile { min-width:0; padding:18px 22px; background:var(--ui-surface-strong); }
+.stat-tile p { margin:0; }
+.stat-label { color:var(--ui-muted); font-size:12.5px; font-weight:500; }
+.stat-value { margin-top:6px !important; color:var(--ui-blue-dark); font-size:28px; font-weight:650; line-height:1.15; letter-spacing:-.02em; font-variant-numeric:normal; }
+.stat-value:empty::before { content:''; display:block; width:64px; height:28px; border-radius:6px; background:var(--ui-skeleton); animation:skeleton-pulse 1.1s ease-in-out infinite alternate; }
+.stat-note { margin-top:4px !important; color:var(--ui-muted); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dash-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap:20px; margin:0 0 20px; }
+.dash-grid > .admin-table-wrap { margin:0; }
+.chart-card .admin-section-title { align-items:flex-start; }
+.chart-sub { margin:4px 0 0; color:var(--ui-muted); font-size:13px; font-weight:400; }
+.student-card + .chart-card, .chart-card + #announcements-host { margin-top:20px; }
+.chart-empty { margin:0; padding:36px 0; color:var(--ui-muted); text-align:center; }
+/* Columns: bars at most 32px wide from one baseline, square at the base, 4px rounded tops, value on the cap. */
+.chart-columns { display:flex; align-items:flex-end; gap:12px; height:220px; margin:0 0 28px; padding:0; list-style:none; border-bottom:1px solid var(--ui-border); }
+.chart-columns li { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; min-width:0; height:100%; }
+.chart-columns .chart-bar { width:min(32px, 70%); height:calc(var(--v) * 170px); min-height:2px; border-radius:4px 4px 0 0; background:var(--chart-1); transition:filter .15s ease; }
+.chart-columns .chart-value { margin-bottom:6px; color:var(--ui-text); font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; }
+.chart-columns .chart-label { position:relative; top:22px; height:0; color:var(--ui-muted); font-size:12px; white-space:nowrap; }
+.chart-columns li:hover .chart-bar, .chart-bars li:hover .chart-bar { filter:brightness(1.12); }
+/* Horizontal bars: label column, then the bar with its value at the tip. */
+.chart-bars, .chart-dots { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
+.chart-bars li { display:grid; grid-template-columns:minmax(64px, 30%) 1fr; align-items:center; gap:12px; }
+.chart-bars .chart-label, .chart-dots .chart-label { color:var(--ui-text); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chart-bars .chart-track { display:flex; align-items:center; gap:8px; min-width:0; }
+.chart-bars .chart-bar { flex:none; width:calc(var(--v) * (100% - 48px)); min-width:2px; height:18px; border-radius:0 4px 4px 0; background:var(--chart-1); transition:filter .15s ease; }
+.chart-bars .chart-value { color:var(--ui-text); font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; }
+/* Dot plot: one hairline track per row, a reference line (--mark) through every track, value on the right. */
+.chart-dots li { display:grid; grid-template-columns:minmax(80px, 34%) 1fr 40px; align-items:center; gap:12px; min-height:26px; }
+.chart-dots .chart-track { position:relative; height:24px; background:linear-gradient(var(--ui-border), var(--ui-border)) 0 50% / 100% 1px no-repeat; }
+.chart-dots .chart-track::before { content:''; position:absolute; top:0; bottom:0; left:var(--mark, -10px); width:1px; background:var(--ui-muted); opacity:.55; }
+.chart-dots .chart-dot { position:absolute; top:50%; width:12px; height:12px; border-radius:50%; background:var(--chart-1); box-shadow:0 0 0 2px var(--ui-surface-strong); transform:translate(-50%, -50%); }
+.chart-dots .below-mark .chart-dot { background:var(--ui-danger); }
+.chart-dots .chart-value { color:var(--ui-text); font-size:13px; font-weight:600; text-align:right; font-variant-numeric:tabular-nums; }
+.chart-dots .below-mark .chart-value { color:var(--ui-danger); }
+.chart-dots-axis { position:relative; display:flex; justify-content:space-between; margin:8px 52px 0 calc(34% + 12px); color:var(--ui-muted); font-size:11.5px; font-variant-numeric:tabular-nums; }
+.chart-dots-axis .chart-mark-label { position:absolute; top:0; transform:translateX(-50%); white-space:nowrap; }
+/* Line: 2px line, a 10% wash under it, hairline grid, the latest value at the end, a crosshair on hover/focus. */
+.chart-line { position:relative; }
+.chart-line svg { display:block; max-width:100%; height:auto; overflow:visible; border-radius:var(--ui-radius-sm); }
+.chart-line svg:focus-visible { outline:2px solid var(--ui-blue); outline-offset:4px; }
+.chart-grid { stroke:var(--ui-line); stroke-width:1; }
+.chart-axis { fill:var(--ui-muted); font-size:11.5px; font-variant-numeric:tabular-nums; }
+.chart-area { fill:var(--chart-1); opacity:.1; }
+.chart-path { fill:none; stroke:var(--chart-1); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+.chart-end, .chart-hover { fill:var(--chart-1); stroke:var(--ui-surface-strong); stroke-width:2; }
+.chart-end-label { fill:var(--ui-text); font-size:12.5px; font-weight:600; }
+.chart-cross { stroke:var(--ui-muted); stroke-width:1; opacity:.6; }
+.chart-tip { position:absolute; top:0; left:0; z-index:2; display:grid; gap:1px; padding:6px 10px; border:1px solid var(--ui-border); border-radius:var(--ui-radius-sm); background:var(--ui-surface-strong); box-shadow:var(--ui-shadow-lg); pointer-events:none; white-space:nowrap; }
+.chart-tip strong { color:var(--ui-text); font-size:13px; }
+.chart-tip span { color:var(--ui-muted); font-size:11.5px; }
+@media (max-width:700px) {
+  .admin-page-head .dash-actions { justify-content:flex-start; }
+  .stat-strip { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .stat-tile { padding:14px 16px; }
+  .stat-tile:last-child:nth-child(odd) { grid-column:1 / -1; }
+  .chart-dots li { grid-template-columns:1fr 40px; row-gap:2px; }
+  .chart-dots .chart-label { grid-column:1 / -1; }
+  .chart-dots-axis { margin:8px 52px 0 0; }
+  .stat-value { font-size:22px; }
+}
+@media (prefers-reduced-motion: reduce) { .stat-value:empty::before { animation:none; } }
 /* ---- Side drawers ----
    Create/edit forms and record details (.drawer on the .admin-modal or registrar .modal) slide in from the right,
    so the list they came from stays in view. The title row sticks to the top, the form's last action row sticks to

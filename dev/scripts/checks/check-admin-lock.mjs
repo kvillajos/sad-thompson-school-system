@@ -52,6 +52,7 @@ const stub = `
   const describeError = (error, context) => (context || 'Request') + ' failed: ' + (error?.message || error || 'an unexpected error occurred.')
   const mountAdminShell = async () => requireRole(1)
   const mountAnnouncements = async () => {}
+  const mountAdminOverview = async () => {}
   window.addEventListener('error', event => { const el = document.getElementById('result'); if (el && !el.textContent) el.textContent = 'PAGE_ERROR: ' + (event.message || 'unknown') })`
 const body = script.replace(/^\s*import[^\n]*\n/gm, '')
 

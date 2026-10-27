@@ -170,6 +170,11 @@ async function deleteAccount(userId, button) {
     if (error) return toast(await describeFunctionError(error, 'Delete account'), 'error')
     toast(`${item.username} deleted. It can be restored from Audit Trail for 30 days.`)
     await loadAccounts()
+// Dashboard quick action: /admin-accounts.html#add opens Add Account.
+if (location.hash === '#add') {
+  history.replaceState(null, '', location.pathname)
+  document.getElementById('add-account').click()
+}
   })
 }
 const label = key => key.replaceAll('_', ' ').replace(/^./, c => c.toUpperCase())
@@ -358,3 +363,8 @@ document.getElementById('add-account').onclick = async () => {
 document.getElementById('close-account-details').onclick = () => document.getElementById('account-details-modal').classList.add('hidden')
 await loadAccounts()
 hideLoadingScreen()
+// Dashboard quick action: admin-accounts.html#add opens Add Account.
+if (location.hash === '#add') {
+  history.replaceState(null, '', location.pathname)
+  document.getElementById('add-account').click()
+}

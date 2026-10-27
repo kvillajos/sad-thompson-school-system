@@ -14,6 +14,7 @@ import { buildTranscript } from '../shared/documents/transcript.js'
 import { previewPdf, pdfName } from '../shared/documents/pdf-preview.js'
 import { mountAnnouncements } from '../shared/ui/announcements.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
+import { mountStudentOverview } from './student-overview.js'
 applyUiTheme()
 const user = await requireRole(4)
 if (!user) throw new Error('Unauthorized')
@@ -56,6 +57,7 @@ let gradeRows = []
 let scheduleRows = []
 let gradeYears = []
 let gradePageIndex = 0
+let attendanceTotals = null
 
 // Same placeholder as the profile bar and dashboard card: initials on a blue circle until a photo is set.
 function showProfilePicture(url) {
@@ -332,6 +334,7 @@ async function loadAttendance() {
         ? schoolDays.reduce((sum, row) => sum + Number(row.days || 0), 0)
         : null
 
+    attendanceTotals = { totals: totals.data, schoolDaysTotal }
     summary.textContent =
       `${schoolYear ? `S.Y. ${schoolYear}: ` : ''}` +
       attendanceSummaryLine(totals.data, schoolDaysTotal)
@@ -375,4 +378,10 @@ await Promise.all([
   loadAttendance()
 ])
 await renderCurrentGrades()
+mountStudentOverview(document.getElementById('dash-stats'), document.getElementById('dash-grades'), {
+  gradeRows,
+  scheduleRows,
+  schoolYear,
+  attendance: attendanceTotals
+})
 hideLoadingScreen()

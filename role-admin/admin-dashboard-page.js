@@ -9,7 +9,9 @@ import { isEditLocked, editLockMessage } from './edit-lock.js'
 import { describeError, describeFunctionError } from '../shared/lib/errors.js'
 import { mountAdminShell } from './admin-page.js'
 import { mountAnnouncements, pinIcon } from '../shared/ui/announcements.js'
+import { mountAdminOverview } from './admin-overview.js'
 const user = await mountAdminShell('dashboard')
+mountAdminOverview(document.getElementById('dash-overview'))
 // Full name with the middle name, so a middle-name-only change is visible to the approver.
 const profileLine = data => `${[data?.first_name, data?.middle_name, data?.last_name].filter(Boolean).join(' ')} / ${data?.email || ''}`
 

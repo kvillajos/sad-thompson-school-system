@@ -190,6 +190,11 @@ async function removeSection(id) {
   if (error) return toast(describeError(error, 'Remove section'), 'error')
   toast(`${name} removed.`)
   await loadSections()
+// Dashboard quick action: /admin-sections.html#add opens Add Section.
+if (location.hash === '#add') {
+  history.replaceState(null, '', location.pathname)
+  openForm()
+}
 }
 form.onsubmit = event => {
   event.preventDefault()
@@ -300,3 +305,8 @@ document.getElementById('selected-moderator').onclick = event => {
 await loadSections()
 mountCopyYear(document.getElementById('copy-year-host'), loadSections)
 hideLoadingScreen()
+// Dashboard quick action: admin-sections.html#add opens Add Section.
+if (location.hash === '#add') {
+  history.replaceState(null, '', location.pathname)
+  openForm()
+}

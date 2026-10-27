@@ -11,8 +11,14 @@
     <main>
       <section data-panel="dashboard">
         <div class="admin-page-head">
-          <div><h2>Dashboard</h2></div>
+          <div><h2>Dashboard</h2><p id="dash-today"></p></div>
+          <div class="dash-actions">
+            <button class="admin-secondary" type="button" data-tab="schedule">My schedule</button>
+            <button class="admin-secondary" type="button" data-tab="grades">My grades</button>
+            <button class="admin-secondary" type="button" id="dash-request-edit">Request an edit</button>
+          </div>
         </div>
+        <div id="dash-stats"></div>
         <div class="admin-table-wrap student-card">
           <div id="dash-photo" class="student-card-photo" aria-hidden="true"></div>
           <div class="student-card-body">
@@ -24,6 +30,10 @@
             <dl id="dash-details" class="student-card-grid"></dl>
           </div>
         </div>
+        <section class="admin-table-wrap chart-card" id="dash-grades">
+          <div class="admin-section-title"><div><h3>My grades this year</h3><p class="chart-sub"></p></div></div>
+          <div data-chart></div>
+        </section>
         <div id="announcements-host" style="margin-top:20px"></div>
       </section>
 

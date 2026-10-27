@@ -10,8 +10,14 @@
     <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
     <main>
       <div class="admin-page-head">
-        <div><h2>Admin Dashboard</h2></div>
+        <div><h2>Dashboard</h2><p id="dash-today"></p></div>
+        <div class="dash-actions">
+          <a class="admin-secondary" href="/role-admin/admin-accounts.html#add">Add account</a>
+          <a class="admin-secondary" href="/role-admin/admin-sections.html#add">Add section</a>
+          <button class="admin-primary" type="button" id="dash-post-announcement">Post announcement</button>
+        </div>
       </div>
+      <div id="dash-overview"></div>
       <div id="announcements-host"></div>
       <section class="admin-table-wrap" style="overflow:visible">
         <div class="admin-section-title">
