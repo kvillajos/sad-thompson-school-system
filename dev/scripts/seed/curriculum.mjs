@@ -56,7 +56,7 @@ const shs = rows =>
 export const SENIOR_HIGH = shs([
   // Grade 11 core, applied and school subjects (every strand); split 5 / 5 across the semesters.
   ['OC', 'Oral Communication in Context', 'Core', 11, 1, null, 'English'],
-  ['KPWKP', 'Komunikasyon at Pananaliksik sa Wika at Kulturang Pilipino', 'Core', 11, 1, null, 'Filipino'],
+  ['KOMPAN', 'Komunikasyon at Pananaliksik sa Wika at Kulturang Pilipino', 'Core', 11, 1, null, 'Filipino'],
   ['GENMATH', 'General Mathematics', 'Core', 11, 1, null, 'Mathematics'],
   ['ELS', 'Earth and Life Science', 'Core', 11, 1, null, 'Science'],
   ['ETECH', 'Empowerment Technologies', 'Applied', 11, 1, null, 'ICT'],
@@ -66,7 +66,7 @@ export const SENIOR_HIGH = shs([
   ['CHRETH', 'Christian Ethics', 'School', 11, 2, null, 'Values Education'],
   ['EAPP', 'English for Academic and Professional Purposes', 'Applied', 11, 2, null, 'English'],
   // Grade 12 core and applied (every strand); split 6 / 6.
-  ['21CLIT', '21st Century Literature from the Philippines and the World', 'Core', 12, 1, null, 'English'],
+  ['LIT21', '21st Century Literature from the Philippines and the World', 'Core', 12, 1, null, 'English'],
   ['MIL', 'Media and Information Literacy', 'Core', 12, 1, null, 'ICT'],
   ['PHYSCI', 'Physical Science', 'Core', 12, 1, null, 'Science'],
   ['UCSP', 'Understanding Culture, Society, and Politics', 'Core', 12, 1, null, 'Social Studies'],
@@ -77,7 +77,7 @@ export const SENIOR_HIGH = shs([
   ['PHILO', 'Introduction to the Philosophy of the Human Person', 'Core', 12, 2, null, 'Social Studies'],
   ['PR2', 'Practical Research 2', 'Applied', 12, 2, null, 'Research'],
   ['FILPL', 'Pagsulat sa Filipino sa Piling Larang', 'Applied', 12, 2, null, 'Filipino'],
-  ['III', 'Inquiries, Investigations, and Immersion', 'Applied', 12, 2, null, 'Research'],
+  ['INQUIRY', 'Inquiries, Investigations, and Immersion', 'Applied', 12, 2, null, 'Research'],
   // STEM
   ['PRECAL', 'Pre-Calculus', 'Specialized', 11, 1, ['STEM'], 'Mathematics'],
   ['GENBIO1', 'General Biology 1', 'Specialized', 11, 1, ['STEM'], 'Science'],
