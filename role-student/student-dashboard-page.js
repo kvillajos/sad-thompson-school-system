@@ -13,20 +13,18 @@ import { buildSemesterTable, generalAverageRow, semesterRows } from '../shared/l
 import { buildTranscript } from '../shared/documents/transcript.js'
 import { previewPdf, pdfName } from '../shared/documents/pdf-preview.js'
 import { mountAnnouncements } from '../shared/ui/announcements.js'
-import { mountNotificationBell } from './notifications.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
 applyUiTheme()
 const user = await requireRole(4)
 if (!user) throw new Error('Unauthorized')
 mountProfile(user, 'Student', signOut)
-mountNotificationBell(user)
 mountSidebar(
   [
-    { label: 'Dashboard', tab: 'dashboard', active: true, icon: '⌂' },
-    { label: 'Schedule', tab: 'schedule', icon: '▤' },
-    { label: 'Grades', tab: 'grades', icon: '♧' },
-    { label: 'Transcript', tab: 'transcript', icon: '▱' },
-    { label: 'Profile', tab: 'profile', icon: '☷' }
+    { label: 'Dashboard', tab: 'dashboard', active: true, icon: 'home' },
+    { label: 'Schedule', tab: 'schedule', icon: 'clock' },
+    { label: 'Grades', tab: 'grades', icon: 'chart' },
+    { label: 'Transcript', tab: 'transcript', icon: 'award' },
+    { label: 'Profile', tab: 'profile', icon: 'user' }
   ],
   'Student Portal',
   'student'

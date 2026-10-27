@@ -169,7 +169,7 @@ try {
   assert.equal(out.toastRole, 'alert')
   assert.equal(out.toastClickHides, true)
   assert.match(out.errorRowText, /Load audit log failed: your session has expired\. Sign in again\.Retry/)
-  assert.equal(out.emptyRowStyle, 'italic|center')
+  assert.equal(out.emptyRowStyle, 'normal|center')
   assert.equal(out.spinner, 'tcsms-spin')
   console.log('dialog, toast and modal checks passed')
 } finally {

@@ -22,14 +22,14 @@ mountProfile(user, 'Registrar', signOut)
 
 mountSidebar(
   [
-    { label: 'Manage Enrollment', tab: 'enrollment', active: true, icon: '▣' },
-    { label: 'New Admission', tab: 'admission', icon: '▣' },
-    { label: 'Applications', tab: 'applications', icon: '♙' },
-    { label: 'Section Students', tab: 'sectioning', icon: '▤' },
-    { label: 'Academic History', tab: 'academic', icon: '♧' },
-    { label: 'Promotion & Transfers', tab: 'promotion', icon: '↗' },
-    { label: 'Requests & Feedback', tab: 'requests', icon: '✉' },
-    { label: 'Restore Changes', tab: 'restore', icon: '↺' }
+    { label: 'Manage Enrollment', tab: 'enrollment', active: true, icon: 'clipboard', group: 'Enrollment' },
+    { label: 'New Admission', tab: 'admission', icon: 'user-plus', group: 'Enrollment' },
+    { label: 'Applications', tab: 'applications', icon: 'file', group: 'Enrollment' },
+    { label: 'Section Students', tab: 'sectioning', icon: 'layers', group: 'Enrollment' },
+    { label: 'Academic History', tab: 'academic', icon: 'history', group: 'Records' },
+    { label: 'Promotion & Transfers', tab: 'promotion', icon: 'trend', group: 'Records' },
+    { label: 'Requests & Feedback', tab: 'requests', icon: 'mail', group: 'Requests' },
+    { label: 'Restore Changes', tab: 'restore', icon: 'restore', group: 'Requests' }
   ],
   'Registry and<br>Student Records',
   'registrar'

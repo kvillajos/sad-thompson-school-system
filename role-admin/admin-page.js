@@ -5,18 +5,18 @@ import { describeFunctionError } from '../shared/lib/errors.js'
 import { mountProfile, mountSidebar } from '../shared/ui/shell.js'
 
 const NAV = [
-  ['Dashboard', '/role-admin/admin-dashboard.html', '⌂', 'dashboard'],
-  ['Manage Accounts', '/role-admin/admin-accounts.html', '▣', 'accounts'],
-  ['Manage Faculty', '/role-admin/admin-faculty.html', '♙', 'faculty'],
-  ['Manage Sections', '/role-admin/admin-sections.html', '▤', 'sections'],
-  ['Manage Subjects', '/role-admin/admin-subjects.html', '♧', 'subjects'],
-  ['Manage Schedules', '/role-admin/admin-schedules.html', '▱', 'schedules'],
-  ['School Years', '/role-admin/admin-school-years.html', '↺', 'school-years'],
-  ['Audit Trail', '/role-admin/admin-audit.html', '▤', 'audit']
+  ['Dashboard', '/role-admin/admin-dashboard.html', 'home', 'dashboard'],
+  ['Manage Accounts', '/role-admin/admin-accounts.html', 'users', 'accounts', 'People'],
+  ['Manage Faculty', '/role-admin/admin-faculty.html', 'badge', 'faculty', 'People'],
+  ['Manage Sections', '/role-admin/admin-sections.html', 'layers', 'sections', 'Academics'],
+  ['Manage Subjects', '/role-admin/admin-subjects.html', 'book', 'subjects', 'Academics'],
+  ['Manage Schedules', '/role-admin/admin-schedules.html', 'calendar', 'schedules', 'Academics'],
+  ['School Years', '/role-admin/admin-school-years.html', 'years', 'school-years', 'Academics'],
+  ['Audit Trail', '/role-admin/admin-audit.html', 'audit', 'audit', 'System']
 ]
 
 export function adminNav(active) {
-  return NAV.map(([label, href, icon, page]) => ({ label, href, icon, active: page === active }))
+  return NAV.map(([label, href, icon, page, group]) => ({ label, href, icon, group, active: page === active }))
 }
 
 export async function mountAdminShell(active) {

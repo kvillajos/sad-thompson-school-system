@@ -30,15 +30,17 @@ role-faculty/                 6 faculty pages
   faculty-common.js           loadFacultyContext (shell + assigned classes), class picker, roster
   unsaved.js                  guardUnsaved: warn before losing typed grades/attendance
 role-student/                 student-dashboard.html
-  notifications.js            notification bell
 
 shared/
   ui/                         browser-facing modules
     ui-theme.js               shared CSS + applyUiTheme() + toast(); installs the table helpers below
-    shell.js                  mountSidebar, mountProfile, withBusy, profile/password modals
+    shell.js                  mountSidebar (grouped nav, collapse rail, phone drawer), mountProfile (top bar:
+                              breadcrumb, school year, bell, theme, profile menu), withBusy, profile/password modals
+    notifications.js          notification bell in the top bar (every role; table notifications)
     dialog.js                 in-page confirm / prompt / alert
     loading-screen.js         full-page loader
     table-sort.js, table-pages.js, table-copy.js   sortable, paged, copyable tables (auto-installed)
+    table-layout.js           sticky headers + filter bars, phone cards, loading placeholders (auto-installed)
     day-tabs.js               schedule day tabs
     announcements.js          announcement list + login maintenance banner
     restore-changes.js        "Restore Changes" list (admin audit trail + registrar tab)
@@ -68,6 +70,7 @@ shared/
 
 public/                       copied as-is to the site root
   assets/                     logo.png, bg.jpg
+  fonts/                      Inter (self-hosted: the CSP only allows fonts from this site), OFL licence
   css/                        theme-dark, responsive-tablet, responsive-mobile, documents, admin-polish
                               (loaded by applyUiTheme() after the shared theme, so they win)
 supabase/functions/provision-account/   Edge Function: create / deactivate / activate / reset accounts
@@ -90,7 +93,8 @@ dev/                          development only, not part of the build
 - **Formatting**: Prettier (`npm run format`), config in `.prettierrc.json`. No semicolons, single quotes.
   CSS inside JS template strings (e.g. `sharedTheme` in `ui-theme.js`) is left as written.
 - **Styles**: shared component CSS is in `ui-theme.js`; theme and breakpoint overrides go in the matching
-  `public/css/*.css` file. Colours are `--ui-*` CSS variables at the top of `ui-theme.js`.
+  `public/css/*.css` file. Colours, radii, shadows and the font are `--ui-*` tokens at the top of `ui-theme.js`
+  (dark values in `public/css/theme-dark.css`). Fill colours behind white text use `--ui-primary`, not `--ui-blue`.
 - **Security**: the browser only ever gets the anon/publishable key (`VITE_` variables). Ownership and role
   checks are enforced by RLS and server-side functions, not by hiding buttons. The service-role key lives
   only in the Edge Function and in local seed scripts.

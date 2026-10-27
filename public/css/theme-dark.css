@@ -2,18 +2,29 @@
 @media screen {
   html[data-theme='dark'] {
     color-scheme: dark;
-    --ui-bg: #111821;
-    --ui-surface: #1a2431;
-    --ui-surface-strong: #202c3b;
-    --ui-navy: #111a27;
-    --ui-blue: #79a8ff;
-    --ui-blue-dark: #d7e4f8;
-    --ui-text: #e4eaf2;
-    --ui-muted: #a5b1c1;
-    --ui-border: #3a485b;
+    --ui-bg: #0f1620;
+    --ui-surface: #172130;
+    --ui-surface-strong: #1b2636;
+    --ui-navy: #0b1a33;
+    --ui-blue: #86b0ff;
+    --ui-primary: #2f6ad9;
+    --ui-primary-hover: #3b77e6;
+    --ui-blue-soft: #1f3150;
+    --ui-blue-dark: #dbe6f7;
+    --ui-text: #e3e9f2;
+    --ui-muted: #9eabbd;
+    --ui-border: #334156;
+    --ui-control-border: #3c4b61;
+    --ui-line: #263244;
+    --ui-hover: #223044;
+    --ui-gold: #e2b54d;
     --ui-success: #52c788;
     --ui-danger: #ff8989;
     --ui-warning: #f2c66d;
+    --ui-skeleton: #26334a;
+    --ui-focus: 0 0 0 3px rgba(134, 176, 255, 0.28);
+    --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --ui-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
   }
 
   html[data-theme='dark'] body {
@@ -44,10 +55,6 @@
     color: #111 !important;
   }
 
-  html[data-theme='dark'] .app-sidebar .sidebar-link.active {
-    color: #fff !important;
-  }
-
   /* Shared card and dialog surfaces used by admin, registrar, faculty, and student pages. */
   html[data-theme='dark'] .card,
   html[data-theme='dark'] .admin-table-wrap,
@@ -63,7 +70,7 @@
   html[data-theme='dark'] .schedule-summary {
     background-color: var(--ui-surface-strong) !important;
     color: var(--ui-text) !important;
-    border-color: var(--ui-border) !important;
+    border-color: var(--ui-line) !important;
   }
 
   html[data-theme='dark'] .admin-page-head h2,
@@ -78,13 +85,6 @@
     color: var(--ui-blue-dark) !important;
   }
 
-  html[data-theme='dark'] .admin-secondary,
-  html[data-theme='dark'] .admin-view,
-  html[data-theme='dark'] .admin-modal-head button,
-  html[data-theme='dark'] .main button.btn.secondary,
-  html[data-theme='dark'] .main button.small,
-  html[data-theme='dark'] .modalhead button,
-  html[data-theme='dark'] .pager-btn,
   html[data-theme='dark'] .schedule-pick-button,
   html[data-theme='dark'] .subtab,
   html[data-theme='dark'] .subtab.active {
@@ -93,10 +93,7 @@
     border-color: #405471 !important;
   }
 
-  html[data-theme='dark'] .admin-primary,
-  html[data-theme='dark'] .admin-approve,
-  html[data-theme='dark'] .main button.btn,
-  html[data-theme='dark'] .schedule-button-primary {
+  html[data-theme='dark'] .admin-approve {
     background: #2458b7 !important;
     border-color: #3971d3 !important;
     color: #fff !important;
@@ -129,26 +126,16 @@
   }
 
   /* Menus, notifications, custom dropdowns, and popup contents. */
-  html[data-theme='dark'] .profile-toggle,
-  html[data-theme='dark'] .profile-dropdown,
-  html[data-theme='dark'] .profile-dropdown button,
   html[data-theme='dark'] .pfp-menu,
   html[data-theme='dark'] .combo-list,
-  html[data-theme='dark'] .notif-toggle,
-  html[data-theme='dark'] .theme-toggle,
-  html[data-theme='dark'] .notif-panel,
   html[data-theme='dark'] .schedule-actions {
     background-color: var(--ui-surface-strong) !important;
     color: var(--ui-text) !important;
     border-color: var(--ui-border) !important;
   }
 
-  html[data-theme='dark'] .profile-dropdown button:hover,
-  html[data-theme='dark'] .profile-dropdown button:focus-visible,
   html[data-theme='dark'] .pfp-menu button:hover,
   html[data-theme='dark'] .combo-list li:hover,
-  html[data-theme='dark'] .notif-item:hover,
-  html[data-theme='dark'] .notif-item.unread,
   html[data-theme='dark'] .subtab:hover {
     background-color: #2b3a4e !important;
     color: #f1f5fb !important;
@@ -156,7 +143,6 @@
 
   html[data-theme='dark'] .combo-list li,
   html[data-theme='dark'] .pfp-menu button,
-  html[data-theme='dark'] .notif-item span,
   html[data-theme='dark'] .mail-subject,
   html[data-theme='dark'] .mail-row,
   html[data-theme='dark'] .mail-preview,
@@ -173,32 +159,7 @@
   html[data-theme='dark'] .modalbox td,
   html[data-theme='dark'] .schedule-gap td {
     color: var(--ui-text) !important;
-    border-color: var(--ui-border) !important;
-  }
-
-  html[data-theme='dark'] .admin-table-wrap tbody tr:nth-child(even) td,
-  html[data-theme='dark'] .card table tbody tr:nth-child(even) td {
-    background: #253244 !important;
-  }
-
-  html[data-theme='dark'] .table-action-toggle {
-    background: #27364a;
-    color: var(--ui-text);
-    border-color: #405471;
-  }
-
-  html[data-theme='dark'] .table-action-dropdown > button:hover,
-  html[data-theme='dark'] .table-action-dropdown > button:focus-visible,
-  html[data-theme='dark'] .table-action-dropdown > a:hover,
-  html[data-theme='dark'] .table-action-dropdown > a:focus-visible {
-    background: #2b3a4e;
-    color: #f1f5fb;
-  }
-
-  html[data-theme='dark'] .main th,
-  html[data-theme='dark'] .modalbox th {
-    background: var(--ui-navy) !important;
-    color: #fff !important;
+    border-color: var(--ui-line) !important;
   }
 
   html[data-theme='dark'] .review-grid > div,
@@ -303,8 +264,7 @@
 
   html[data-theme='dark'] .schedule-gap td,
   html[data-theme='dark'] .mail-row:hover,
-  html[data-theme='dark'] .mail-row:focus-visible,
-  html[data-theme='dark'] .notif-item.unread {
+  html[data-theme='dark'] .mail-row:focus-visible {
     background-color: #202c3b !important;
   }
 

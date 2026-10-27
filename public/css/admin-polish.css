@@ -8,24 +8,6 @@
     --admin-action-w: 104px;
   }
 
-  /* ---- Rows and columns: same padding everywhere, text centred in the row ---- */
-  body.role-admin .admin-table-wrap th,
-  body.role-admin .admin-table-wrap td {
-    padding: 12px 16px;
-    text-align: left;
-    vertical-align: middle;
-  }
-  body.role-admin .admin-table-wrap td {
-    padding-top: 6px;
-    padding-bottom: 6px;
-  }
-  body.role-admin .admin-table-wrap th {
-    white-space: nowrap;
-  }
-  body.role-admin .admin-table-wrap td {
-    line-height: 1.4;
-  }
-
   /* ---- Action column: only tables whose last cell holds actions ---- */
   body.role-admin
     .admin-table-wrap

@@ -13,16 +13,16 @@ export async function loadFacultyContext(activePage = 'dashboard') {
   if (!user) return null
   mountProfile(user, 'Faculty', signOut)
   const navigation = [
-    ['Dashboard', '/role-faculty/faculty-dashboard.html', '⌂', 'dashboard'],
-    ['Class List', '/role-faculty/faculty-class-list.html', '▤', 'class-list'],
-    ['Grades', '/role-faculty/faculty-grades.html', '✎', 'grades'],
-    ['Bulk Upload', '/role-faculty/faculty-upload.html', '⇧', 'upload'],
-    ['Attendance', '/role-faculty/faculty-attendance.html', '✓', 'attendance'],
-    ['Reports', '/role-faculty/faculty-reports.html', '▧', 'reports'],
-    ['Feedback', '/role-faculty/faculty-feedback.html', '✉', 'feedback']
+    ['Dashboard', '/role-faculty/faculty-dashboard.html', 'home', 'dashboard'],
+    ['Class List', '/role-faculty/faculty-class-list.html', 'list', 'class-list', 'Teaching'],
+    ['Grades', '/role-faculty/faculty-grades.html', 'pencil', 'grades', 'Teaching'],
+    ['Bulk Upload', '/role-faculty/faculty-upload.html', 'upload', 'upload', 'Teaching'],
+    ['Attendance', '/role-faculty/faculty-attendance.html', 'attendance', 'attendance', 'Teaching'],
+    ['Reports', '/role-faculty/faculty-reports.html', 'chart', 'reports', 'Reports'],
+    ['Feedback', '/role-faculty/faculty-feedback.html', 'mail', 'feedback', 'Reports']
   ]
   mountSidebar(
-    navigation.map(([label, href, icon, page]) => ({ label, href, icon, active: page === activePage })),
+    navigation.map(([label, href, icon, page, group]) => ({ label, href, icon, group, active: page === activePage })),
     'Faculty Portal',
     'faculty'
   )
