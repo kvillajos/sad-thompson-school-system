@@ -1,6 +1,7 @@
 import { installTableSort } from './table-sort.js'
 import { installTablePages } from './table-pages.js'
 import { installTableCopy } from './table-copy.js'
+import { installTableLayout } from './table-layout.js'
 import { describeError } from '../lib/errors.js'
 
 const UI_THEME_STORAGE_KEY = 'tcsms_theme'
@@ -116,6 +117,10 @@ button:not(:disabled):not(.topbar-icon, .sidebar-link, .sidebar-collapse, .profi
 :is(.admin-primary, .admin-secondary, .admin-cancel, .admin-danger):disabled { opacity:.55; cursor:not-allowed; }
 .admin-filterbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:0 0 16px }
 .admin-filterbar input,.admin-filterbar select { box-sizing:border-box; min-width:180px; height:38px; padding:0 12px; border:1px solid var(--ui-control-border); border-radius:var(--ui-radius-sm); color:var(--ui-text); background:var(--ui-surface-strong); font-size:13.5px }
+/* Filter bars stay under the top bar while the page scrolls (table-layout.js adds .sticky-bar when nothing between
+   the bar and the page scrolls on its own). The bar's own height reaches the table headers below as --toolbar-h. */
+.sticky-bar { position:sticky; top:var(--topbar-h); z-index:6; padding-block:10px; margin-block:-10px 6px; background:var(--ui-bg); }
+:is(.admin-table-wrap, .card) .sticky-bar { background:var(--ui-surface-strong); }
 .admin-filterbar .admin-action { margin-left:auto }
 .admin-filterbar input[type="search"] { flex:1 1 240px; max-width:360px; }
 .filter-bar-host { display:contents }
@@ -178,6 +183,28 @@ button:not(:disabled):not(.topbar-icon, .sidebar-link, .sidebar-collapse, .profi
 .admin-table-wrap tbody tr:last-child > td { border-bottom:0; }
 .admin-table-wrap tbody tr:not(:only-child):hover > td,
 .card table tbody tr:not(:only-child):hover > td { background:var(--ui-hover); }
+/* Header rows stick: under the top bar (and a sticky filter bar) when the page scrolls, or to the top of a box that
+   scrolls on its own. table-layout.js decides which, see .sticky-page. */
+main table > thead th { position:sticky; top:0; z-index:3; }
+main table.sticky-page > thead th { top:calc(var(--topbar-h) + var(--toolbar-h, 0px)); }
+main .table-fits.table-fits { overflow:visible !important; }
+/* Phones: one card per row (table-layout.js adds .table-cards and the data-label on each cell). The first cell is the
+   card title, an action menu sits in the top-right corner, and the other cells pair up as label over value.
+   Doubled class so these beat the phone stylesheet's !important table rules. */
+@media (max-width:700px) {
+  main table.table-cards.table-cards, main table.table-cards.table-cards > tbody { display:block; width:100% !important; min-width:0 !important; }
+  main table.table-cards.table-cards > thead { display:none; }
+  main table.table-cards.table-cards > tbody > tr { position:relative; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px 16px; margin:0 0 10px; padding:14px; border:1px solid var(--ui-line); border-radius:12px; background:var(--ui-surface); }
+  main table.table-cards.table-cards > tbody > tr[hidden] { display:none !important; }
+  main table.table-cards.table-cards > tbody > tr > td { display:block; min-width:0; padding:0 !important; border:0 !important; background:transparent !important; font-size:13.5px !important; white-space:normal !important; overflow-wrap:anywhere; }
+  main table.table-cards.table-cards > tbody > tr > td[data-label]:not([data-label=""])::before { content:attr(data-label); display:block; margin-bottom:3px; color:var(--ui-muted); font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+  main table.table-cards.table-cards > tbody > tr > td:first-child { grid-column:1 / -1; padding-right:44px !important; font-size:15px !important; font-weight:600; }
+  main table.table-cards.table-cards > tbody > tr > td:first-child::before { display:none !important; }
+  main table.table-cards.table-cards > tbody > tr > td:has(> .table-action-menu) { position:absolute; top:10px; right:10px; }
+  main table.table-cards.table-cards > tbody > tr > td:has(> .table-action-menu)::before { display:none !important; }
+  main table.table-cards.table-cards > tbody > tr:only-child:has(> td[colspan]) { display:block; padding:0; border-style:dashed; background:transparent; }
+  main table.table-cards.table-cards > tbody > tr > td[colspan] { padding:28px 16px !important; text-align:center; }
+}
 .table-action-menu { position:relative; display:inline-block; }
 .table-action-toggle { display:grid; place-items:center; width:32px; height:32px; padding:0; border:1px solid transparent; border-radius:var(--ui-radius-sm); background:transparent; color:var(--ui-muted); cursor:pointer; transition:background-color .15s ease, color .15s ease, border-color .15s ease; }
 .table-action-toggle svg { width:18px; height:18px; fill:currentColor; }
@@ -929,6 +956,9 @@ html[data-theme="dark"] .dialog-warning { background:#3a2e12; color:#f2c66d; }
    drawn as placeholder bars), or a load error. */
 tbody > tr:only-child:not(.table-state-error, .table-state-loading) > td[colspan]:only-child { text-align:center; padding:36px 16px !important; color:var(--ui-muted) !important; font-style:normal; background:transparent !important; }
 tbody > tr:only-child:not(.table-state-error, .table-state-loading) > td[colspan]:only-child::before { content:''; display:block; width:28px; height:28px; margin:0 auto 10px; background:currentColor; opacity:.55; -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 12h-6l-2 3h-4l-2-3H2'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E") center/contain no-repeat; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 12h-6l-2 3h-4l-2-3H2'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E") center/contain no-repeat; }
+tbody > tr.table-state-loading > td { height:112px; padding:0 !important; color:transparent !important; font-size:0 !important; background:linear-gradient(var(--ui-skeleton) 0 0) 16px 22px / 34% 10px no-repeat, linear-gradient(var(--ui-skeleton) 0 0) 16px 50px / 72% 10px no-repeat, linear-gradient(var(--ui-skeleton) 0 0) 16px 78px / 56% 10px no-repeat !important; animation:skeleton-pulse 1.1s ease-in-out infinite alternate; }
+@keyframes skeleton-pulse { to { opacity:.45; } }
+@media (prefers-reduced-motion: reduce) { tbody > tr.table-state-loading > td { animation:none; } }
 tbody > tr.table-state-error > td { text-align:center; padding:20px 16px !important; color:var(--ui-danger) !important; font-style:normal; font-weight:600; }
 .table-retry { margin-left:10px; border:1px solid currentColor; border-radius:9px; padding:5px 12px; background:transparent; color:inherit; cursor:pointer; font-weight:700; }
 
@@ -1095,6 +1125,7 @@ export function applyUiTheme() {
   installTableSort()
   installTablePages()
   installTableCopy()
+  installTableLayout()
   installTableActionMenus()
   installGlobalErrorHandler()
   installModalBehaviour()

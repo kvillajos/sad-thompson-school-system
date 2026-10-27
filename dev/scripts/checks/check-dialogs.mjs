@@ -18,7 +18,8 @@ for (const f of [
   'lib/errors.js',
   'ui/table-sort.js',
   'ui/table-pages.js',
-  'ui/table-copy.js'
+  'ui/table-copy.js',
+  'ui/table-layout.js'
 ]) {
   const dest = join(folder, 'shared', f)
   mkdirSync(dirname(dest), { recursive: true })
