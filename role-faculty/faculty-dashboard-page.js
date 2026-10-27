@@ -2,7 +2,7 @@ import { supabase } from '../shared/lib/auth-client.js'
 import { mountAnnouncements } from '../shared/ui/announcements.js'
 import { mountDayTabs, gapsFrom, timeRange12 } from '../shared/ui/day-tabs.js'
 import { loadSchoolYearSettings } from '../shared/lib/school-settings.js'
-import { loadFacultyContext, escapeHtml, dayNames } from './faculty-common.js'
+import { loadFacultyContext, escapeHtml, lastFirst, dayNames } from './faculty-common.js'
 import { errorRow } from '../shared/lib/html.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
@@ -34,7 +34,7 @@ if (context) {
     : context.enrollments
         .map(
           item =>
-            `<tr><td>${escapeHtml(item.students?.lrn_number || item.student_id)}</td><td>${escapeHtml(`${item.students?.first_name || ''} ${item.students?.last_name || ''}`)}</td><td>${escapeHtml(item.students?.grade_level)}</td><td>Active</td></tr>`
+            `<tr><td>${escapeHtml(item.students?.lrn_number || item.student_id)}</td><td>${escapeHtml(lastFirst(item.students))}</td><td>${escapeHtml(item.students?.grade_level)}</td><td>Active</td></tr>`
         )
         .join('') || '<tr><td colspan="4">No students assigned.</td></tr>'
   // Teaching-load notices need no approval; the teacher just acknowledges them.

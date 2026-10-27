@@ -1,9 +1,10 @@
 import { supabase } from '../shared/lib/auth-client.js'
-import { loadFacultyContext, escapeHtml, classSelect, rosterFor } from './faculty-common.js'
+import { loadFacultyContext, escapeHtml, lastFirst, classSelect, rosterFor } from './faculty-common.js'
 import { currentSchoolYear, derivedGrade, parseGradeCsv } from '../shared/lib/grades.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
+import { confirmDialog } from '../shared/ui/dialog.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
 
 // Q1 to Q4 and an optional Final Grade override. Midterm and the letter grade are no longer entered by hand.
@@ -16,6 +17,15 @@ if (context) {
   classSelect($('upload-class'), context.classes)
   $('upload-year').value = context.schoolYear || currentSchoolYear()
   let rows = []
+  const warnedNames = new Set()
+  const nameKey = text =>
+    String(text)
+      .toLowerCase()
+      .replace(/[,\s]+/g, ' ')
+      .trim()
+      .split(' ')
+      .sort()
+      .join(' ')
   const render = () => {
     $('upload-preview-wrap').classList.toggle('hidden', !rows.length)
     $('upload-preview').innerHTML = rows
@@ -35,12 +45,7 @@ if (context) {
     if (!chosen) return toast('Choose a class first.', 'error')
     const header = ['student_id', ...TEMPLATE_SCORES, 'remarks', 'student_name']
     const lines = roster.map(item =>
-      [
-        item.student_id,
-        ...TEMPLATE_SCORES.map(() => ''),
-        '',
-        `${item.students?.first_name || ''} ${item.students?.last_name || ''}`.replace(/,/g, ' ')
-      ].join(',')
+      [item.student_id, ...TEMPLATE_SCORES.map(() => ''), '', lastFirst(item.students).replace(/,/g, ' ')].join(',')
     )
     const link = document.createElement('a')
     link.href = URL.createObjectURL(new Blob([[header.join(','), ...lines].join('\r\n')], { type: 'text/csv' }))
@@ -58,6 +63,51 @@ if (context) {
       return toast('Choose a .csv file (in Excel: File > Save As > CSV).', 'error')
     }
     rows = parseGradeCsv(await file.text(), $('upload-year').value.trim())
+    const { roster } = rosterFor(context, $('upload-class').value)
+    const onRoster = new Map(roster.map(item => [String(item.student_id), item.students]))
+    const seen = new Map()
+    const mismatched = []
+    rows.forEach(row => {
+      if (!row.student_id || Number.isNaN(Number(row.student_id))) return
+      const student = onRoster.get(String(Number(row.student_id)))
+      if (!student) row.errors.push('student is not in this class')
+      const first = seen.get(String(Number(row.student_id)))
+      if (first) row.errors.push(`duplicate of row ${first}`)
+      else seen.set(String(Number(row.student_id)), row.row)
+      // Word order and commas are ignored, so "Cruz Juan" matches "Juan Cruz".
+      if (student && row.name && nameKey(row.name) !== nameKey(lastFirst(student))) {
+        row.nameKey = `${row.student_id}|${nameKey(row.name)}`
+        mismatched.push(row)
+      }
+    })
+    // First time: ask. If the same mismatches come back after "Fix file", those rows are blocked.
+    const repeated = mismatched.filter(row => warnedNames.has(row.nameKey))
+    repeated.forEach(row =>
+      row.errors.push(
+        `name "${row.name}" does not match the student on record (${lastFirst(onRoster.get(String(Number(row.student_id))))})`
+      )
+    )
+    const fresh = mismatched.filter(row => !warnedNames.has(row.nameKey))
+    if (fresh.length) {
+      const list = fresh
+        .map(
+          row =>
+            `Row ${row.row}: ID ${row.student_id} is "${row.name}" in the file but ${lastFirst(onRoster.get(String(Number(row.student_id))))} on record.`
+        )
+        .join('\n')
+      const proceed = await confirmDialog(`${fresh.length} name(s) do not match their Student ID:\n${list}`, {
+        title: 'Names do not match',
+        confirmText: 'Save anyway',
+        cancelText: 'Fix file'
+      })
+      if (!proceed) {
+        fresh.forEach(row => warnedNames.add(row.nameKey))
+        event.target.value = ''
+        rows = []
+        render()
+        return toast('Fix the names in the file and choose it again.', 'error')
+      }
+    }
     render()
     if (!rows.length) toast('That file has no grade rows under the header line.', 'error')
   }

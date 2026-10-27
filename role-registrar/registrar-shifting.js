@@ -2,7 +2,7 @@ import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { $, state } from './registrar-state.js'
-import { escapeHtml, gradeLabel, gradeToNumber } from '../shared/lib/html.js'
+import { escapeHtml, lastFirst, byLastName, gradeLabel, gradeToNumber } from '../shared/lib/html.js'
 import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { describeError } from '../shared/lib/errors.js'
 import { loadSections, loadEnrollments, renderStudentDirectory } from './registrar-sectioning.js'
@@ -25,7 +25,7 @@ export function renderPromotionExclusions() {
     students
       .map(
         student =>
-          `<label><input type="checkbox" value="${student.student_id}"> ${escapeHtml(student.lrn_number || student.student_id)} - ${escapeHtml(`${student.first_name} ${student.last_name}`)}</label>`
+          `<label><input type="checkbox" value="${student.student_id}"> ${escapeHtml(student.lrn_number || student.student_id)} - ${escapeHtml(lastFirst(student))}</label>`
       )
       .join('') || '<small>No matching students.</small>'
 }
@@ -38,7 +38,7 @@ export async function loadStudents() {
     fetchAll(() => supabase.from('enrollments').select('student_id,section_id,sections(section_name)').eq('status', 'active').order('id'))
   ])
   if (error) return toast(describeError(error, 'Load students'), 'error')
-  state.students = data || []
+  state.students = (data || []).sort(byLastName)
   state.studentSections = new Map((enrollments || []).map(row => [String(row.student_id), row.sections?.section_name || 'No Section']))
   const shiftSections = [...new Set([...state.studentSections.values()].filter(Boolean))].sort()
   $('shift-student-filter').innerHTML =
@@ -60,7 +60,7 @@ function renderShiftStudents() {
     rows
       .map(
         s =>
-          `<tr class="${String($('shift-student')?.value || '') === String(s.student_id) ? 'selected-row' : ''}"><td>${escapeHtml(s.lrn_number || s.student_id)}</td><td>${escapeHtml(`${s.first_name || ''} ${s.last_name || ''}`)}</td><td>${escapeHtml(s.grade_level == null ? '-' : gradeLabel(s.grade_level))}</td><td>${escapeHtml(state.studentSections.get(String(s.student_id)) || 'No Section')}</td><td><button type="button" class="admin-view" data-select-shift-student="${s.student_id}">Select</button></td></tr>`
+          `<tr class="${String($('shift-student')?.value || '') === String(s.student_id) ? 'selected-row' : ''}"><td>${escapeHtml(s.lrn_number || s.student_id)}</td><td>${escapeHtml(lastFirst(s))}</td><td>${escapeHtml(s.grade_level == null ? '-' : gradeLabel(s.grade_level))}</td><td>${escapeHtml(state.studentSections.get(String(s.student_id)) || 'No Section')}</td><td><button type="button" class="admin-view" data-select-shift-student="${s.student_id}">Select</button></td></tr>`
       )
       .join('') || '<tr><td colspan="5" class="empty-state">No students found.</td></tr>'
   document.querySelectorAll('[data-select-shift-student]').forEach(

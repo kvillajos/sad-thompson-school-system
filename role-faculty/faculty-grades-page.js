@@ -1,5 +1,5 @@
 import { supabase } from '../shared/lib/auth-client.js'
-import { loadFacultyContext, escapeHtml, classSelect, rosterFor } from './faculty-common.js'
+import { loadFacultyContext, escapeHtml, lastFirst, classSelect, rosterFor } from './faculty-common.js'
 import { SCORE_FIELDS, derivedGrade, gradeRecord, letterGrade } from '../shared/lib/grades.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { toast } from '../shared/ui/ui-theme.js'
@@ -53,7 +53,7 @@ if (context) {
         .map(row => {
           const record = row.record || {}
           const student = row.student || {}
-          const name = `${student.first_name || ''} ${student.last_name || ''}`.trim()
+          const name = lastFirst(student)
           const cells = SCORE_FIELDS.filter(field => field !== 'final')
             .map(field =>
               offFields.includes(field)
@@ -61,9 +61,9 @@ if (context) {
                 : `<td${field === 'midterm' ? ' style="display:none !important"' : ` data-label="${SCORE_LABELS[field]}"`}><input type="number" min="0" max="100" step="0.01" data-field="${field}" aria-label="${escapeHtml(`${field.replaceAll('_', ' ')} for ${name}`)}" value="${record[field] ?? ''}"${record.locked ? ' disabled' : ''}></td>`
             )
             .join('')
-          return `<tr data-student-id="${row.student_id}"><td data-label="Student">${record.locked ? '<span title="Submitted and locked">&#128274;</span> ' : ''}${escapeHtml(student.lrn_number || row.student_id)}<br><small>${escapeHtml(name)}</small></td>${cells}<td data-label="Final Grade"><input type="number" min="0" max="100" step="0.01" data-field="final" aria-label="Final grade for ${escapeHtml(name)}" value="${record.final ?? ''}"${edited(record) ? ' data-user-edited="true"' : ''}${record.locked ? ' disabled' : ''}></td><td data-label="Letter Grade"><input type="text" maxlength="3" readonly tabindex="-1" data-field="letter_grade" aria-label="Letter grade for ${escapeHtml(name)}" value="${escapeHtml(record.letter_grade || '')}"${record.locked ? ' disabled' : ''}></td><td data-label="Remarks"><input type="text" maxlength="100" data-field="remarks" aria-label="Remarks for ${escapeHtml(name)}" value="${escapeHtml(record.remarks || '')}"${record.locked ? ' disabled' : ''}>${record.locked ? ' <button type="button" class="admin-view" data-correct>Request correction</button>' : ''}</td></tr>`
+          return `<tr data-student-id="${row.student_id}"><td data-label="Student ID">${record.locked ? '<span title="Submitted and locked">&#128274;</span> ' : ''}${escapeHtml(student.lrn_number || row.student_id)}</td><td data-label="Student Name">${escapeHtml(name)}</td>${cells}<td data-label="Final Grade"><input type="number" min="0" max="100" step="0.01" data-field="final" aria-label="Final grade for ${escapeHtml(name)}" value="${record.final ?? ''}"${edited(record) ? ' data-user-edited="true"' : ''}${record.locked ? ' disabled' : ''}></td><td data-label="Letter Grade"><input type="text" maxlength="3" readonly tabindex="-1" data-field="letter_grade" aria-label="Letter grade for ${escapeHtml(name)}" value="${escapeHtml(record.letter_grade || '')}"${record.locked ? ' disabled' : ''}></td><td data-label="Remarks"><input type="text" maxlength="100" data-field="remarks" aria-label="Remarks for ${escapeHtml(name)}" value="${escapeHtml(record.remarks || '')}"${record.locked ? ' disabled' : ''}>${record.locked ? ' <button type="button" class="admin-view" data-correct>Request correction</button>' : ''}</td></tr>`
         })
-        .join('') || '<tr><td colspan="8">No active students in this section.</td></tr>'
+        .join('') || '<tr><td colspan="9">No active students in this section.</td></tr>'
     refresh()
   }
   const refresh = () =>
@@ -83,6 +83,10 @@ if (context) {
   $('grade-table').onchange = event => {
     clampScore(event.target)
     refresh()
+  }
+  // No minus or exponent keys in score boxes; a pasted negative is still caught below and by min="0".
+  $('grade-table').onkeydown = event => {
+    if (event.target.type === 'number' && ['-', '+', 'e', 'E'].includes(event.key)) event.preventDefault()
   }
   $('grade-table').oninput = event => {
     if (event.target.type === 'number' && Number(event.target.value) > 100) event.target.value = 100 // stop at 100 while typing
@@ -161,7 +165,7 @@ if (context) {
         return context.enrollments
           .filter(item => Number(item.section_id) === chosen.section_id)
           .map(item => {
-            const name = `${item.students?.first_name || ''} ${item.students?.last_name || ''}`.trim()
+            const name = lastFirst(item.students)
             const lrn = item.students?.lrn_number || String(item.student_id)
             return {
               lrn,

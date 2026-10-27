@@ -31,7 +31,7 @@ const badge = status => {
 }
 const formatDate = value => {
   const [year, month, day] = String(value).split('-').map(Number)
-  return new Date(year, month - 1, day).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+  return new Date(year, month - 1, day).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 const close = () => {

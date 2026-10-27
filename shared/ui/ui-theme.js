@@ -717,7 +717,9 @@ button.btn-remove, .admin-remove { background:#fee2e2 !important; color:#c0392b 
 .camera-box .admin-actions { margin-top:14px; }
 .selected-row { background:#eaf1ff; }
 .table-scroll { overflow:auto; max-height:360px; }
+#grade-table input[type=number]:invalid { border-color:#c62828; background:#fdecea; }
 .shift-student-picker table { min-width:0 !important; }
+.shift-student-picker thead th { position:sticky; top:0; z-index:2; background:#eaf1ff; box-shadow:0 1px 0 var(--ui-border); }
 .exclude-list input[type=checkbox] { width:auto; }
 .exclude-list label { display:block; padding:3px 0; font-weight:400; }
 /* Auto-assign grade picker: each grade is a tile with its own tick box. */
@@ -988,7 +990,9 @@ tr.average-row td { font-weight:700; border-top:2px solid var(--ui-border) !impo
 .feedback-form textarea { resize:vertical; }
 .feedback-actions { display:flex; justify-content:flex-end; }
 @media (max-width:700px) { .feedback-form { grid-template-columns:1fr; } .feedback-actions button { width:100%; } }
-.scale-form { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px 24px; align-items:end; margin-top:4px; }
+.scale-form { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; margin-top:4px; }
+.scale-actions { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.scale-actions button { height:42px; margin:0; white-space:nowrap; }
 .scale-year { display:flex; align-items:center; gap:10px; margin:0; font-size:13px; font-weight:600; color:var(--ui-muted); white-space:nowrap; }
 .scale-year select { height:40px; min-width:150px; padding:0 12px; border:1px solid #b9c8dc; border-radius:10px; background:#fff; color:var(--ui-text); font:inherit; font-size:14px; font-weight:600; cursor:pointer; }
 .scale-year select:focus { outline:2px solid #9dbcf4; outline-offset:1px; border-color:var(--ui-blue-dark); }
@@ -998,7 +1002,7 @@ tr.average-row td { font-weight:700; border-top:2px solid var(--ui-border) !impo
 .scale-table input[data-scale-min] { max-width:80px; }
 .scale-table input[data-scale-letter] { max-width:64px; text-align:center; text-transform:uppercase; }
 .scale-table small { color:var(--ui-muted); }
-@media (max-width:900px) { .scale-form { grid-template-columns:1fr; } }
+@media (max-width:600px) { .scale-actions { flex-direction:column-reverse; align-items:stretch; } }
 .lunch-card .admin-note { margin:12px 0 0; }
 @media (max-width:900px) { .lunch-form { grid-template-columns:1fr; } .lunch-save { width:100%; } }
 .schedule-gap td { background:#f3f7fd; color:#64748b; font-size:13px; font-style:italic; text-align:center; letter-spacing:.02em; }
@@ -1328,6 +1332,8 @@ function installTableActionMenus() {
       const actions = [...cell.querySelectorAll('button, a')]
       if (!actions.length) return
       cell.dataset.actionMenuReady = 'true'
+      // One action needs no menu: leave the button in place.
+      if (actions.length === 1) return
       const menu = document.createElement('span')
       menu.className = 'table-action-menu'
       const toggle = document.createElement('button')

@@ -125,3 +125,8 @@ export function richText(value = '') {
   }
   return clean(new DOMParser().parseFromString(text, 'text/html').body)
 }
+
+// "Last, First" display name and the matching sort, so every roster reads and orders by last name.
+export const lastFirst = person => [person?.last_name, person?.first_name].filter(Boolean).join(', ')
+const compareText = (a, b) => String(a ?? '').localeCompare(String(b ?? ''), undefined, { sensitivity: 'base' })
+export const byLastName = (a, b) => compareText(a?.last_name, b?.last_name) || compareText(a?.first_name, b?.first_name)

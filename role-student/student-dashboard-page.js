@@ -300,6 +300,7 @@ async function loadAttendance() {
     .from('attendance')
     .select('attendance_date,status,sections!inner(academic_year)')
     .eq('student_id', user.student_id)
+    .neq('status', 'Present')
 
   if (schoolYear) {
     historyQuery = historyQuery.eq('sections.academic_year', schoolYear)
@@ -350,7 +351,7 @@ async function loadAttendance() {
         `<tr><td>${formatDate(a.attendance_date)}</td><td>${escape(a.status)}</td></tr>`
       )
       .join('') ||
-    '<tr><td colspan="2">No attendance recorded yet.</td></tr>'
+    '<tr><td colspan="2">No absences, lates or excused days recorded.</td></tr>'
 }
 
 document.getElementById('grades-prev-year').onclick = () => {

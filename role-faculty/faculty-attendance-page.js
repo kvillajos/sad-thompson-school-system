@@ -1,5 +1,5 @@
 import { supabase } from '../shared/lib/auth-client.js'
-import { loadFacultyContext, escapeHtml, classSelect, rosterFor } from './faculty-common.js'
+import { loadFacultyContext, escapeHtml, lastFirst, classSelect, rosterFor } from './faculty-common.js'
 import { STATUS_OPTIONS, attendanceRecord, todayDateValue } from '../shared/lib/attendance.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { toast } from '../shared/ui/ui-theme.js'
@@ -27,13 +27,13 @@ if (context) {
       rows
         .map(row => {
           const student = row.student || {}
-          const name = `${student.first_name || ''} ${student.last_name || ''}`.trim()
+          const name = lastFirst(student)
           const options = STATUS_OPTIONS.map(
             status => `<option value="${status}" ${(row.record?.status || 'Present') === status ? 'selected' : ''}>${status}</option>`
           ).join('')
-          return `<tr data-student-id="${row.student_id}"><td>${escapeHtml(student.lrn_number || row.student_id)}<br><small>${escapeHtml(name)}</small></td><td><select data-field="status" aria-label="Status for ${escapeHtml(name)}">${options}</select></td><td><input type="text" maxlength="100" data-field="remarks" aria-label="Remarks for ${escapeHtml(name)}" value="${escapeHtml(row.record?.remarks || '')}"></td></tr>`
+          return `<tr data-student-id="${row.student_id}"><td data-label="Student ID">${escapeHtml(student.lrn_number || row.student_id)}</td><td data-label="Student Name">${escapeHtml(name)}</td><td><select data-field="status" aria-label="Status for ${escapeHtml(name)}">${options}</select></td><td><input type="text" maxlength="100" data-field="remarks" aria-label="Remarks for ${escapeHtml(name)}" value="${escapeHtml(row.record?.remarks || '')}"></td></tr>`
         })
-        .join('') || '<tr><td colspan="3">No active students in this section.</td></tr>'
+        .join('') || '<tr><td colspan="4">No active students in this section.</td></tr>'
   }
   $('attendance-table-body').addEventListener('input', () => unsaved.mark())
   $('attendance-table-body').addEventListener('change', () => unsaved.mark())

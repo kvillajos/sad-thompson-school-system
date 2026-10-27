@@ -2,7 +2,7 @@ import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { $, state } from './registrar-state.js'
-import { escapeHtml, formatDate, gradeLabel, errorRow } from '../shared/lib/html.js'
+import { escapeHtml, lastFirst, byLastName, formatDate, gradeLabel, errorRow } from '../shared/lib/html.js'
 import { describeError } from '../shared/lib/errors.js'
 import { currentSchoolYear } from '../shared/lib/grades.js'
 import { planBalancedAssignments, studentsForSection } from '../shared/lib/sectioning.js'
@@ -96,7 +96,7 @@ async function viewSectionStudents(sectionId) {
   if (error)
     return ($('section-students-body').innerHTML =
       `<p class="empty-state" role="alert">${escapeHtml(describeError(error, 'Load section students'))}</p>`)
-  const rows = data || []
+  const rows = (data || []).sort((a, b) => byLastName(a.students, b.students))
   const sexLabel = value =>
     ({ m: 'Male', f: 'Female' })[
       String(value || '')
@@ -111,7 +111,7 @@ async function viewSectionStudents(sectionId) {
       rows
         .map(row => {
           const student = row.students || {}
-          return `<tr><td>${escapeHtml(student.lrn_number || row.student_id)}</td><td>${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`)}</td><td>${escapeHtml(sexLabel(student.gender))}</td><td>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</td><td>${statusBadge(student.enrollment_status || 'Enrolled')}</td><td><button class="admin-view" data-view-student="${row.student_id}">View</button></td></tr>`
+          return `<tr><td>${escapeHtml(student.lrn_number || row.student_id)}</td><td>${escapeHtml(lastFirst(student))}</td><td>${escapeHtml(sexLabel(student.gender))}</td><td>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</td><td>${statusBadge(student.enrollment_status || 'Enrolled')}</td><td><button class="admin-view" data-view-student="${row.student_id}">View</button></td></tr>`
         })
         .join('') || '<tr><td colspan="6" class="empty-state">No active students in this section.</td></tr>'
     }</tbody></table>`
@@ -337,7 +337,7 @@ async function openPlacement(sectionId = '') {
   ])
   const placementError = studentResult.error || enrollmentResult.error
   if (placementError) return toast(describeError(placementError, 'Load placement students'), 'error')
-  state.students = studentResult.data || []
+  state.students = (studentResult.data || []).sort(byLastName)
   state.enrolledByStudent = new Map((enrollmentResult.data || []).map(row => [row.student_id, row.section_id]))
   // Approving an application creates an active enrollment with no section yet; those students are unassigned.
   state.enrolledSections = new Map(
@@ -393,7 +393,7 @@ function renderPlacementStudents() {
     rows
       .map(
         s =>
-          `<tr><td><input type="checkbox" value="${s.student_id}" aria-label="Select ${escapeHtml(`${s.first_name || ''} ${s.last_name || ''}`)}"></td><td>${escapeHtml(s.lrn_number || s.student_id)}</td><td>${escapeHtml(`${s.first_name || ''} ${s.last_name || ''}`)}</td><td>${escapeHtml(gradeLabel(s.grade_level))}</td><td>${escapeHtml(state.enrolledSections.get(String(s.student_id)) || 'No Section')}</td></tr>`
+          `<tr><td><input type="checkbox" value="${s.student_id}" aria-label="Select ${escapeHtml(lastFirst(s))}"></td><td>${escapeHtml(s.lrn_number || s.student_id)}</td><td>${escapeHtml(lastFirst(s))}</td><td>${escapeHtml(gradeLabel(s.grade_level))}</td><td>${escapeHtml(state.enrolledSections.get(String(s.student_id)) || 'No Section')}</td></tr>`
       )
       .join('') || '<tr><td colspan="5" class="empty-state">No students match this filter.</td></tr>'
 }
@@ -465,7 +465,7 @@ function renderAutoAssignExclusions() {
     visible
       .map(
         student =>
-          `<label><input type="checkbox" value="${student.student_id}"${excludedIds.has(student.student_id) ? ' checked' : ''}> ${escapeHtml(student.lrn_number || student.student_id)} - ${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`)}</label>`
+          `<label><input type="checkbox" value="${student.student_id}"${excludedIds.has(student.student_id) ? ' checked' : ''}> ${escapeHtml(student.lrn_number || student.student_id)} - ${escapeHtml(lastFirst(student))}</label>`
       )
       .join('') || '<small>No students in the selected grade levels.</small>'
   $('auto-assign-exclude-page').textContent = students.length ? `Page ${excludePage} of ${pages} · ${students.length} students` : ''

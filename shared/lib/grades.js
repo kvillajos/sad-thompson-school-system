@@ -141,13 +141,13 @@ export function parseGradeCsv(text, schoolYear) {
     SCORE_FIELDS.forEach(field => {
       if (values[field] === undefined || values[field] === '') return
       const number = Number(values[field])
-      if (!Number.isFinite(number) || number < 0 || number > 100) errors.push(`${field} must be a number from 0 to 100`)
+      if (!Number.isInteger(number) || number < 0 || number > 100) errors.push(`${field} must be a whole number from 0 to 100`)
     })
     const record = studentId && Number.isFinite(Number(studentId)) ? gradeRecord(studentId, values) : null
     if (studentId && Number.isFinite(Number(studentId)) && !record) errors.push('no scores were provided')
     if (record && derivedGrade(record) == null) errors.push('needs at least one score')
     // Same default the grade sheet fills in, so uploaded and hand-entered grades both carry a letter.
     if (record && !record.letter_grade) record.letter_grade = letterGrade(derivedGrade(record), schoolYear)?.letter ?? null
-    return { row: index + 2, student_id: studentId, record, errors }
+    return { row: index + 2, student_id: studentId, name: values.student_name || '', record, errors }
   })
 }

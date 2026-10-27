@@ -189,7 +189,7 @@ function fillScaleForm() {
     .join('')
   syncBandButtons()
   scaleNote.textContent = own
-    ? `Last saved ${new Date(own.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${own.updated_by ? ` by ${own.updated_by}` : ''}.`
+    ? `Last saved ${new Date(own.updated_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}${own.updated_by ? ` by ${own.updated_by}` : ''}.`
     : 'Not set for this school year yet. The DepEd scale is shown; save to set this year.'
 }
 async function loadScales() {

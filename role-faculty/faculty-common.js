@@ -3,9 +3,9 @@ import { applyUiTheme } from '../shared/ui/ui-theme.js'
 import { mountProfile, mountSidebar } from '../shared/ui/shell.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
 import { classOptions, currentSchoolYear } from '../shared/lib/grades.js'
-import { dayNames, escapeHtml } from '../shared/lib/html.js'
+import { dayNames, escapeHtml, lastFirst, byLastName } from '../shared/lib/html.js'
 
-export { dayNames, escapeHtml }
+export { dayNames, escapeHtml, lastFirst }
 
 export async function loadFacultyContext(activePage = 'dashboard') {
   applyUiTheme()
@@ -53,7 +53,7 @@ export async function loadFacultyContext(activePage = 'dashboard') {
     user,
     facultyName,
     schedules,
-    enrollments: enrollmentResult.data || [],
+    enrollments: (enrollmentResult.data || []).sort((a, b) => byLastName(a.students, b.students)),
     scheduleError: scheduleResult.error,
     enrollmentError: enrollmentResult.error,
     classes: classOptions(schedules),
