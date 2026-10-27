@@ -99,7 +99,7 @@
     color: #fff !important;
   }
 
-  /* Form controls, including controls inside modals, custom pickers, and login. */
+  /* Form controls, including controls inside modals and custom pickers. (Sign-in pages are always light.) */
   html[data-theme='dark'] input:not([type='checkbox']):not([type='radio']),
   html[data-theme='dark'] select,
   html[data-theme='dark'] textarea,
@@ -117,12 +117,6 @@
   html[data-theme='dark'] .schedule-picker-text.empty {
     color: #9aa9bd !important;
     opacity: 1;
-  }
-
-  html[data-theme='dark'] .login-panel input {
-    background: #202c3b !important;
-    color: #f1f5fb !important;
-    border: 1px solid #43536a !important;
   }
 
   /* Menus, notifications, custom dropdowns, and popup contents. */

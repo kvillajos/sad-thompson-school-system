@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#071b3a" />
+    <meta name="theme-color" content="#091c3c" />
     <link rel="icon" type="image/png" href="/assets/logo.png" />
     <title>Thompson Christian School Management System</title>
   </head>
@@ -13,38 +13,36 @@
 
     <div class="login-layout">
       <section class="login-panel" aria-label="TCSMS sign in">
-        <div id="login-container" class="card">
+        <div id="login-container" class="login-card">
           <div class="brand-lockup">
-            <img class="brand-logo" src="/assets/logo.png" alt="Thompson Christian School seal" width="112" height="112" />
-
+            <img class="brand-logo" src="/assets/logo.png" alt="Thompson Christian School seal" width="56" height="56" />
             <div class="brand-copy">
-              <p class="brand-name">Thompson <span>Christian</span> School</p>
+              <p class="brand-name">Thompson Christian School</p>
               <p class="brand-tagline">School Management System</p>
             </div>
           </div>
 
-          <!-- Public announcements appear here on mobile -->
+          <!-- Public announcements appear here on phones -->
           <div id="mobile-maintenance-notices" class="mobile-maintenance-notices" aria-live="polite"></div>
 
-          <!-- Keep one heading for accessibility -->
-          <h2>TCSMS Login</h2>
+          <h1 class="login-title">Sign in</h1>
+          <p class="login-lead">Use your username or school email and your password.</p>
 
           <form id="login-form">
             <div class="form-group">
-              <label for="username">Username or Email</label>
-              <input maxlength="150" type="text" id="username" placeholder="Username or Email" required autocomplete="username" />
+              <label for="username">Username or email</label>
+              <input maxlength="150" type="text" id="username" required autocomplete="username" autocapitalize="none" spellcheck="false" />
             </div>
 
             <div class="form-group">
-              <label for="password">Password</label>
-              <input maxlength="128" type="password" id="password" placeholder="Password" required autocomplete="current-password" />
+              <div class="login-label-row">
+                <label for="password">Password</label>
+                <a href="/forgot-password.html">Forgot password?</a>
+              </div>
+              <input maxlength="128" type="password" id="password" required autocomplete="current-password" />
             </div>
 
-            <p class="app-version" style="text-align:right;margin:-4px 0 12px">
-              <a href="/forgot-password.html" style="color:#93a7c4">Forgot password?</a>
-            </p>
-
-            <button type="submit">Sign In</button>
+            <button type="submit">Sign in</button>
           </form>
 
           <div id="message" role="status" aria-live="polite"></div>
@@ -52,9 +50,10 @@
         </div>
       </section>
 
-      <!-- Desktop campus background and announcement container -->
+      <!-- Desktop campus photo and announcements -->
       <aside class="login-photo" aria-label="Thompson Christian School campus">
         <div id="maintenance-notices"></div>
+        <p class="login-photo-caption">Thompson Christian School, Davao City</p>
       </aside>
     </div>
 

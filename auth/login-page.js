@@ -63,7 +63,7 @@ const LOGIN_FAILURE_MESSAGE = 'Your password is incorrect or this account does n
 // A dropped connection is not a wrong password; saying so stops people from retyping a correct one.
 const isNetworkError = error => /fetch|network|load failed/i.test(String(error?.message || error || ''))
 function failLogin(message, username, password) {
-  messageDiv.style.color = 'red'
+  messageDiv.style.color = 'var(--ui-danger)'
   messageDiv.textContent = message
   messageDiv.setAttribute('role', 'alert')
   const submitButton = loginForm.querySelector('[type="submit"]')

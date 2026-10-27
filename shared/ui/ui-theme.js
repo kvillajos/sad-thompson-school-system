@@ -71,40 +71,62 @@ input, textarea { caret-color: var(--ui-blue); }
 button:not(:disabled) { transition:filter .15s ease; }
 button:not(:disabled):not(.topbar-icon, .sidebar-link, .sidebar-collapse, .profile-toggle):hover { filter:brightness(0.96); }
 .admin-shell > header:not(.app-topbar) { display:none; }
-.login-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 35%) 1fr;
-  min-height: 100vh;
+/* ---- Sign-in and password pages: a light form panel beside the campus photo ----
+   The seal keeps its navy square, shown as a rounded tile. On phones the photo becomes a short band at the top. */
+.login-layout { display:grid; grid-template-columns:minmax(420px, 40%) 1fr; min-height:100vh; min-height:100dvh; }
+.login-panel { display:flex; flex-direction:column; justify-content:center; padding:48px clamp(24px, 6vw, 72px); background:var(--ui-surface-strong); }
+.login-card { width:100%; max-width:380px; margin:0 auto; }
+.brand-lockup { display:flex; align-items:center; gap:14px; margin:0 0 44px; }
+.brand-logo { flex:none; width:56px; height:56px; border-radius:14px; object-fit:cover; box-shadow:var(--ui-shadow-sm); }
+.brand-copy p { margin:0; }
+.brand-name { color:var(--ui-navy); font-size:15px; font-weight:650; line-height:1.3; }
+.brand-tagline { margin-top:2px !important; color:var(--ui-muted); font-size:13px; }
+.login-title { margin:0; color:var(--ui-blue-dark); font-size:28px; font-weight:650; line-height:1.2; letter-spacing:-.022em; }
+.login-lead { margin:8px 0 28px; color:var(--ui-muted); font-size:14px; line-height:1.55; }
+.login-card form { display:grid; gap:18px; }
+.login-card .form-group { display:grid; gap:7px; margin:0; }
+.login-card label { color:var(--ui-text); font-size:13px; font-weight:600; }
+.login-label-row { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+.login-label-row a, .login-foot a { color:var(--ui-blue); font-size:13px; font-weight:600; text-decoration:none; }
+.login-label-row a:hover, .login-foot a:hover { text-decoration:underline; text-underline-offset:3px; }
+.login-card input { box-sizing:border-box; width:100%; height:46px; padding:0 14px; border:1px solid var(--ui-control-border); border-radius:var(--ui-radius); background:var(--ui-surface-strong); color:var(--ui-text); font-size:15px; transition:border-color .15s ease, box-shadow .15s ease; }
+.login-card input.login-code { font-size:20px; font-weight:600; letter-spacing:.3em; font-variant-numeric:tabular-nums; }
+.login-card button[type="submit"] { height:46px; margin-top:6px; border:0; border-radius:var(--ui-radius); background:var(--ui-primary); color:#fff; font:600 15px var(--ui-font); cursor:pointer; box-shadow:0 1px 2px rgba(9,28,60,.16); transition:background-color .15s ease; }
+.login-card button[type="submit"]:hover:not(:disabled) { background:var(--ui-primary-hover); filter:none; }
+.login-card button[type="submit"]:disabled { opacity:.6; cursor:progress; }
+.login-card #message { margin-top:16px; color:var(--ui-text); font-size:13.5px; font-weight:500; line-height:1.5; }
+.login-card #message:empty { display:none; }
+.login-card .app-version { margin:40px 0 0; color:var(--ui-muted); font-size:11.5px; letter-spacing:.02em; text-align:center; }
+.login-foot { margin:24px 0 0; color:var(--ui-muted); font-size:13px; text-align:center; }
+.login-photo { position:relative; overflow:hidden; background:var(--ui-navy) url('/assets/bg.jpg') center / cover no-repeat; }
+.login-photo::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(9,28,60,.05) 0%, rgba(9,28,60,.2) 45%, rgba(9,28,60,.86) 100%); }
+.login-photo-caption { position:absolute; left:48px; bottom:40px; z-index:1; margin:0; color:#fff; font-size:15px; font-weight:600; letter-spacing:.01em; }
+.login-photo-caption::before { content:''; display:block; width:32px; height:3px; margin-bottom:12px; border-radius:2px; background:#e2b54d; }
+/* Maintenance notices: on the photo on wide screens, above the form on phones (announcements.js fills both). */
+#maintenance-notices { position:absolute; left:48px; bottom:104px; z-index:1; width:min(440px, calc(100% - 96px)); }
+#maintenance-notices:empty, .mobile-maintenance-notices:empty { display:none; }
+.login-notice-card { max-height:50vh; overflow:auto; padding:16px 18px; border:1px solid rgba(255,255,255,.18); border-radius:12px; background:rgba(9,28,60,.7); color:#fff; -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
+.login-notice-tag { color:#f2c66d; font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; }
+.login-notice { display:block; width:100%; padding:0; border:0; border-radius:0; background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.login-notice + .login-notice { margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,.2); }
+.login-notice strong { display:block; font-size:14.5px; font-weight:600; }
+.login-notice-date { display:block; margin-top:8px; font-size:12px; opacity:.8; }
+.login-notice .rich { margin-top:6px; font-size:13px; line-height:1.5; }
+.mobile-maintenance-notices { display:none; }
+@media (max-width:700px) {
+  .login-layout { display:flex; flex-direction:column; }
+  .login-photo { order:-1; flex:none; height:148px; }
+  .login-photo::after { background:linear-gradient(180deg, rgba(9,28,60,.35), rgba(9,28,60,.75)); }
+  .login-photo-caption, #maintenance-notices { display:none; }
+  .login-panel { flex:1; justify-content:flex-start; padding:0 20px 32px; }
+  .brand-lockup { flex-direction:column; align-items:flex-start; gap:12px; margin:-36px 0 28px; }
+  .brand-logo { position:relative; z-index:1; width:72px; height:72px; border-radius:18px; box-shadow:0 0 0 4px var(--ui-surface-strong), var(--ui-shadow-lg); }
+  .login-title { font-size:24px; }
+  .mobile-maintenance-notices { display:block; margin:0 0 24px; }
+  .mobile-maintenance-notices .login-notice-card { max-height:200px; padding:14px 16px; border:1px solid #ecd9a8; background:#fdf7e8; color:var(--ui-text); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .mobile-maintenance-notices .login-notice-tag { color:#8a5a00; }
+  .mobile-maintenance-notices .login-notice + .login-notice { border-top-color:#ecd9a8; }
 }
-.login-panel {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 2rem clamp(1.5rem, 5vw, 3rem);
-  background: var(--ui-navy);
-  color: #fff !important;
-}
-.login-panel h2 { color:#fff !important; }
-.login-panel label { color:#fff !important; }
-.login-panel #message { color:#fff; }
-.login-photo {
-  min-height: 100vh;
-  background: url('/assets/bg.jpg') center / cover no-repeat;
-}
-.brand-lockup { position:relative; display:flex; flex-direction:column; align-items:center; width:min(100%,384px); margin:0 auto 1.25rem; padding-top:0 }
-.brand-copy { color:#fff; text-align:center; order:2 }
-.brand-name { font-size:1.7rem; font-weight:700; line-height:1.1 }
-.brand-name span { color:#7da8ff }
-.brand-tagline { font-size:.9rem; color:#cbd5e1 }
-.brand-logo { position:static; order:1; width:200px; height:200px; object-fit:contain; margin-bottom:12px }
-.login-panel .card { width:min(100%,384px); margin:0 auto }
-.login-panel .card > h2 { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap }
-.login-panel .form-group { margin-bottom:8px }
-.login-panel form { width:100%; }
-.login-panel label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap }
-.login-panel input { display:block; width:100%; box-sizing:border-box; padding:.65rem .7rem; background:#e7ebf0; color:#172b4d; border:0; border-radius:10px; box-shadow:0 3px 10px rgba(0,0,0,.18); font-size:14px }
-.login-panel button { display:block; width:100%; box-sizing:border-box; padding:.72rem; background:#2864c7; color:#fff; border:0; border-radius:10px; box-shadow:0 3px 10px rgba(0,0,0,.22); font-size:15px; cursor:pointer }
 .admin-page-head { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:20px }
 .admin-page-head h2 { margin:0; color:var(--ui-blue-dark); font-size:24px; font-weight:650; line-height:1.25; letter-spacing:-.02em }
 .admin-page-head p { margin:6px 0 0; color:var(--ui-muted) }
@@ -367,7 +389,6 @@ main .table-fits.table-fits { overflow:visible !important; }
 .crop-hint { display:block; text-align:center; color:#64748b; margin-bottom:6px; }
 .profile-crop-box label { display:block; margin-top:8px; }
 @media (max-width:700px) { .admin-page-head { align-items:flex-start; flex-direction:column; padding-right:0 } .admin-modal-box form { grid-template-columns:1fr } .assignment-list { grid-template-columns:1fr; } .moderator-picker, #selected-moderator { margin-left:0; } #selected-moderator { display:block; margin-top:8px; } .day-check-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } .picker-field { align-items:stretch; flex-direction:column; } .picker-field button { width:100%; } .schedule-form { grid-template-columns:1fr !important; padding:4px 20px 20px; } .schedule-row { grid-template-columns:1fr; } .schedule-form-head { padding:20px 20px 14px; } .schedule-day-chips { grid-template-columns:repeat(4,1fr); } .schedule-actions { margin:0 -20px -20px; padding:14px 20px; } .schedule-actions .schedule-button { flex:1; } }
-@media (max-width:700px) { .login-layout { grid-template-columns:1fr } .login-photo { display:none } }
 @media (max-width:700px) { body.has-app-sidebar > #tcsms-loading-screen { left:0 !important; width:100% !important; } }
 /* Registrar page (.layout > .main, older markup): the same buttons, inputs, cards and tables as the admin pages. */
 .main, .card, .student-directory { color: var(--ui-text) !important; }
@@ -701,7 +722,6 @@ th.sortable:focus-visible { outline:2px solid var(--ui-blue); outline-offset:-2p
   body.printing-transcript .transcript-print-card { display: block !important; padding: 18px; border: 2px solid var(--ui-navy); border-radius: 10px; background: #fff; }
 }
 .modalbox th { background:var(--ui-surface); color:var(--ui-muted); font-weight:600; }
-.login-panel .app-version { margin:14px 0 0; text-align:center; color:#93a7c4; font-size:11px; letter-spacing:.03em; }
 /* Searchable type filter (input + custom list; the native datalist popup can't be styled). */
 .combo { position:relative; width:260px; max-width:100%; }
 .combo input { box-sizing:border-box; width:100%; margin:0; padding:9px 34px 9px 12px; border:1px solid #d3dbe8; border-radius:10px; background:#fff; color:var(--ui-navy); font:inherit; font-size:14px; }
@@ -719,53 +739,6 @@ th.sortable:focus-visible { outline:2px solid var(--ui-blue); outline-offset:-2p
 .announcement-item:first-of-type { border-top:0; }
 .announcement-item p { margin:3px 0 0; color:#475569; font-size:14px; }
 .announcement-item small { color:#64748b; white-space:nowrap; }
-#maintenance-notices:empty { display:none; }
-.login-photo { position:relative; }
-#maintenance-notices { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:min(360px,calc(100% - 32px)); }
-.login-notice-card { padding:18px 22px; border-radius:10px; background:rgba(9,28,60,.78); border:1px solid rgba(255,255,255,.3); color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.55); max-height:70vh; overflow:auto; }
-.login-notice-tag { color:#ffd479; text-transform:uppercase; letter-spacing:.08em; font-size:12px; }
-.login-panel .login-notice, .login-notice { display:block; width:100%; padding:0; border:0; border-radius:0; box-shadow:none; background:none; color:inherit; font:inherit; text-align:left; text-shadow:inherit; cursor:pointer; }
-.login-notice + .login-notice { margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,.3); }
-.login-notice strong { display:block; font-size:15px; }
-.login-notice-date { display:block; margin-top:8px; text-align:right; font-size:12px; opacity:.85; }
-.login-notice .rich { margin-top:6px; font-size:13px; line-height:1.45; }
-@media (max-width:700px) { #maintenance-notices { display:none; } }
-
-/* Mobile login announcements */
-.mobile-maintenance-notices { display:none; }
-@media (max-width:700px) {
-  .mobile-maintenance-notices { display:block; width:100%; margin:0 auto 16px; box-sizing:border-box; }
-  .mobile-maintenance-notices .login-notice-card { padding:12px 14px; border:1px solid rgba(255,255,255,.25); border-left:4px solid #f0b429; border-radius:12px; background:rgba(255,255,255,.08); color:#fff; text-shadow:none; max-height:190px; overflow-y:auto; }
-  .mobile-maintenance-notices .login-notice strong { font-size:13px; line-height:1.4; }
-  .mobile-maintenance-notices .login-notice .rich { margin-top:6px; font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
-  .mobile-maintenance-notices .login-notice-date { font-size:11px; }
-}
-
-/* Mobile login screen redesign */
-@media (max-width:700px) {
-  body.login-page { min-height:100vh; background:#071b3a; }
-  body.login-page .login-layout { display:block; min-height:100vh; min-height:100svh; background:linear-gradient(180deg,rgba(5,24,53,.88),rgba(5,24,53,.72)),url('/assets/bg.jpg') center center / cover no-repeat; }
-  body.login-page .login-panel { display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch; box-sizing:border-box; width:100%; min-height:100vh; min-height:100svh; padding:42px 24px 32px; background:transparent; }
-  body.login-page .login-photo { display:none; }
-  body.login-page #login-container { width:100%; max-width:360px; margin:0 auto; padding:0; background:transparent; border:0; border-radius:0; box-shadow:none; }
-  body.login-page .brand-lockup { display:flex; flex-direction:column; align-items:center; gap:10px; margin:0 auto 22px; text-align:center; }
-  body.login-page .brand-logo { width:112px; height:112px; object-fit:contain; margin:0 auto 4px; }
-  body.login-page .brand-copy { width:100%; text-align:center; }
-  body.login-page .brand-name { font-size:20px; line-height:1.35; font-weight:700; }
-  body.login-page .brand-tagline { margin-top:4px; font-size:13px; color:#d4e3fa; }
-  body.login-page #login-container > h2 { display:none; }
-  body.login-page .mobile-maintenance-notices { display:block; width:100%; margin:0 auto 22px; }
-  body.login-page .mobile-maintenance-notices .login-notice-card { padding:14px 15px; border:1px solid rgba(255,205,95,.85); border-left:4px solid #ffbd35; border-radius:14px; background:rgba(7,27,58,.82); color:#fff; text-shadow:none; max-height:220px; overflow-y:auto; backdrop-filter:blur(8px); }
-  body.login-page .mobile-maintenance-notices .login-notice-tag { color:#ffcf62; }
-  body.login-page .mobile-maintenance-notices .login-notice strong { font-size:14px; line-height:1.45; }
-  body.login-page .mobile-maintenance-notices .login-notice .rich { margin-top:8px; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
-  body.login-page .mobile-maintenance-notices .login-notice-date { font-size:11px; color:#d6e2f4; }
-  body.login-page #login-form { width:100%; margin:0; }
-  body.login-page #login-form .form-group { margin-bottom:10px; }
-  body.login-page #login-form input { box-sizing:border-box; width:100%; min-height:46px; border-radius:11px; }
-  body.login-page #login-form button[type="submit"] { width:100%; min-height:46px; margin-top:10px; border-radius:11px; font-weight:700; }
-  body.login-page #login-container .app-version { margin-top:14px; text-align:center; color:#c8d9f2; font-size:11px; }
-}
 
 .rich { overflow-wrap:anywhere; }
 .rich p, .rich div, .rich ul, .rich ol, .rich blockquote { margin:0 0 6px; }

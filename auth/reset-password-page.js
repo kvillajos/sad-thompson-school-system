@@ -52,12 +52,12 @@ form.addEventListener('submit', async e => {
   const confirmPassword = confirmPasswordInput.value
 
   if (!passwordIsValid(newPassword)) {
-    messageDiv.style.color = 'red'
+    messageDiv.style.color = 'var(--ui-danger)'
     messageDiv.textContent = 'Password must be at least 8 characters with an uppercase letter, a lowercase letter and a number.'
     return
   }
   if (newPassword !== confirmPassword) {
-    messageDiv.style.color = 'red'
+    messageDiv.style.color = 'var(--ui-danger)'
     messageDiv.textContent = 'Passwords do not match.'
     return
   }
@@ -69,7 +69,7 @@ form.addEventListener('submit', async e => {
   const { error } = await supabase.auth.updateUser({ password: newPassword })
 
   if (error) {
-    messageDiv.style.color = 'red'
+    messageDiv.style.color = 'var(--ui-danger)'
     messageDiv.textContent = error.message
     submitButton.disabled = false
     hideLoadingScreen()

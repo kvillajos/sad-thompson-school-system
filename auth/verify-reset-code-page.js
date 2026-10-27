@@ -38,7 +38,7 @@ form.addEventListener('submit', async e => {
   const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'recovery' })
 
   if (error) {
-    messageDiv.style.color = 'red'
+    messageDiv.style.color = 'var(--ui-danger)'
     messageDiv.textContent = 'That code is invalid or has expired. Please try again.'
     submitButton.disabled = false
     hideLoadingScreen()

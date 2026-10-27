@@ -6,41 +6,35 @@
     <link rel="icon" type="image/png" href="/assets/logo.png" />
     <title>Enter Reset Code · Thompson Christian School Management System</title>
   </head>
-  <body>
+  <body class="login-page">
     <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
 
     <div class="login-layout">
       <section class="login-panel" aria-label="TCSMS verify reset code">
-        <div id="verify-code-container" class="card">
+        <div id="verify-code-container" class="login-card">
           <div class="brand-lockup">
+            <img class="brand-logo" src="/assets/logo.png" alt="Thompson Christian School seal" width="56" height="56" />
             <div class="brand-copy">
-              <p class="brand-name">Thompson <span>Christian</span></p>
+              <p class="brand-name">Thompson Christian School</p>
               <p class="brand-tagline">School Management System</p>
             </div>
-            <img class="brand-logo" src="/assets/logo.png" alt="Thompson Christian School seal" />
           </div>
-          <h2>Enter Reset Code</h2>
-          <p class="app-version" style="margin:-4px 0 14px">We emailed a code to the address you entered. Enter it below.</p>
+          <h1 class="login-title">Enter your reset code</h1>
+          <p class="login-lead">We emailed a code to the address you entered. Enter it below.</p>
           <form id="verify-code-form">
             <div class="form-group">
-              <label for="code">Reset Code</label>
-              <input
-                maxlength="8"
-                type="text"
-                id="code"
-                placeholder="Reset Code"
-                required
-                autocomplete="one-time-code"
-                inputmode="numeric"
-              />
+              <label for="code">Reset code</label>
+              <input maxlength="8" type="text" id="code" class="login-code" required autocomplete="one-time-code" inputmode="numeric" />
             </div>
-            <button type="submit">Verify Code</button>
+            <button type="submit">Verify code</button>
           </form>
           <div id="message" role="alert"></div>
-          <p class="app-version"><a href="/forgot-password.html" style="color:#93a7c4">Didn't get a code? Start over</a></p>
+          <p class="login-foot">Didn't get a code? <a href="/forgot-password.html">Start over</a></p>
         </div>
       </section>
-      <aside class="login-photo" aria-label="Thompson Christian School campus"></aside>
+      <aside class="login-photo" aria-label="Thompson Christian School campus">
+        <p class="login-photo-caption">Thompson Christian School, Davao City</p>
+      </aside>
     </div>
 
     <script type="module" src="/auth/verify-reset-code-page.js"></script>
