@@ -86,9 +86,7 @@
     color: var(--ui-blue-dark) !important;
   }
 
-  html[data-theme='dark'] .schedule-pick-button,
-  html[data-theme='dark'] .subtab,
-  html[data-theme='dark'] .subtab.active {
+  html[data-theme='dark'] .schedule-pick-button {
     background: #27364a !important;
     color: #dce8fa !important;
     border-color: #405471 !important;
@@ -130,8 +128,7 @@
   }
 
   html[data-theme='dark'] .pfp-menu button:hover,
-  html[data-theme='dark'] .combo-list li:hover,
-  html[data-theme='dark'] .subtab:hover {
+  html[data-theme='dark'] .combo-list li:hover {
     background-color: #2b3a4e !important;
     color: #f1f5fb !important;
   }

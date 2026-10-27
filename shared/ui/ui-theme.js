@@ -253,9 +253,9 @@ main .table-fits.table-fits { overflow:visible !important; }
 .admin-modal-head h3 { margin:0; color:var(--ui-blue-dark); font-size:18px; font-weight:650 }
 .admin-modal-head button { border:1px solid var(--ui-control-border); background:var(--ui-surface-strong); color:var(--ui-blue-dark); border-radius:var(--ui-radius-sm); padding:5px 10px; font-weight:600; cursor:pointer }
 /* The x close buttons (labelled "Close" by installModalBehaviour) draw a proper cross instead of the letter. */
-:is(.admin-modal-head, .modalhead) > button[aria-label="Close"] { display:grid; place-items:center; flex:none; width:34px !important; height:34px !important; min-height:0 !important; padding:0 !important; border:0 !important; border-radius:var(--ui-radius-sm) !important; background:transparent !important; color:var(--ui-muted) !important; font-size:0 !important; }
-:is(.admin-modal-head, .modalhead) > button[aria-label="Close"]::before { content:''; width:18px; height:18px; background:currentColor; -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center/contain no-repeat; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center/contain no-repeat; }
-:is(.admin-modal-head, .modalhead) > button[aria-label="Close"]:hover { background:var(--ui-hover) !important; color:var(--ui-blue-dark) !important; }
+:is(.admin-modal-head, .modalhead) button[aria-label="Close"] { display:grid; place-items:center; flex:none; width:34px !important; height:34px !important; min-height:0 !important; padding:0 !important; border:0 !important; border-radius:var(--ui-radius-sm) !important; background:transparent !important; color:var(--ui-muted) !important; font-size:0 !important; }
+:is(.admin-modal-head, .modalhead) button[aria-label="Close"]::before { content:''; width:18px; height:18px; background:currentColor; -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center/contain no-repeat; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center/contain no-repeat; }
+:is(.admin-modal-head, .modalhead) button[aria-label="Close"]:hover { background:var(--ui-hover) !important; color:var(--ui-blue-dark) !important; }
 .admin-modal-box form { display:grid; grid-template-columns:1fr 1fr; gap:14px }
 .faculty-assign-box { width:min(100%, 620px) !important; }
 .faculty-assign-box form { grid-template-columns:1fr; }
@@ -274,20 +274,15 @@ main .table-fits.table-fits { overflow:visible !important; }
 .moderator-picker { margin-left:8px; }
 #selected-moderator { display:inline-flex; vertical-align:middle; margin-left:8px; }
 .faculty-details-box { width:min(100%, 720px) !important; }
-.schedule-box { width:min(100%,1120px) !important; max-height:88vh; overflow:auto; padding:18px; border-radius:24px; }
+.schedule-box { width:min(100%,1120px) !important; max-height:88vh; overflow:auto; }
 .schedule-box > .admin-modal-head { position:static; padding:8px 0 0; margin:0 0 8px; background:transparent; align-items:flex-start; }
-.schedule-box > .admin-modal-head h3 { display:flex; align-items:center; gap:10px; font-size:22px; }
-.schedule-box > .admin-modal-head h3::before { content:''; width:5px; height:27px; border-radius:4px; background:var(--ui-blue); }
-.schedule-box > .admin-modal-head p { margin:3px 0 0 15px; color:var(--ui-muted); font-size:13px; }
-.schedule-overview-actions { display:flex; align-items:center; gap:14px; }
-.schedule-overview-actions #add-schedule { border-radius:24px; padding:11px 18px; box-shadow:0 6px 12px rgba(23,86,209,.18); }
-.schedule-overview-actions #close-section-schedule { width:36px; height:36px; padding:0; border-radius:12px; font-size:18px; }
-.schedule-box > .admin-table-wrap { padding:14px; border-radius:15px; }
-.schedule-box > .admin-table-wrap th { height:42px; padding:8px 12px; }
+.schedule-box > .admin-modal-head p { margin:3px 0 0; color:var(--ui-muted); font-size:13px; }
+.schedule-overview-actions { display:flex; align-items:center; gap:10px; }
+.schedule-box > .admin-table-wrap { padding:14px; }
 .schedule-box .admin-table-wrap table { min-width:0 !important; }
-.schedule-form-box { width:min(580px, calc(100vw - 24px)) !important; max-height:calc(100vh - 24px); padding:0 !important; border-radius:18px; overflow:hidden; font-family:Arial, 'Helvetica Neue', sans-serif; }
+.schedule-form-box { width:min(580px, calc(100vw - 24px)) !important; max-height:calc(100vh - 24px); padding:0 !important; overflow:hidden; }
 .schedule-form-head { box-sizing:border-box; padding:24px 32px 18px; margin:0; align-items:flex-start; }
-.schedule-form-head h3 { font-size:22px; letter-spacing:-.01em; }
+.schedule-form-head h3 { font-size:18px; }
 .schedule-form-head p { margin:4px 0 0; color:var(--ui-muted); font-size:14px; }
 .schedule-form-head > button { width:34px; height:34px; border-radius:10px; font-size:18px; }
 .schedule-form { display:grid !important; grid-template-columns:1fr 1fr; gap:20px 16px !important; padding:4px 28px 22px; }
@@ -341,20 +336,14 @@ main .table-fits.table-fits { overflow:visible !important; }
 .moderator-card { display:flex; align-items:center; gap:10px; margin-top:8px; padding:10px; border:1px solid var(--ui-border); border-radius:6px; }
 .moderator-card strong,.moderator-card small { display:block; }
 .moderator-card small { color:var(--ui-muted); }
-.section-box { width:min(100%,760px) !important; max-height:calc(100vh - 32px); padding:26px; border-radius:22px; }
-.section-box .admin-modal-head { margin-bottom:28px; }
-.section-box .admin-modal-head h3 { display:flex; align-items:center; gap:12px; font-size:20px; }
-.section-box .admin-modal-head h3::before { content:''; width:5px; height:27px; border-radius:4px; background:var(--ui-blue); }
-.section-box .admin-modal-head button { width:34px; height:34px; padding:0; border-radius:10px; font-size:18px; }
+.section-box { width:min(100%,760px) !important; max-height:calc(100vh - 32px); }
 .section-box form { gap:22px 16px; }
 .section-box form > label { display:flex; flex-direction:column; gap:6px; }
-.section-box form > label > input,.section-box form > label > select { margin-top:0; min-height:40px; padding:10px 14px; border:1px solid #d6e0ee; border-radius:12px; }
+.section-box form > label > input,.section-box form > label > select { margin-top:0; }
 .section-box .section-moderator-field { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:10px 12px; margin-top:2px; }
 .section-box .section-moderator-field > span { color:var(--ui-text); }
-.section-box .section-moderator-field .moderator-picker { grid-column:2; grid-row:1; justify-self:end; margin:0; border:0; border-radius:22px; padding:10px 18px; }
-.section-box .section-moderator-field .moderator-card { grid-column:1/-1; width:100%; box-sizing:border-box; margin-top:0; border-radius:18px; padding:10px 16px; }
-.section-box .admin-actions { margin:4px 0 -2px; padding-top:18px; border-top:1px solid #edf1f6; }
-.section-box .admin-actions button { border-radius:22px; padding:10px 20px; }
+.section-box .section-moderator-field .moderator-picker { grid-column:2; grid-row:1; justify-self:end; margin:0; }
+.section-box .section-moderator-field .moderator-card { grid-column:1/-1; width:100%; box-sizing:border-box; margin-top:0; }
 .account-details-box { width:min(100%,760px) !important; max-height:90vh; overflow:auto }
 .account-details-box h4 { margin:20px 0 8px; color:var(--ui-blue-dark) }
 .account-details-box .review-grid p { overflow-wrap:anywhere }
@@ -393,22 +382,65 @@ main .table-fits.table-fits { overflow:visible !important; }
 @media (max-width:700px) { body.has-app-sidebar > #tcsms-loading-screen { left:0 !important; width:100% !important; } }
 /* Registrar page (.layout > .main, older markup): the same buttons, inputs, cards and tables as the admin pages. */
 .main, .card, .student-directory { color: var(--ui-text) !important; }
-.main h2, .main h3, .section-title, .toolbar h2 { color: var(--ui-blue-dark) !important; font-size: 22px !important; font-weight: 650; line-height: 1.25 !important; letter-spacing: -.015em; }
+.main h2, .main h3 { color: var(--ui-blue-dark) !important; font-weight: 650; line-height: 1.25 !important; }
+.main > section > .toolbar h2, .main .section-title { margin: 0; font-size: 24px !important; letter-spacing: -.02em; }
+.main .card h2, .main .card h3 { margin: 0 0 6px; font-size: 16px !important; letter-spacing: -.01em; }
+.main .card h2 small { color: var(--ui-muted) !important; font-size: 13px !important; font-weight: 500; }
 .main p, .main label, .main small, td { color: var(--ui-text) !important; }
-.main small, .main .note { color: var(--ui-muted) !important; font-size: 12px !important; }
+.main small { color: var(--ui-muted) !important; font-size: 12px !important; }
+.main .note { color: #6b4a00 !important; font-size: 13px !important; }
 .layout .card { background: var(--ui-surface-strong); border: 1px solid var(--ui-line); border-radius: var(--ui-radius-lg); box-shadow: var(--ui-shadow-sm); padding: 20px; }
 .layout .card + .card { margin-top: 20px; }
-.main button.btn, .main button.btn.secondary, .main button.small, .modalhead button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; min-height: 36px; padding: 7px 14px; border-radius: var(--ui-radius-sm) !important; font: 600 13px/1.3 var(--ui-font) !important; cursor: pointer; transition: background-color .15s ease, border-color .15s ease; }
-.main button.btn { background: var(--ui-primary) !important; color: #fff !important; border: 1px solid var(--ui-primary) !important; }
-.main button.btn:hover:not(:disabled) { background: var(--ui-primary-hover) !important; border-color: var(--ui-primary-hover) !important; filter: none; }
-.main button.btn.secondary, .main button.small, .modalhead button { background: var(--ui-surface-strong) !important; color: var(--ui-blue-dark) !important; border: 1px solid var(--ui-control-border) !important; }
-.main button.btn.secondary:hover:not(:disabled), .main button.small:hover:not(:disabled) { background: var(--ui-hover) !important; filter: none; }
-.main button.small { min-height: 32px; padding: 5px 12px; font-size: 12.5px !important; }
+:is(.main, .modal) button.btn, :is(.main, .modal) button.small, .modalhead button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; min-height: 36px; padding: 7px 14px; border-radius: var(--ui-radius-sm) !important; font: 600 13px/1.3 var(--ui-font) !important; cursor: pointer; transition: background-color .15s ease, border-color .15s ease; }
+:is(.main, .modal) button.btn { background: var(--ui-primary) !important; color: #fff !important; border: 1px solid var(--ui-primary) !important; }
+:is(.main, .modal) button.btn:hover:not(:disabled) { background: var(--ui-primary-hover) !important; border-color: var(--ui-primary-hover) !important; filter: none; }
+:is(.main, .modal) button.btn.secondary, :is(.main, .modal) button.small, .modalhead button { background: var(--ui-surface-strong) !important; color: var(--ui-blue-dark) !important; border: 1px solid var(--ui-control-border) !important; }
+:is(.main, .modal) button.btn.secondary:hover:not(:disabled), :is(.main, .modal) button.small:hover:not(:disabled) { background: var(--ui-hover) !important; filter: none; }
+:is(.main, .modal) button.small { min-height: 32px; padding: 5px 12px; font-size: 12.5px !important; }
 .main input, .main select, .main textarea { background: var(--ui-surface-strong) !important; color: var(--ui-text) !important; border: 1px solid var(--ui-control-border) !important; border-radius: var(--ui-radius-sm) !important; font-size: 13.5px !important; }
 .main input::placeholder, .main textarea::placeholder { color: var(--ui-muted) !important; opacity: 1 !important; }
 .main table { color: var(--ui-text) !important; border-collapse: separate !important; border-spacing: 0; }
 .main th { background: var(--ui-surface) !important; color: var(--ui-muted) !important; font-size: 12px !important; font-weight: 600; padding: 10px 14px !important; white-space: nowrap; border-bottom: 0 !important; }
 .main td { color: var(--ui-text) !important; font-size: 13.5px !important; padding: 11px 14px !important; border-bottom: 1px solid var(--ui-line) !important; }
+/* Registrar page structure (was inline in student-records.html). Bare-element rules are scoped to the registrar. */
+.layout { display: flex; min-height: 100vh; }
+body[data-role="registrar"] *, body[data-role="registrar"] *::before, body[data-role="registrar"] *::after { box-sizing: border-box; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; margin: 0 0 20px; }
+.toolbar.actions-only { justify-content: flex-end; min-height: 0; margin: 0 0 14px; }
+.layout .card .toolbar { min-height: 0; margin: 0 0 14px; }
+.layout .card > p:not(.note) { margin: 0 0 14px; color: var(--ui-muted) !important; font-size: 13px; }
+body[data-role="registrar"] :is(.main, .modal) form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+body[data-role="registrar"] :is(.main, .modal) label { font-size: 13px; font-weight: 600; }
+body[data-role="registrar"] .full { grid-column: 1 / -1; }
+body[data-role="registrar"] :is(.main, .modal) :is(input, select, textarea) { box-sizing: border-box; width: 100%; margin-top: 6px; padding: 9px 12px; font: inherit; }
+body[data-role="registrar"] :is(.main, .modal) :is(input[type="checkbox"], input[type="radio"]) { width: auto; margin-top: 0; }
+body[data-role="registrar"] :is(.main, .modal) textarea { min-height: 90px; resize: vertical; }
+body[data-role="registrar"] .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+body[data-role="registrar"] :is(.main, .modal) table { width: 100%; }
+body[data-role="registrar"] :is(.main, .modal) th { text-align: left; }
+.modal { position: fixed; inset: 0; z-index: 110; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(9,28,60,.42); }
+.modalbox { box-sizing: border-box; width: 100%; max-width: 720px; max-height: 90vh; overflow: auto; padding: 24px; border-radius: 16px; background: var(--ui-surface-strong); box-shadow: var(--ui-shadow-lg); animation: dialog-in .2s var(--ui-ease); }
+.modalhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.modalhead h2 { margin: 0; color: var(--ui-blue-dark); font-size: 18px; font-weight: 650; }
+body[data-role="registrar"] .review-grid { gap: 12px; margin: 15px 0; padding: 0; border: 0; background: none; }
+body[data-role="registrar"] .review-grid > div { padding: 12px 14px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius); background: var(--ui-surface); }
+body[data-role="registrar"] .review-grid p { margin: 5px 0 0; }
+/* Notes: a quiet amber callout for guidance and countdowns. */
+.note { margin: 0 0 15px; padding: 12px 14px; border: 1px solid #ecd9a8; border-radius: var(--ui-radius); background: #fdf7e8; color: #6b4a00; font-size: 13px; }
+.upload-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.empty-state { padding: 28px; color: var(--ui-muted); text-align: center; }
+@media (max-width: 900px) {
+  body[data-role="registrar"] :is(.main, .modal) form, body[data-role="registrar"] .review-grid, .upload-grid { grid-template-columns: 1fr; }
+}
+/* Base look for form fields that have no styling of their own (zero specificity: any other rule wins). */
+:where(main, .admin-modal, .modal) :where(input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="color"]), select, textarea) { box-sizing:border-box; padding:8px 12px; border:1px solid var(--ui-control-border); border-radius:var(--ui-radius-sm); background:var(--ui-surface-strong); color:var(--ui-text); font:inherit; font-size:14px; }
+:where(#school-days-months) label { display:grid; gap:6px; color:var(--ui-muted); font-size:12.5px; font-weight:600; }
+/* Controls inside a label keep normal weight (several forms set font:inherit on them under a bold label). */
+label :is(input, select, textarea) { font-weight:400 !important; }
+/* File inputs: the picker button looks like a secondary button. */
+input[type="file"] { font-size:13px; color:var(--ui-muted); }
+input[type="file"]::file-selector-button { margin-right:12px; padding:7px 14px; border:1px solid var(--ui-control-border); border-radius:var(--ui-radius-sm); background:var(--ui-surface-strong); color:var(--ui-blue-dark); font:600 13px var(--ui-font); cursor:pointer; transition:background-color .15s ease; }
+input[type="file"]::file-selector-button:hover { background:var(--ui-hover); }
 /* One focus look for every text field, select and textarea (the grade sheet keeps its underline style). */
 :is(input:not([type=checkbox], [type=radio], [type=range], [type=file]), select, textarea):not(#grade-table input):focus { outline: none; border-color: var(--ui-blue) !important; box-shadow: var(--ui-focus) !important; }
 .profile-readonly { margin:8px 0; color:var(--ui-muted); font-size:13px; }
@@ -631,8 +663,10 @@ button.btn-remove, .admin-remove { background:#fee2e2 !important; color:#c0392b 
 .selected-row { background:#eaf1ff; }
 .table-scroll { overflow:auto; max-height:360px; }
 .shift-student-picker table { min-width:0 !important; }
-.exclude-list input[type=checkbox] { width:auto; }
-.exclude-list label { display:block; padding:3px 0; font-weight:400; }
+.exclude-list { max-height:320px; overflow:auto; margin-top:8px; padding:4px 12px; border:1px solid var(--ui-line); border-radius:var(--ui-radius); }
+.exclude-list input[type=checkbox] { width:auto; margin:0 8px 0 0 !important; vertical-align:-2px; }
+.exclude-list label { display:block; padding:6px 0; border-bottom:1px solid var(--ui-line); font-weight:400 !important; }
+.exclude-list label:last-child { border-bottom:0; }
 /* Auto-assign grade picker: each grade is a tile with its own tick box. */
 .grade-picker { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; margin:8px 0 12px; }
 .grade-option { position:relative; display:flex; align-items:center; gap:10px; min-height:50px; padding:10px 12px; border:1px solid var(--ui-border); border-radius:12px; background:var(--ui-surface-strong); color:var(--ui-text); font-size:13px; font-weight:700; cursor:pointer; transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
@@ -886,13 +920,14 @@ tr.average-row td { font-weight:700; border-top:2px solid var(--ui-border) !impo
 .account-edit-grid textarea { width:100%; box-sizing:border-box; margin-top:4px; padding:7px 10px; font-size:13px; min-height:60px; resize:vertical; }
 .account-section-head { display:flex; align-items:center; justify-content:space-between; margin:20px 0 8px; }
 .account-section-head h4 { margin:0 !important; }
-.subtabs { display:flex; gap:4px; margin:0 0 -1px 14px; position:relative; z-index:1; overflow-x:auto; }
-.subtab { flex:none; padding:10px 18px; border:1px solid #e5ebf4; border-bottom:0; border-radius:12px 12px 0 0; background:#e9eef7; color:var(--ui-muted); font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
-#schedule-days .subtabs { margin:0 0 12px; gap:6px; flex-wrap:wrap; }
-#schedule-days .subtab { border:1px solid #e5ebf4; border-radius:10px; padding:8px 14px; }
+.subtabs { display:flex; gap:2px; margin:0 0 16px; border-bottom:1px solid var(--ui-border); overflow-x:auto; scrollbar-width:none; }
+.subtab { flex:none; margin:0 0 -1px; padding:10px 14px; border:0; border-bottom:2px solid transparent; border-radius:0; background:transparent; color:var(--ui-muted); font:inherit; font-size:13.5px; font-weight:600; cursor:pointer; transition:color .15s ease, border-color .15s ease; }
+.subtab:hover { color:var(--ui-blue-dark); }
+.subtab.active { border-bottom-color:var(--ui-blue); color:var(--ui-blue-dark); }
+#schedule-days .subtabs { flex-wrap:wrap; gap:6px; margin:0 0 14px; border-bottom:0; }
+#schedule-days .subtab { margin:0; padding:6px 14px; border:1px solid var(--ui-border); border-radius:999px; background:var(--ui-surface-strong); }
+#schedule-days .subtab.active { border-color:var(--ui-blue); background:var(--ui-blue-soft); }
 #schedule-days .subtab small { opacity:.75; font-weight:400; }
-.subtab:hover { background:#f1f5fb; color:var(--ui-blue-dark); }
-.subtab.active { background:#fff; color:var(--ui-blue-dark); box-shadow:0 -3px 0 var(--ui-blue) inset; }
 .override-form { display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; align-items:start; }
 .override-form label { display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:var(--ui-blue-dark); }
 .override-form input, .override-form select, .override-form textarea { width:100%; box-sizing:border-box; margin:0; padding:10px 12px; border:1px solid #b9c8dc; border-radius:11px; background:#fff; color:var(--ui-text); font:inherit; font-size:14px; font-weight:400; }
@@ -1137,8 +1172,9 @@ function installModalBehaviour() {
         box.setAttribute('role', 'dialog')
         box.setAttribute('aria-modal', 'true')
       }
-      const close = modal.querySelector(MODAL_CLOSE)
-      if (close && !close.hasAttribute('aria-label') && /^[x×✕]$/i.test(close.textContent.trim())) close.setAttribute('aria-label', 'Close')
+      modal.querySelectorAll(MODAL_CLOSE).forEach(close => {
+        if (!close.hasAttribute('aria-label') && /^[x×✕]$/i.test(close.textContent.trim())) close.setAttribute('aria-label', 'Close')
+      })
     })
   label(document)
   new MutationObserver(records =>
@@ -1154,7 +1190,7 @@ function installModalBehaviour() {
     if (event.key !== 'Escape' || event.defaultPrevented) return
     const open = [...document.querySelectorAll(OPEN_MODALS)]
     const top = open.sort((a, b) => (Number(getComputedStyle(a).zIndex) || 0) - (Number(getComputedStyle(b).zIndex) || 0)).at(-1)
-    const close = top?.querySelector(`${MODAL_CLOSE}, [data-dialog-cancel]`)
+    const close = top?.querySelector('[data-dialog-cancel], .admin-modal-head button[aria-label="Close"], .modalhead button[aria-label="Close"]') || top?.querySelector(MODAL_CLOSE)
     if (close) {
       event.preventDefault()
       close.click()
