@@ -44,6 +44,13 @@ DONE in working tree (code written; last `npm run check` + `npx vite build` reru
 
 TODO next: run `npm run check` and `npx vite build`; fix failures; tick boxes above; commit (prefix, no co-author); then Restore Changes UI, subject-code SQL (ask user first), semester copy + switcher, upload/names unit checks.
 
+## Update 2 (latest)
+- CORRECTION to the semester finding above: the app does NOT use separate 2nd-sem sections. One SHS section per year; `role-admin/auto-schedule.js` swaps a section's classes between semesters (`subjects.semester` 1/2/null). User chose **preview-only mode** (no schema change).
+- DONE: Auto-schedule now has a "Preview only (don't save)" checkbox (default on when the chosen semester is not the running one), lists removed classes in the preview, and disables Apply while previewing. Applying later does the existing swap.
+- DONE: `dev/scripts/checks/check-names-and-scores.mjs` (lastFirst/byLastName/whole-number scores). `npm run check` + build pass.
+- The separate "1st/2nd Semester switcher on Manage Sections / Schedules" is covered by the Auto-schedule semester picker; no extra switcher built (sections.semester is legacy). Tell the user.
+- STILL OPEN: v54 subject codes not applied live (needs user's explicit yes; run `dev/database/pending/v54-subject-codes.sql`, then mark "applied live" in backupsqlmigration.sql L5482 block header and move/keep in pending list); Manage Subjects heading-size design warning (optional); push branch (only if user asks).
+
 ## Log
 - 2026-10-27: branch created, plan agreed.
 - 2026-10-27: items under "DONE in working tree" implemented, not yet committed or fully verified.

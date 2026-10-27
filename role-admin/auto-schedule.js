@@ -22,7 +22,7 @@ const modal = document.createElement('div')
 modal.className = 'admin-modal hidden'
 modal.innerHTML = `<div class="admin-modal-box schedule-box">
   <div class="admin-modal-head"><h3 data-title>Auto-schedule</h3><button type="button" data-close>x</button></div>
-  <div class="admin-filterbar"><label>Semester (Senior High)<select data-semester><option value="1">1st Semester</option><option value="2">2nd Semester</option></select></label></div>
+  <div class="admin-filterbar"><label>Semester (Senior High)<select data-semester><option value="1">1st Semester</option><option value="2">2nd Semester</option></select></label><label><input type="checkbox" data-preview-only /> Preview only (don't save)</label></div>
   <p class="admin-note" data-note></p>
   <section class="admin-table-wrap"><table data-no-pages><thead><tr><th>Section</th><th>Subject</th><th>Faculty</th><th>Time (Mon-Fri)</th><th>Room</th></tr></thead><tbody data-rows></tbody></table></section>
   <div class="admin-actions"><button type="button" class="admin-cancel" data-cancel>Cancel</button><button type="button" class="admin-primary" data-apply>Apply</button></div>
@@ -92,8 +92,14 @@ function plan() {
   const placed = results.flatMap(result => result.placed.map(row => ({ ...row, section: result.section })))
   const unplaced = results.flatMap(result => result.unplaced.map(row => ({ ...row, section: result.section })))
   const sectionName = section => `${section.section_name} (${gradeLabel(section.grade_level)}${section.strand ? ` ${section.strand}` : ''})`
+  const removedRows = [...new Map(removed.map(row => [`${row.section_id}:${row.subject_id}`, row])).values()].map(row => {
+    const section = sections.find(item => Number(item.section_id) === Number(row.section_id))
+    const subject = bySubject.get(row.subject_id)
+    return `<tr class="table-state-removed"><td>${escape(section ? sectionName(section) : row.section_id)}</td><td><s>${escape(subject?.subject_name || row.subject_id)}</s></td><td>${escape(row.faculty_name || '-')}</td><td colspan="2">Removed (other semester)</td></tr>`
+  })
   $('[data-rows]').innerHTML =
     [
+      ...removedRows,
       ...placed.map(
         row =>
           `<tr><td>${escape(sectionName(row.section))}</td><td>${escape(row.subject.subject_name)}</td><td>${escape(row.faculty_name)}</td><td>${timeRange12(row.start_time, row.end_time)}</td><td>${escape(row.room || '-')}</td></tr>`
@@ -107,9 +113,10 @@ function plan() {
   $('[data-note]').textContent =
     `${placed.length} class(es) to add, each meeting Monday to Friday` +
     (unplaced.length ? `; ${unplaced.length} subject(s) could not be placed` : '') +
-    (removedClasses ? `; ${removedClasses} class(es) of the other semester will be removed.` : '.')
+    (removedClasses ? `; ${removedClasses} class(es) of the other semester will be removed.` : '.') +
+    ($('[data-preview-only]').checked ? ' Preview only: nothing is saved. Untick "Preview only" to apply.' : '')
   // Nothing placed means nothing to apply: the other semester's classes are never removed on their own.
-  $('[data-apply]').disabled = !placed.length
+  $('[data-apply]').disabled = !placed.length || $('[data-preview-only]').checked
 }
 
 async function apply() {
@@ -153,7 +160,12 @@ async function apply() {
   toast(`Auto-schedule added ${rows.length / SCHOOL_DAYS.length} class(es).`, 'success')
   await state.onApplied()
 }
-$('[data-semester]').onchange = plan
+// Planning a semester that is not the running one defaults to preview-only, so setting up next term early cannot swap classes by accident.
+$('[data-semester]').onchange = () => {
+  $('[data-preview-only]').checked = Number($('[data-semester]').value) !== currentSemester()
+  plan()
+}
+$('[data-preview-only]').onchange = plan
 $('[data-apply]').onclick = () => withBusy($('[data-apply]'), 'Applying…', apply)
 
 // Opens the preview for these sections (all from one school year). onApplied reloads the page's data.
@@ -171,6 +183,7 @@ export async function openAutoSchedule(sections, onApplied) {
       ? `Auto-schedule ${sections[0].section_name} (${years[0]})`
       : `Auto-schedule ${sections.length} sections (${years[0]})`
   $('[data-semester]').value = String(currentSemester())
+  $('[data-preview-only]').checked = false
   $('[data-semester]').closest('.admin-filterbar').hidden = !sections.some(section => Number(section.grade_level) >= 11)
   plan()
   modal.classList.remove('hidden')
