@@ -979,6 +979,12 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
 .lunch-save { height:42px; min-width:120px; padding:0 22px; }
 /* Recent Changes (Audit Trail): two-line cells, so keep the vertical padding tight. */
 #restore-changes-host > table td { padding-top:3px !important; padding-bottom:3px !important; line-height:1.3; }
+.restore-tag { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+.restore-added { background:#e3f6ea; color:#17653a; }
+.restore-edited { background:#e6efff; color:#1f4fb3; }
+.restore-deleted { background:#fdecea; color:#a52019; }
+.restore-restored { background:#eef2f7; color:var(--ui-muted); }
+#restore-filters { margin:0 0 12px; }
 #restore-changes-host > table td small { line-height:1.2; }
 /* General Average: last row of a grades table. */
 tr.average-row td { font-weight:700; border-top:2px solid var(--ui-border) !important; background:#eef3fa !important; }

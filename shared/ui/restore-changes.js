@@ -4,6 +4,7 @@
 import { supabase } from '../lib/auth-client.js'
 import { escapeHtml as escape, formatDate } from '../lib/html.js'
 import { confirmDialog } from './dialog.js'
+import { mountFilterBar } from './filter-bar.js'
 import { toast } from './ui-theme.js'
 import { withBusy } from './shell.js'
 import { describeError, describeFunctionError } from '../lib/errors.js'
@@ -56,41 +57,62 @@ export async function mountRestoreChanges(host, { includeDeletedAccounts = false
     : ''
 
   const groups = changes.data || []
-  const changeRows = groups
-    .map(group => {
-      const what = [...new Set(group.tables.map(table => TABLE_LABELS[table] || table))].join(', ')
-      const change = group.operations.map(operation => OPERATION_LABELS[operation] || operation).join(' / ')
-      const action = group.restored_at
-        ? `Restored ${formatDate(group.restored_at, true)}`
-        : `<button type="button" class="admin-view" data-restore-group="${group.change_group}">Restore</button><br><small>until ${expiresOn(group.changed_at)}</small>`
-      return `<tr><td data-label="When">${formatDate(group.changed_at, true)}</td><td data-label="By">${escape(group.changed_by || '-')}</td><td data-label="What"><b>${escape(group.label || '-')}</b><br><small>${escape(what)}${group.row_count > 1 ? ` · ${group.row_count} records` : ''}</small></td><td data-label="Change">${escape(change)}</td><td data-label="Action">${action}</td></tr>`
-    })
-    .join('')
-  host.innerHTML = `${accountsHtml}<table data-no-sort><thead><tr><th>Date</th><th>By</th><th>What</th><th>Change</th><th>Action</th></tr></thead><tbody>${changeRows || '<tr><td colspan="5">No changes in the last 30 days.</td></tr>'}</tbody></table>`
-
-  host.querySelectorAll('[data-restore-group]').forEach(
-    button =>
-      (button.onclick = async () => {
-        const group = groups.find(item => String(item.change_group) === button.dataset.restoreGroup)
-        const warning = group.has_newer
-          ? 'These records were changed again after this. Restoring puts them back to how they were before this change, which also undoes the later edits.'
-          : ''
-        const records = group.row_count > 1 ? `${group.row_count} records` : '1 record'
-        if (
-          !(await confirmDialog(
-            `Restore "${group.label}" (${records}) to how it was before this change on ${formatDate(group.changed_at, true)}?`,
-            { title: 'Restore change', confirmText: 'Restore', warning }
-          ))
-        )
-          return
-        await withBusy(button, 'Restoring…', async () => {
-          const { error } = await supabase.rpc('restore_change_group', { p_group: group.change_group })
-          if (error) return toast(describeError(error, 'Restore change'), 'error')
-          toast('Change restored.')
-          await mountRestoreChanges(host, { includeDeletedAccounts })
+  const whatOf = group => [...new Set(group.tables.map(table => TABLE_LABELS[table] || table))]
+  const changeOf = group => group.operations.map(operation => OPERATION_LABELS[operation] || operation)
+  host.innerHTML = `${accountsHtml}<div class="admin-filterbar" id="restore-filters"></div><table data-no-sort><thead><tr><th>Date</th><th>By</th><th>What</th><th>Change</th><th>Expires</th><th>Action</th></tr></thead><tbody id="restore-change-rows"></tbody></table>`
+  const filters = mountFilterBar(host.querySelector('#restore-filters'), {
+    filters: [
+      { key: 'change', name: 'Change', all: 'All changes', get: changeOf },
+      { key: 'what', name: 'What', all: 'All records', get: whatOf },
+      { key: 'by', name: 'By', all: 'Everyone', get: group => group.changed_by }
+    ],
+    onChange: () => renderChanges()
+  })
+  const renderChanges = () => {
+    const visible = filters.apply(groups)
+    host.querySelector('#restore-change-rows').innerHTML =
+      visible
+        .map(group => {
+          const tags = changeOf(group)
+            .map(label => `<span class="restore-tag restore-${label.toLowerCase()}">${escape(label)}</span>`)
+            .join(' ')
+          const done = Boolean(group.restored_at)
+          const expires = done ? '-' : expiresOn(group.changed_at)
+          const action = done
+            ? `<span class="restore-tag restore-restored" title="Restored ${escape(formatDate(group.restored_at, true))}">Restored</span>`
+            : `<button type="button" class="admin-view" data-restore-group="${group.change_group}">Restore</button>`
+          return `<tr><td data-label="When">${formatDate(group.changed_at, true)}</td><td data-label="By">${escape(group.changed_by || '-')}</td><td data-label="What"><b>${escape(group.label || '-')}</b><br><small>${escape(whatOf(group).join(', '))}${group.row_count > 1 ? ` · ${group.row_count} records` : ''}</small></td><td data-label="Change">${tags}</td><td data-label="Expires">${expires}</td><td data-label="Action">${action}</td></tr>`
         })
-      })
-  )
+        .join('') ||
+      `<tr><td colspan="6">${groups.length ? 'No changes match these filters.' : 'No changes in the last 30 days.'}</td></tr>`
+    bindGroupButtons()
+  }
+  const bindGroupButtons = () =>
+    host.querySelectorAll('[data-restore-group]').forEach(
+      button =>
+        (button.onclick = async () => {
+          const group = groups.find(item => String(item.change_group) === button.dataset.restoreGroup)
+          const warning = group.has_newer
+            ? 'These records were changed again after this. Restoring puts them back to how they were before this change, which also undoes the later edits.'
+            : ''
+          const records = group.row_count > 1 ? `${group.row_count} records` : '1 record'
+          if (
+            !(await confirmDialog(
+              `Restore "${group.label}" (${records}) to how it was before this change on ${formatDate(group.changed_at, true)}?`,
+              { title: 'Restore change', confirmText: 'Restore', warning }
+            ))
+          )
+            return
+          await withBusy(button, 'Restoring…', async () => {
+            const { error } = await supabase.rpc('restore_change_group', { p_group: group.change_group })
+            if (error) return toast(describeError(error, 'Restore change'), 'error')
+            toast('Change restored.')
+            await mountRestoreChanges(host, { includeDeletedAccounts })
+          })
+        })
+    )
+  filters.update(groups)
+  renderChanges()
   host.querySelectorAll('[data-restore-account]').forEach(
     button =>
       (button.onclick = async () => {
