@@ -148,6 +148,7 @@ export function parseGradeCsv(text, schoolYear) {
     if (record && derivedGrade(record) == null) errors.push('needs at least one score')
     // Same default the grade sheet fills in, so uploaded and hand-entered grades both carry a letter.
     if (record && !record.letter_grade) record.letter_grade = letterGrade(derivedGrade(record), schoolYear)?.letter ?? null
-    return { row: index + 2, student_id: studentId, name: values.student_name || '', record, errors }
+    // `values` keeps the raw cell text so the editable upload grid can show (and fix) what was actually typed.
+    return { row: index + 2, student_id: studentId, name: values.student_name || '', record, errors, values }
   })
 }
