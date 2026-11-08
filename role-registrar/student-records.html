@@ -24,6 +24,7 @@
       .modal{background:rgba(7,27,58,.5)}.modalbox{border-radius:18px;max-width:720px;padding:20px;box-shadow:0 12px 35px rgba(7,27,58,.2)}.modalhead h2{margin:0;font-size:18px;color:var(--ink)}.modalhead button{border-radius:10px;background:#eaf1ff;color:var(--ink);width:auto;height:auto;padding:5px 9px}
       .review-grid>div{background:#f8fafc;border-radius:12px}.note{border-radius:12px}
       .empty-state{text-align:center;padding:28px;color:var(--muted)}
+      .quickview-box{max-width:680px}.quickview-identity{display:flex;gap:12px;margin-top:5px;color:var(--muted);font-size:12px}.quickview-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}.quickview-metrics>div{background:var(--panel);border-radius:12px;padding:13px}.quickview-metrics b{font-size:12px}.quickview-metrics p{margin:8px 0 0}.quickview-enrollment-card{grid-column:1/-1}.quickview-status{font-weight:700}.quickview-status-active,.quickview-status-enrolled{color:var(--green)}.quickview-status-not-currently-enrolled,.quickview-status-inactive{color:var(--red)}.quickview-error{color:var(--red)}.quickview-empty{color:var(--muted)}.quickview-flag-list{list-style:none;padding:0;margin:0}.quickview-flag-list li{padding:10px 0;border-top:1px solid var(--line);font-size:13px}.quickview-flag-list small{display:block;color:var(--muted);margin-top:4px}@media(max-width:600px){.quickview-metrics{grid-template-columns:1fr}.quickview-enrollment-card{grid-column:auto}}
 
       @media (max-width: 700px) {
         .layout {
@@ -156,6 +157,73 @@
 
       }
     </style>
+    <style>
+      .promotion-candidate {
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .promotion-candidate-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .promotion-candidate-heading label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .promotion-candidate-heading input {
+        width: auto;
+        margin: 0;
+      }
+      .promotion-status {
+        flex: 0 0 auto;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .promotion-status-pass {
+        color: #166534;
+        background: #dcfce7;
+      }
+      .promotion-status-fail {
+        color: #991b1b;
+        background: #fee2e2;
+      }
+      .promotion-status-unavailable {
+        color: #854d0e;
+        background: #fef3c7;
+      }
+      .promotion-breakdown {
+        margin: 8px 0 0 26px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .promotion-breakdown summary {
+        width: fit-content;
+        cursor: pointer;
+        color: var(--blue);
+        font-weight: 700;
+      }
+      .promotion-breakdown ul {
+        margin: 5px 0 10px;
+        padding-left: 20px;
+        color: var(--ink);
+      }
+      .promotion-breakdown p {
+        margin: 8px 0 0;
+        color: var(--ink);
+      }
+      @media (max-width: 600px) {
+        .promotion-candidate-heading {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
@@ -221,8 +289,7 @@
                 >Grade Level<select name="grade_level" required>
                   <option value="">Select</option>
                 </select></label
-              ><label class="application-strand-field" hidden
-                >Strand<select name="strand"></select></label
+              ><label class="application-strand-field" hidden>Strand<select name="strand"></select></label
               ><label class="full"
                 >Address (optional)<textarea
                   data-own-counter
@@ -319,13 +386,21 @@
               <tbody id="section-table"></tbody>
             </table>
           </div>
+        </section>
+        <section id="directory" data-panel class="hidden">
+          <div class="toolbar"><h2>Active Directory</h2></div>
           <div class="card student-directory">
             <div class="toolbar">
               <h2>Student Directory</h2>
               <input maxlength="100" id="student-directory-search" placeholder="Search student name or ID..." />
               <button type="button" id="export-student-directory" class="btn secondary">Export CSV</button>
             </div>
-                          <div class="filterbar" id="student-school-year-filters"><button type="button" data-student-view="current" class="btn">Current SY</button><button type="button" data-student-view="not-reenrolled" class="btn secondary">Not re-enrolled</button><button type="button" data-student-view="all" class="btn secondary">All Students</button><span id="student-directory-filters" class="filter-bar-host"></span></div>
+            <div class="filterbar" id="student-school-year-filters">
+              <button type="button" data-student-view="current" class="btn">Current SY</button
+              ><button type="button" data-student-view="not-reenrolled" class="btn secondary">Not re-enrolled</button
+              ><button type="button" data-student-view="all" class="btn secondary">All Students</button
+              ><span id="student-directory-filters" class="filter-bar-host"></span>
+            </div>
 
             <table>
               <thead>
@@ -400,8 +475,9 @@
               </form>
             </div>
             <div class="card">
-              <label>Exclude Students</label
-              ><input maxlength="100" id="promotion-exclude-search" placeholder="Search student name or ID..." />
+              <h2>Promotion Candidates</h2>
+              <p>Pass status uses the previous school year's grades. Check students to exclude them from this request.</p>
+              <input maxlength="100" id="promotion-exclude-search" placeholder="Search student name or ID..." />
               <div id="promotion-exclude-list" class="exclude-list"></div>
             </div>
           </div>

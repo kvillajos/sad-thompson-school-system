@@ -1,4 +1,3 @@
-
 import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { $, state } from './registrar-state.js'
@@ -30,10 +29,12 @@ function academicRowsFor(studentId) {
 }
 
 const academicTableHtml = rows => buildSemesterTable(rows, { flat: true })
+let academicHistoryLoaded = false
 
 // The panel lists students, not raw records: the counts and the latest school year come
 // from the records already loaded, so no per-student query is needed.
 export function renderAcademicStudents() {
+  if (!academicHistoryLoaded) return
   const search = $('academic-search').value.trim().toLowerCase()
   const grade = Number($('academic-grade-filter').value) || 0
   const summaries = new Map()
@@ -88,6 +89,7 @@ export async function loadAcademic() {
   await loadGradingScales()
   const sequence = ++academicLoadSequence
   const data = []
+  academicHistoryLoaded = false
   state.academic = []
   $('academic-table').innerHTML = '<tr><td colspan="7">Loading academic history…</td></tr>'
 
@@ -113,6 +115,7 @@ export async function loadAcademic() {
   }
 
   state.academic = data
+  academicHistoryLoaded = true
   renderAcademicStudents()
 }
 
@@ -216,10 +219,7 @@ async function printAcademicCard(studentId, year = '') {
       p_school_year: schoolYear
     }),
 
-    supabase
-      .from('school_days')
-      .select('month,days')
-      .eq('school_year', schoolYear),
+    supabase.from('school_days').select('month,days').eq('school_year', schoolYear),
 
     supabase
       .from('attendance')
@@ -267,10 +267,7 @@ async function printAcademicCard(studentId, year = '') {
     student,
     gradeLevel: gradeLabel(enrollment.data?.grade_level ?? student.grade_level),
     schoolYear,
-    sectionName:
-      enrollment.data?.sections?.section_name ||
-      (isCurrentYear ? state.studentSections.get(String(studentId)) : '') ||
-      '',
+    sectionName: enrollment.data?.sections?.section_name || (isCurrentYear ? state.studentSections.get(String(studentId)) : '') || '',
     academicRows: yearRows,
     attendance: totals.data,
     schoolDays,
