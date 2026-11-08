@@ -1,0 +1,304 @@
+body[data-role='student'] .student-history-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  padding: 14px 16px;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  background: #fff;
+}
+
+body[data-role='student'] .student-history-controls label {
+  font-weight: 700;
+}
+
+body[data-role='student'] .student-history-controls select {
+  min-width: 180px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #17345f;
+}
+
+body[data-role='student'] .student-placement-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+body[data-role='student'] .student-placement-list li {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #dbe5f1;
+  border-radius: 10px;
+  background: #f8faff;
+}
+
+body[data-role='student'] .student-placement-list li span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+body[data-role='student'] .student-request-card,
+body[data-role='student'] .student-request-history {
+  margin-top: 16px;
+}
+
+body[data-role='student'] .student-request-form {
+  display: grid;
+  gap: 8px;
+  max-width: 760px;
+}
+
+body[data-role='student'] .student-request-form label {
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+body[data-role='student'] .student-request-form select,
+body[data-role='student'] .student-request-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #17345f;
+  font: inherit;
+}
+
+body[data-role='student'] .student-request-form textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+body[data-role='student'] .student-request-submit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+body[data-role='student'] .student-request-submit small {
+  max-width: 440px;
+}
+
+body[data-role='student'] .student-request-table-wrap {
+  overflow-x: auto;
+}
+
+body[data-role='student'] .student-request-table-wrap table {
+  width: 100%;
+  min-width: 720px;
+}
+
+body[data-role='student'] .student-request-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+body[data-role='student'] .student-request-status.status-pending {
+  background: #fff4d6;
+  color: #805800;
+}
+
+body[data-role='student'] .student-request-status.status-approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+body[data-role='student'] .student-request-status.status-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+html[data-theme='dark'] body[data-role='student'] .student-history-controls,
+html[data-theme='dark'] body[data-role='student'] .student-placement-list li,
+html[data-theme='dark'] body[data-role='student'] .student-history-table tbody tr:not(:has(td[colspan])),
+html[data-theme='dark'] body[data-role='student'] .student-request-table-wrap tbody tr:not(:has(td[colspan])) {
+  border-color: var(--ui-border);
+  background: var(--ui-surface-strong);
+  color: var(--ui-text);
+}
+
+html[data-theme='dark'] body[data-role='student'] .student-placement-list li span,
+html[data-theme='dark'] body[data-role='student'] .student-history-table td[data-label]::before,
+html[data-theme='dark'] body[data-role='student'] .student-request-table-wrap td[data-label]::before {
+  color: var(--ui-muted);
+}
+
+html[data-theme='dark'] body[data-role='student'] .student-request-status.status-pending {
+  background: #392f1e;
+  color: #f2d89f;
+}
+
+html[data-theme='dark'] body[data-role='student'] .student-request-status.status-approved {
+  background: #1d3326;
+  color: #c9f0d6;
+}
+
+html[data-theme='dark'] body[data-role='student'] .student-request-status.status-rejected {
+  background: #4a2326;
+  color: #fecaca;
+}
+
+@media (max-width: 700px) {
+  body[data-role='student'] .student-history-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body[data-role='student'] .student-history-controls select {
+    width: 100%;
+  }
+
+  body[data-role='student'] .student-request-submit {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body[data-role='student'] .student-request-submit button {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  body[data-role='student'] .student-history-table table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: transparent;
+  }
+
+  body[data-role='student'] .student-history-table thead {
+    display: none;
+  }
+
+  body[data-role='student'] .student-history-table tbody {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+  }
+
+  body[data-role='student'] .student-history-table tbody tr:not(:has(td[colspan])) {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 12px;
+    border: 1px solid #dbe5f1;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(16, 42, 67, 0.05);
+  }
+
+  body[data-role='student'] .student-history-table tbody tr:not(:has(td[colspan])) td {
+    display: grid;
+    grid-template-columns: minmax(85px, 38%) minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px 0;
+    border-bottom: 1px solid #edf1f6;
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  body[data-role='student'] .student-history-table tbody tr:not(:has(td[colspan])) td:last-child {
+    border-bottom: 0;
+  }
+
+  body[data-role='student'] .student-history-table td[data-label]::before,
+  body[data-role='student'] .student-request-table-wrap td[data-label]::before {
+    content: attr(data-label);
+    color: #52647a;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  body[data-role='student'] .student-history-table tbody tr td[colspan] {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #dbe5f1;
+    border-radius: 10px;
+    background: #fff;
+    text-align: center;
+  }
+
+  body[data-role='student'] .student-history-table tbody tr td[colspan]::before {
+    content: none;
+  }
+
+  body[data-role='student'] .student-request-table-wrap table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  body[data-role='student'] .student-request-table-wrap thead {
+    display: none;
+  }
+
+  body[data-role='student'] .student-request-table-wrap tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  body[data-role='student'] .student-request-table-wrap tbody tr:not(:has(td[colspan])) {
+    display: block;
+    padding: 6px 12px;
+    border: 1px solid #dbe5f1;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  html[data-theme='dark'] body[data-role='student'] .student-request-table-wrap tbody tr:not(:has(td[colspan])) {
+    border-color: var(--ui-border);
+    background: var(--ui-surface-strong);
+  }
+
+  body[data-role='student'] .student-request-table-wrap td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(88px, 34%) minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #edf1f6;
+    overflow-wrap: anywhere;
+  }
+
+  body[data-role='student'] .student-request-table-wrap td[data-label]:last-child {
+    border-bottom: 0;
+  }
+
+  body[data-role='student'] .student-request-table-wrap tbody tr td[colspan] {
+    display: block;
+    padding: 12px;
+    border: 1px solid #dbe5f1;
+    border-radius: 10px;
+    background: #fff;
+    text-align: center;
+  }
+
+  body[data-role='student'] .student-request-table-wrap tbody tr td[colspan]::before {
+    content: none;
+  }
+}

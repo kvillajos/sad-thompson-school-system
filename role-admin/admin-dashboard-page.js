@@ -28,7 +28,8 @@ const requestLabels = {
   promotion: 'Batch promotion',
   account_action: 'Account action',
   override: 'Capacity override',
-  student_profile: 'Student profile edit'
+  student_profile: 'Student profile edit',
+  student_portal_request: 'Student portal request'
 }
 const approvalsTable = document.getElementById('approvals-table')
 const approvalFilter = document.getElementById('approval-filter')
