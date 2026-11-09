@@ -16,6 +16,7 @@ const NAV = [
   ['School Years', '/role-admin/admin-school-years.html', '↺', 'school-years'],
   ['School Calendar', '/role-admin/admin-calendar.html', '▦', 'calendar'],
   ['Admissions', '/role-admin/admin-admissions.html', '▤', 'admissions'],
+  ['Discipline', '/role-admin/admin-discipline.html', '⚑', 'discipline'],
   ['Audit Trail', '/role-admin/admin-audit.html', '▤', 'audit'],
   ['Reports', '/role-admin/admin-reports.html', '▤', 'reports']
 ]

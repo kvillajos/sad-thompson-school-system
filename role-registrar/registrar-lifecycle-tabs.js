@@ -3,9 +3,11 @@
 import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
 import { mountImportTab } from './registrar-import.js'
+import { mountStaffSanctions } from '../shared/ui/sanctions.js'
 
 const TABS = {
-  import: mountImportTab
+  import: mountImportTab,
+  discipline: host => mountStaffSanctions(host)
 }
 const mounted = new Set()
 

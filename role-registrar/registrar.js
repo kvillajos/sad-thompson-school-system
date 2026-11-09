@@ -34,6 +34,7 @@ mountSidebar(
     { label: 'Active Directory', tab: 'directory', icon: '▤' },
     { label: 'Academic History', tab: 'academic', icon: '♧' },
     { label: 'Promotion & Transfers', tab: 'promotion', icon: '↗' },
+    { label: 'Discipline', tab: 'discipline', icon: '⚑' },
     { label: 'Requests & Feedback', tab: 'requests', icon: '✉' },
     { label: 'Restore Changes', tab: 'restore', icon: '↺' }
   ],

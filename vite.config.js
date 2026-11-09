@@ -45,6 +45,7 @@ const pages = {
   adminYearSetup: 'role-admin/admin-year-setup.html',
   adminGradeTracker: 'role-admin/admin-grade-tracker.html',
   adminAdmissions: 'role-admin/admin-admissions.html',
+  adminDiscipline: 'role-admin/admin-discipline.html',
   adminReports: 'role-admin/admin-reports.html',
 
   // Registrar
@@ -52,6 +53,7 @@ const pages = {
 
   // Faculty
   faculty: 'role-faculty/faculty-dashboard.html',
+  facultyAdvisory: 'role-faculty/faculty-advisory.html',
   facultyClassList: 'role-faculty/faculty-class-list.html',
   facultyGrades: 'role-faculty/faculty-grades.html',
   facultyUpload: 'role-faculty/faculty-upload.html',
