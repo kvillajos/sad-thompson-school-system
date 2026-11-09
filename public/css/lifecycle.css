@@ -1,0 +1,97 @@
+/* School-year lifecycle pages (branch SchoolYearLifecycle): Year Setup steps, year-end checklist,
+   grade tracker, requirement checklists. Colours come from the --ui-* variables, so dark mode follows. */
+
+.checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.checklist > li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 16px 18px;
+  border: 1px solid var(--ui-border);
+  border-radius: 14px;
+  background: var(--ui-surface-strong);
+}
+.checklist .step-no {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  color: var(--ui-muted);
+}
+.checklist > li.done .step-no {
+  background: var(--ui-success);
+  border-color: var(--ui-success);
+  color: #fff;
+}
+.checklist > li.blocked .step-no {
+  background: var(--ui-warning);
+  border-color: var(--ui-warning);
+  color: #fff;
+}
+.checklist h4 {
+  margin: 4px 0 4px;
+  font-size: 15px;
+  color: var(--ui-blue-dark);
+}
+.checklist p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+.checklist ul.step-detail {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--ui-text);
+  max-height: 160px;
+  overflow: auto;
+}
+.checklist .step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+.year-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--ui-muted);
+}
+/* Batch report cards: one student per printed page. */
+.batch-report-card {
+  page-break-after: always;
+  break-after: page;
+}
+.batch-report-card:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+.tracker-cell {
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .checklist > li {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+  .checklist .step-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}

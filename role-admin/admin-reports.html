@@ -1,41 +1,35 @@
-<body>
-  <main class="admin-reports-page">
-    <h1>Admin Reports Generator</h1>
-
-    <div class="report-filters">
-      <label for="report-school-year">School Year</label>
-      <select id="report-school-year">
-        <option value="">All School Years</option>
-      </select>
-
-      <label for="report-grade">Grade Level</label>
-      <select id="report-grade">
-        <option value="">All Grade Levels</option>
-      </select>
-
-      <label for="report-section">Section</label>
-      <select id="report-section">
-        <option value="">All Sections</option>
-      </select>
-
-      <label for="report-type">Report Type</label>
-      <select id="report-type">
-        <option value="class-list">Master Class List</option>
-        <option value="section-summary">Section Summary</option>
-        <option value="school-statistics">School Statistics</option>
-      </select>
-
-      <button id="generate-report" type="button">
-        Generate Report
-      </button>
-
-      <button id="print-report" type="button">
-        Print Report
-      </button>
-    </div>
-
-    <div id="report-results"></div>
-  </main>
-
-  <script type="module" src="/role-admin/admin-reports-page.js"></script>
-</body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <title>Reports | TCSMS</title>
+  </head>
+  <body class="admin-shell">
+    <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
+    <main class="admin-reports-page">
+      <div class="admin-page-head">
+        <div><h2>Reports</h2></div>
+      </div>
+      <div class="admin-filterbar">
+        <label>School Year<select id="report-school-year"></select></label>
+        <label>Grade Level<select id="report-grade-level"></select></label>
+        <label>Section<select id="report-section"></select></label>
+        <label
+          >Report
+          <select id="report-type">
+            <option value="class-list">Master Class List</option>
+            <option value="section-summary">Section Summary</option>
+            <option value="school-statistics">School Statistics</option>
+          </select>
+        </label>
+        <button id="generate-report-btn" class="admin-primary" type="button">Generate Report</button>
+        <button id="print-report-btn" class="admin-secondary" type="button" disabled>Print Report</button>
+      </div>
+      <p id="reports-status" class="admin-note" role="status" aria-live="polite"></p>
+      <section class="admin-table-wrap" id="reports-output"></section>
+    </main>
+    <script type="module" src="/role-admin/admin-reports-page.js"></script>
+  </body>
+</html>

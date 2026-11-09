@@ -13,6 +13,8 @@ import { loadMyRequests } from './registrar-requests.js'
 import { loadStudents, refreshShiftSections } from './registrar-shifting.js'
 import { loadPromotionCandidates } from './registrar-promotion.js'
 import { mountStudentQuickviewModal } from './student-quickview-modal.js'
+import { mountEnrollmentWindow } from './enrollment-window.js'
+import { showLifecycleTab } from './registrar-lifecycle-tabs.js'
 
 applyUiTheme()
 
@@ -27,10 +29,15 @@ mountSidebar(
     { label: 'Manage Enrollment', tab: 'enrollment', active: true, icon: '▣' },
     { label: 'New Admission', tab: 'admission', icon: '▣' },
     { label: 'Applications', tab: 'applications', icon: '♙' },
+    { label: 'Bulk Import', tab: 'import', icon: '⇧' },
     { label: 'Section Students', tab: 'sectioning', icon: '▤' },
     { label: 'Active Directory', tab: 'directory', icon: '▤' },
     { label: 'Academic History', tab: 'academic', icon: '♧' },
+    { label: 'Section Reports', tab: 'section-reports', icon: '▧' },
     { label: 'Promotion & Transfers', tab: 'promotion', icon: '↗' },
+    { label: 'Graduation', tab: 'graduation', icon: '★' },
+    { label: 'Discipline', tab: 'discipline', icon: '⚑' },
+    { label: 'Document Requests', tab: 'documents', icon: '▱' },
     { label: 'Requests & Feedback', tab: 'requests', icon: '✉' },
     { label: 'Restore Changes', tab: 'restore', icon: '↺' }
   ],
@@ -57,6 +64,7 @@ function showTab(name) {
   }
   if (name === 'requests') loadMyRequests()
   if (name === 'restore') mountRestoreChanges($('restore-changes-host'))
+  showLifecycleTab(name)
 }
 $('refresh-restore').onclick = event => withBusy(event.currentTarget, 'Refreshing…', () => mountRestoreChanges($('restore-changes-host')))
 const tabFromHash = () => {
@@ -73,6 +81,7 @@ window.addEventListener('popstate', () => showTab(tabFromHash() || tabs[0].datas
 if (tabFromHash()) showTab(tabFromHash())
 
 mountAnnouncements($('announcements-host'), 'registrar')
+mountEnrollmentWindow($('enrollment-window'))
 
 async function init() {
   const results = await Promise.allSettled([loadApplications(), loadSections(), loadStudents()])

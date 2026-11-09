@@ -18,6 +18,9 @@ import { mountStudentDashboardLayout } from './student-dashboard-layout.js'
 import { historicalSchoolYears, renderHistoricalRecords } from './student-history-view.js'
 import { mountStudentRequestPortal } from './student-request-portal.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
+import { mountSanctions } from '../shared/ui/sanctions.js'
+import { mountStudentDocumentRequests } from '../shared/ui/document-requests.js'
+import { applyGraduateAccess } from './graduate-access.js'
 applyUiTheme()
 const user = await requireRole(4)
 if (!user) throw new Error('Unauthorized')
@@ -38,6 +41,8 @@ mountSidebar(
 )
 mountStudentDashboardLayout()
 mountStudentRequestPortal({ supabase, user })
+mountStudentDocumentRequests(document.getElementById('document-requests-host'))
+if (user.student_id) mountSanctions(document.getElementById('student-discipline'), { studentId: user.student_id, readOnly: true })
 
 let student = null
 let sectionId = null
@@ -261,9 +266,7 @@ function renderHistory() {
   if (!years.length) {
     const error = historyError || gradesError
     const message = error || 'No historical academic records are available yet.'
-    const state = error
-      ? `<p class="note" role="alert">${escape(message)}</p>`
-      : `<p class="admin-note">${escape(message)}</p>`
+    const state = error ? `<p class="note" role="alert">${escape(message)}</p>` : `<p class="admin-note">${escape(message)}</p>`
     document.getElementById('history-placement').innerHTML = state
     document.getElementById('history-grades-first').innerHTML = state
     document.getElementById('history-grades-second').innerHTML = ''
@@ -282,9 +285,7 @@ function renderHistory() {
     document.getElementById('history-grades-first').innerHTML = gradesError
       ? `<p class="note" role="alert">${escape(gradesError)}</p>`
       : records.firstSemesterHtml
-    document.getElementById('history-grades-second').innerHTML = gradesError
-      ? ''
-      : records.secondSemesterHtml
+    document.getElementById('history-grades-second').innerHTML = gradesError ? '' : records.secondSemesterHtml
   }
   filter.onchange = render
   render()
@@ -322,7 +323,6 @@ function renderTranscript() {
   document.getElementById('student-transcript-print').innerHTML = html
 }
 
-
 async function loadAttendance() {
   const table = document.getElementById('attendance-table')
 
@@ -347,16 +347,9 @@ async function loadAttendance() {
       p_school_year: schoolYear || null
     }),
 
-    historyQuery
-      .order('attendance_date', { ascending: false })
-      .limit(20),
+    historyQuery.order('attendance_date', { ascending: false }).limit(20),
 
-    schoolYear
-      ? supabase
-          .from('school_days')
-          .select('days')
-          .eq('school_year', schoolYear)
-      : Promise.resolve({ data: null, error: null })
+    schoolYear ? supabase.from('school_days').select('days').eq('school_year', schoolYear) : Promise.resolve({ data: null, error: null })
   ])
 
   const summary = document.getElementById('attendance-summary')
@@ -366,13 +359,9 @@ async function loadAttendance() {
   } else {
     const schoolDays = schoolDaysResult.data
     const schoolDaysTotal =
-      !schoolDaysResult.error && schoolDays?.length
-        ? schoolDays.reduce((sum, row) => sum + Number(row.days || 0), 0)
-        : null
+      !schoolDaysResult.error && schoolDays?.length ? schoolDays.reduce((sum, row) => sum + Number(row.days || 0), 0) : null
 
-    summary.textContent =
-      `${schoolYear ? `S.Y. ${schoolYear}: ` : ''}` +
-      attendanceSummaryLine(totals.data, schoolDaysTotal)
+    summary.textContent = `${schoolYear ? `S.Y. ${schoolYear}: ` : ''}` + attendanceSummaryLine(totals.data, schoolDaysTotal)
   }
 
   if (history.error) {
@@ -381,11 +370,7 @@ async function loadAttendance() {
   }
 
   table.innerHTML =
-    (history.data || [])
-      .map(a =>
-        `<tr><td>${formatDate(a.attendance_date)}</td><td>${escape(a.status)}</td></tr>`
-      )
-      .join('') ||
+    (history.data || []).map(a => `<tr><td>${formatDate(a.attendance_date)}</td><td>${escape(a.status)}</td></tr>`).join('') ||
     '<tr><td colspan="2">No absences, lates or excused days recorded.</td></tr>'
 }
 
@@ -398,6 +383,7 @@ document.getElementById('print-unofficial-transcript').onclick = () =>
   })
 
 await Promise.all([loadGradingScales(), loadStudent()])
+applyGraduateAccess(student)
 await Promise.all([
   loadSchedule(),
   loadGrades(),

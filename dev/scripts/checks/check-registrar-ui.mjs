@@ -56,6 +56,7 @@ try {
   }
   const loadMyRequests = () => {};
   const mountAnnouncements = () => {};
+  const mountEnrollmentWindow = () => {};
   ${landing}
   $('new-enrollment').onclick = () => document.querySelector('[data-tab="admission"]').click();
   const visiblePanels = () => [...document.querySelectorAll('[data-panel]')].filter(p => getComputedStyle(p).display !== 'none').map(p => p.id);

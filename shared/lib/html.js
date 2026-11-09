@@ -33,6 +33,13 @@ export function formatDate(value, includeTime = false) {
   return includeTime ? date.toLocaleString() : date.toLocaleDateString()
 }
 
+// A 'YYYY-MM-DD' date spelled out ("June 1, 2026"), read as a local date so it never shifts a day.
+export function longDate(value, options = {}) {
+  if (!value) return '-'
+  const [year, month, day] = String(value).slice(0, 10).split('-').map(Number)
+  return new Date(year, month - 1, day).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric', ...options })
+}
+
 export function gradeLabel(value) {
   return Number(value) === 0 ? 'Kindergarten' : `Grade ${value}`
 }

@@ -1,5 +1,8 @@
 # Ideas for later
 
+> Built on branch SchoolYearLifecycle (2026-11-09): school-year rollover (Year Setup), document requests, DepEd
+> School Forms (SF1, SF2, SF5, SF10), bulk student import and in-app help. See ARCHITECTURE.md → School-year lifecycle.
+
 Possible additions to TCSMS, gathered 2026-10-22. Nothing here is planned or built yet; pick from it when
 deciding what to do next.
 

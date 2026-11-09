@@ -8,11 +8,7 @@
   </head>
 
   <body class="admin-shell">
-    <div
-      id="tcsms-loading-screen"
-      class="loading-screen"
-      style="position:fixed;inset:0;background:#091c3c"
-    ></div>
+    <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
 
     <main>
       <div class="admin-page-head">
@@ -25,9 +21,7 @@
       <section class="admin-table-wrap">
         <div class="admin-section-title">
           <h3>Applications Awaiting Review</h3>
-          <button id="refresh-admissions" class="admin-secondary" type="button">
-            Refresh
-          </button>
+          <button id="refresh-admissions" class="admin-secondary" type="button">Refresh</button>
         </div>
 
         <table class="audit-events-table">
@@ -37,6 +31,7 @@
               <th>Applicant</th>
               <th>Grade Level</th>
               <th>Status</th>
+              <th>Requirements</th>
               <th>Date Submitted</th>
               <th>Action</th>
             </tr>
@@ -44,7 +39,7 @@
 
           <tbody id="admission-rejection-table">
             <tr>
-              <td colspan="6">Loading applications...</td>
+              <td colspan="7">Loading applications...</td>
             </tr>
           </tbody>
         </table>
@@ -100,11 +95,11 @@
 
           <p id="rejection-message" role="status" aria-live="polite"></p>
 
-          <button class="admin-primary" type="submit">
-            Reject Application
-          </button>
+          <button class="admin-primary" type="submit">Reject Application</button>
         </form>
       </section>
+
+      <section class="admin-table-wrap lunch-card" id="requirement-types-host"></section>
     </main>
 
     <script type="module" src="/role-admin/admin-admission-rejection.js"></script>

@@ -62,6 +62,11 @@ export function nextSchoolYear(schoolYear) {
   return `${Number(match[1]) + 1}-${Number(match[2]) + 1}`
 }
 
+export function previousSchoolYear(schoolYear) {
+  const [first, second] = nextSchoolYear(schoolYear).split('-').map(Number)
+  return `${first - 2}-${second - 2}`
+}
+
 export function sectionYearKey(section) {
   return sectionKey(section)
 }

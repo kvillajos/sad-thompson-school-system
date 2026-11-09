@@ -41,12 +41,19 @@ const pages = {
   adminSchedules: 'role-admin/admin-schedules.html',
   adminAudit: 'role-admin/admin-audit.html',
   adminSchoolYears: 'role-admin/admin-school-years.html',
+  adminCalendar: 'role-admin/admin-calendar.html',
+  adminYearSetup: 'role-admin/admin-year-setup.html',
+  adminGradeTracker: 'role-admin/admin-grade-tracker.html',
+  adminAdmissions: 'role-admin/admin-admissions.html',
+  adminDiscipline: 'role-admin/admin-discipline.html',
+  adminReports: 'role-admin/admin-reports.html',
 
   // Registrar
   registrar: 'role-registrar/student-records.html',
 
   // Faculty
   faculty: 'role-faculty/faculty-dashboard.html',
+  facultyAdvisory: 'role-faculty/faculty-advisory.html',
   facultyClassList: 'role-faculty/faculty-class-list.html',
   facultyGrades: 'role-faculty/faculty-grades.html',
   facultyUpload: 'role-faculty/faculty-upload.html',

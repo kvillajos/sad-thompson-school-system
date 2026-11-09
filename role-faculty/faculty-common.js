@@ -14,6 +14,7 @@ export async function loadFacultyContext(activePage = 'dashboard') {
   mountProfile(user, 'Faculty', signOut)
   const navigation = [
     ['Dashboard', '/role-faculty/faculty-dashboard.html', '⌂', 'dashboard'],
+    ['My Advisory', '/role-faculty/faculty-advisory.html', '♙', 'advisory'],
     ['Class List', '/role-faculty/faculty-class-list.html', '▤', 'class-list'],
     ['Grades', '/role-faculty/faculty-grades.html', '✎', 'grades'],
     ['Bulk Upload', '/role-faculty/faculty-upload.html', '⇧', 'upload'],

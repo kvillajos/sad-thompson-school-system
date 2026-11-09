@@ -2,7 +2,30 @@
 import { escapeHtml } from '../lib/html.js'
 import { generalAverage, scaleFor, PASSING_GRADE } from '../lib/grades.js'
 
-export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, academicRows = [], attendance, schoolDays = [], monthlyAbsences = {}, remarks, scale }) {
+// Absent days per month for the attendance table: one student's 'Absent' rows ({ attendance_date }), where
+// several class meetings on the same date count as one day.
+export function monthlyAbsencesFrom(rows = []) {
+  const byMonth = {}
+  for (const row of rows) {
+    if (!row.attendance_date) continue
+    const month = Number(row.attendance_date.slice(5, 7))
+    ;(byMonth[month] ||= new Set()).add(row.attendance_date)
+  }
+  return Object.fromEntries(Object.entries(byMonth).map(([month, dates]) => [month, dates.size]))
+}
+
+export function buildReportCard({
+  student,
+  gradeLevel,
+  schoolYear,
+  sectionName,
+  academicRows = [],
+  attendance,
+  schoolDays = [],
+  monthlyAbsences = {},
+  remarks,
+  scale
+}) {
   const bands = scale || scaleFor(schoolYear)
   // 1. Exclude any duplicate database row where subject is named "General Average"
   const cleanRows = (academicRows || []).filter(r => {
@@ -197,15 +220,17 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
                 { number: 1, name: 'January' },
                 { number: 2, name: 'February' },
                 { number: 3, name: 'March' }
-              ].map(month => {
-                const record = schoolDays.find(row => Number(row.month) === month.number)
-                const days = record ? Number(record.days) : null
-                const absent = record && Number.isFinite(Number(monthlyAbsences[month.number]))
-                  ? Math.min(days, Number(monthlyAbsences[month.number]))
-                  : null
-                const present = days != null && absent != null ? days - absent : null
+              ]
+                .map(month => {
+                  const record = schoolDays.find(row => Number(row.month) === month.number)
+                  const days = record ? Number(record.days) : null
+                  const absent =
+                    record && Number.isFinite(Number(monthlyAbsences[month.number]))
+                      ? Math.min(days, Number(monthlyAbsences[month.number]))
+                      : null
+                  const present = days != null && absent != null ? days - absent : null
 
-                return `
+                  return `
                   <tr>
                     <td>${month.name}</td>
                     <td style="text-align:center;">${days ?? '-'}</td>
@@ -213,7 +238,8 @@ export function buildReportCard({ student, gradeLevel, schoolYear, sectionName, 
                     <td style="text-align:center;">${absent ?? '-'}</td>
                   </tr>
                 `
-              }).join('')}
+                })
+                .join('')}
             </tbody>
           </table>
 

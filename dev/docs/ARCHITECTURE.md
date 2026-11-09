@@ -111,6 +111,7 @@ dev/                          development only, not part of the build
 | `registrar-academic.js` | academic history, report card, print card, transcript |
 | `registrar-shifting.js` | promotion, transfer/shifting, feedback |
 | `registrar-requests.js` | approval requests filed to the admin |
+| `registrar-lifecycle-tabs.js` | lazy tabs: Bulk Import, Section Reports, Graduation, Document Requests, Discipline |
 
 Imports go one way (`registrar.js` → feature modules → `registrar-state.js`) to avoid ES-module circular-import
 ordering bugs. Keep it that way.
@@ -154,6 +155,29 @@ ordering bugs. Keep it that way.
   preview/print, schedule, profile with guardian/medical fields, attendance, notifications, edit requests,
   and LRN/account/section-transfer requests with live approval status
 - RBAC through RLS, append-only audit logs (including promotions and CRUD), daily audit archives
+
+### School-year lifecycle (branch SchoolYearLifecycle, SQL v56-v63)
+
+| Stage | What | Where |
+| --- | --- | --- |
+| Before the year | Year Setup wizard: create year, copy sections/timetables, lunch times and grading scale, calendar and school days, advisers, open enrollment | `role-admin/admin-year-setup*`, `copy-year.js` |
+| | School calendar: quarter dates, grade deadlines, holidays, "Compute from calendar" school days | `role-admin/admin-calendar*`, `shared/lib/calendar.js` (v56) |
+| Enrollment | Enrollment-open switch per year, enforced by triggers on `enrollments` / `student_school_years` | v57, `role-registrar/enrollment-window.js` |
+| | Admission requirements checklist (admin-editable list, uploads tick items, approval blocked unless an override is approved) | `shared/lib/requirements.js`, `shared/ui/requirements-checklist.js`, `role-admin/requirement-types.js` (v58) |
+| | Bulk import from CSV/Excel; admin "Provision pending logins" | `role-registrar/registrar-import.js`, `shared/lib/student-import.js` (v59) |
+| During the year | Grade submission tracker per quarter (late against the calendar deadline) | `role-admin/admin-grade-tracker*`, `shared/lib/grade-tracker.js` |
+| | My Advisory: the adviser's section (grades, attendance, requests, discipline) | `role-faculty/faculty-advisory*` (v60 adviser read policies) |
+| | Discipline records (admin, registrar, adviser write; student reads own) | `shared/ui/sanctions.js`, `role-admin/admin-discipline*` (v61) |
+| | Document requests (Form 137, Good Moral, COE): student → registrar queue → notifications | `shared/ui/document-requests.js` (v62) |
+| End of quarter | Batch report cards per section | `role-registrar/registrar-section-reports.js` |
+| | DepEd SF1, SF2, SF5, SF10 as .xlsx (exceljs, loaded on demand) | `shared/documents/deped-forms.js`, `xlsx-writer.js`, `role-registrar/registrar-deped-forms.js` |
+| End of year | Graduation lists (from batch promotion) and transcript-only login for graduates | `role-registrar/registrar-graduation.js`, `role-student/graduate-access.js` |
+| | Year-end checklist + Close / Reopen year (a closed year is Past, so the v47b lock applies) | `role-admin/year-end-checklist.js` (v63) |
+| Anytime | "How do I…" help per role (profile menu) | `shared/ui/help.js` |
+
+New registrar tabs are built on first open by `role-registrar/registrar-lifecycle-tabs.js`; `registrar.js` only calls
+`showLifecycleTab()`. New tables with a `school_year` column call `link_school_year_column()` (v56) for the v47b
+foreign key and Past-year lock, and `attach_change_tracking()` for the audit trail and Restore Changes.
 
 ## Known limits
 
