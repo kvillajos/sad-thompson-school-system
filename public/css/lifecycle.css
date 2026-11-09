@@ -74,6 +74,15 @@
   font-size: 14px;
   color: var(--ui-muted);
 }
+/* Batch report cards: one student per printed page. */
+.batch-report-card {
+  page-break-after: always;
+  break-after: page;
+}
+.batch-report-card:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
 .tracker-cell {
   white-space: nowrap;
 }

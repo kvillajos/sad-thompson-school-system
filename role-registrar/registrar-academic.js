@@ -7,7 +7,7 @@ import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { currentSchoolYear } from '../shared/lib/grades.js'
-import { buildReportCard } from '../shared/documents/report-card.js'
+import { buildReportCard, monthlyAbsencesFrom } from '../shared/documents/report-card.js'
 import { buildSemesterTable } from '../shared/lib/semester-grades.js'
 import { buildTranscript } from '../shared/documents/transcript.js'
 import { previewPdf, pdfName } from '../shared/documents/pdf-preview.js'
@@ -242,24 +242,7 @@ async function printAcademicCard(studentId, year = '') {
   }
 
   const schoolDays = schoolDaysResult.data || []
-  const monthlyAbsences = {}
-  const absentDatesByMonth = {}
-
-  for (const record of attendanceResult.data || []) {
-    if (!record.attendance_date) continue
-
-    const month = Number(record.attendance_date.slice(5, 7))
-
-    if (!absentDatesByMonth[month]) {
-      absentDatesByMonth[month] = new Set()
-    }
-
-    absentDatesByMonth[month].add(record.attendance_date)
-  }
-
-  for (const [month, dates] of Object.entries(absentDatesByMonth)) {
-    monthlyAbsences[month] = dates.size
-  }
+  const monthlyAbsences = monthlyAbsencesFrom(attendanceResult.data || [])
 
   const isCurrentYear = schoolYear === currentSchoolYear()
 

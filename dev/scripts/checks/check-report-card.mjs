@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { buildReportCard } from '../../../shared/documents/report-card.js'
+import { buildReportCard, monthlyAbsencesFrom } from '../../../shared/documents/report-card.js'
 
 const html = buildReportCard({
   student: { first_name: 'Ana', last_name: 'Santos', lrn_number: 'TCS-26-00001' },
@@ -36,7 +36,7 @@ assert.ok(
   'quarter grades (stored as first_sem_q1..second_sem_q2) must fill the Quarter 1-4 columns'
 )
 assert.ok(html.includes('Absences: 1'), 'attendance summary must appear')
- const monthly = buildReportCard({
+const monthly = buildReportCard({
   student: { first_name: 'Ana', last_name: 'Santos' },
   gradeLevel: 'Grade 5',
   schoolYear: '2026-2027',
@@ -116,5 +116,17 @@ assert.ok(theme.includes('printing-card'), 'ui-theme.js must style the record-ca
 const facultyJs = readFileSync(join(root, 'role-faculty', 'faculty-reports-page.js'), 'utf8')
 assert.ok(facultyJs.includes('printing-report-card'), 'the faculty report preview must still use its print CSS class')
 assert.ok(theme.includes('printing-report-card'), 'ui-theme.js must still style the faculty report-card print class')
+
+// Monthly absences count days, not class meetings: two absent classes on 3 Aug are one day.
+assert.deepEqual(
+  monthlyAbsencesFrom([
+    { attendance_date: '2026-08-03' },
+    { attendance_date: '2026-08-03' },
+    { attendance_date: '2026-08-10' },
+    { attendance_date: '2026-09-01' },
+    { attendance_date: null }
+  ]),
+  { 8: 2, 9: 1 }
+)
 
 console.log('report card checks passed')

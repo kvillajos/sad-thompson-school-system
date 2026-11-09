@@ -4,9 +4,11 @@ import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
 import { mountImportTab } from './registrar-import.js'
 import { mountStaffSanctions } from '../shared/ui/sanctions.js'
+import { mountSectionReportsTab } from './registrar-section-reports.js'
 
 const TABS = {
   import: mountImportTab,
+  'section-reports': mountSectionReportsTab,
   discipline: host => mountStaffSanctions(host)
 }
 const mounted = new Set()

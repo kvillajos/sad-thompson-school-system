@@ -33,6 +33,7 @@ mountSidebar(
     { label: 'Section Students', tab: 'sectioning', icon: '▤' },
     { label: 'Active Directory', tab: 'directory', icon: '▤' },
     { label: 'Academic History', tab: 'academic', icon: '♧' },
+    { label: 'Section Reports', tab: 'section-reports', icon: '▧' },
     { label: 'Promotion & Transfers', tab: 'promotion', icon: '↗' },
     { label: 'Discipline', tab: 'discipline', icon: '⚑' },
     { label: 'Requests & Feedback', tab: 'requests', icon: '✉' },
