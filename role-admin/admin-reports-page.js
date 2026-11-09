@@ -1,7 +1,10 @@
-
 import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
+import { escapeHtml, gradeLevelOptions } from '../shared/lib/html.js'
+import { fetchAll } from '../shared/lib/fetch-all.js'
+import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
+import { currentSchoolYear } from '../shared/lib/grades.js'
 import { mountAdminShell } from './admin-page.js'
 
 const reportTypeSelect = document.getElementById('report-type')
@@ -20,15 +23,6 @@ let enrollments = []
 let currentReportGenerated = false
 
 const ACTIVE_STATUS = 'active'
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
-}
 
 function normalizeGradeLevel(value) {
   if (value === null || value === undefined || value === '') {
@@ -57,13 +51,7 @@ function getStudentName(student) {
     return 'Unknown Student'
   }
 
-  return [
-    student.last_name,
-    student.first_name,
-    student.middle_name,
-  ]
-    .filter(Boolean)
-    .join(', ')
+  return [student.last_name, student.first_name, student.middle_name].filter(Boolean).join(', ')
 }
 
 function setStatus(message, isError = false) {
@@ -87,39 +75,18 @@ function showEmptyMessage(message) {
   printButton.disabled = true
 }
 
-async function fetchAllRows(tableName) {
-  const pageSize = 1000
-  let start = 0
-  let allRows = []
-
-  while (true) {
-    const { data, error } = await supabase
-      .from(tableName)
-      .select('*')
-      .range(start, start + pageSize - 1)
-
-    if (error) {
-      throw new Error(`Unable to load ${tableName}: ${error.message}`)
-    }
-
-    const rows = data ?? []
-    allRows = allRows.concat(rows)
-
-    if (rows.length < pageSize) {
-      break
-    }
-
-    start += pageSize
-  }
-
-  return allRows
+// fetchAll pages past Supabase's 1,000-row limit; the order column keeps the pages stable.
+async function fetchAllRows(tableName, columns, key) {
+  const { data, error } = await fetchAll(() => supabase.from(tableName).select(columns).order(key))
+  if (error) throw new Error(`Unable to load ${tableName}: ${error.message}`)
+  return data
 }
 
 async function loadReportData() {
   const [studentRows, sectionRows, enrollmentRows] = await Promise.all([
-    fetchAllRows('students'),
-    fetchAllRows('sections'),
-    fetchAllRows('enrollments'),
+    fetchAllRows('students', 'student_id,lrn_number,first_name,middle_name,last_name,gender', 'student_id'),
+    fetchAllRows('sections', 'section_id,section_name,grade_level,academic_year', 'section_id'),
+    fetchAllRows('enrollments', 'id,student_id,section_id,grade_level,school_year,status', 'id')
   ])
 
   students = studentRows
@@ -130,13 +97,13 @@ async function loadReportData() {
 function populateSchoolYearFilter() {
   const years = new Set()
 
-  enrollments.forEach((enrollment) => {
+  enrollments.forEach(enrollment => {
     if (enrollment.school_year) {
       years.add(String(enrollment.school_year))
     }
   })
 
-  sections.forEach((section) => {
+  sections.forEach(section => {
     if (section.academic_year) {
       years.add(String(section.academic_year))
     }
@@ -146,35 +113,28 @@ function populateSchoolYearFilter() {
 
   schoolYearSelect.innerHTML = `
     <option value="">All School Years</option>
-    ${sortedYears
-      .map(
-        (year) =>
-          `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`,
-      )
-      .join('')}
+    ${sortedYears.map(year => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join('')}
   `
+  if (sortedYears.includes(currentSchoolYear())) schoolYearSelect.value = currentSchoolYear()
+  gradeLevelSelect.innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All Grade Levels', grades: OFFERED_GRADES })
 }
 
 function populateSectionFilter() {
   const selectedGrade = normalizeGradeLevel(gradeLevelSelect.value)
   const selectedYear = schoolYearSelect.value
 
-  const matchingSections = sections.filter((section) => {
+  const matchingSections = sections.filter(section => {
     const sectionGrade = normalizeGradeLevel(section.grade_level)
     const sectionYear = String(section.academic_year ?? '')
 
-    const gradeMatches =
-      !selectedGrade || sectionGrade === selectedGrade
+    const gradeMatches = !selectedGrade || sectionGrade === selectedGrade
 
-    const yearMatches =
-      !selectedYear || !sectionYear || sectionYear === selectedYear
+    const yearMatches = !selectedYear || !sectionYear || sectionYear === selectedYear
 
     return gradeMatches && yearMatches
   })
 
-  matchingSections.sort((a, b) =>
-    String(a.section_name ?? '').localeCompare(String(b.section_name ?? '')),
-  )
+  matchingSections.sort((a, b) => String(a.section_name ?? '').localeCompare(String(b.section_name ?? '')))
 
   const previousSection = sectionSelect.value
 
@@ -182,18 +142,16 @@ function populateSectionFilter() {
     <option value="">All Sections</option>
     ${matchingSections
       .map(
-        (section) => `
+        section => `
           <option value="${escapeHtml(section.section_id)}">
             ${escapeHtml(section.section_name ?? 'Unnamed Section')}
           </option>
-        `,
+        `
       )
       .join('')}
   `
 
-  const previousStillExists = matchingSections.some(
-    (section) => String(section.section_id) === previousSection,
-  )
+  const previousStillExists = matchingSections.some(section => String(section.section_id) === previousSection)
 
   if (previousStillExists) {
     sectionSelect.value = previousSection
@@ -205,50 +163,36 @@ function getFilteredEnrollments() {
   const selectedGrade = normalizeGradeLevel(gradeLevelSelect.value)
   const selectedSection = sectionSelect.value
 
-  return enrollments.filter((enrollment) => {
+  return enrollments.filter(enrollment => {
     const status = String(enrollment.status ?? '').toLowerCase()
 
     if (status !== ACTIVE_STATUS) {
       return false
     }
 
-    const yearMatches =
-      !selectedYear ||
-      String(enrollment.school_year ?? '') === selectedYear
+    const yearMatches = !selectedYear || String(enrollment.school_year ?? '') === selectedYear
 
-    const gradeMatches =
-      !selectedGrade ||
-      normalizeGradeLevel(enrollment.grade_level) === selectedGrade
+    const gradeMatches = !selectedGrade || normalizeGradeLevel(enrollment.grade_level) === selectedGrade
 
-    const sectionMatches =
-      !selectedSection ||
-      String(enrollment.section_id ?? '') === selectedSection
+    const sectionMatches = !selectedSection || String(enrollment.section_id ?? '') === selectedSection
 
     return yearMatches && gradeMatches && sectionMatches
   })
 }
 
 function getStudentById(studentId) {
-  return students.find(
-    (student) => String(student.student_id) === String(studentId),
-  )
+  return students.find(student => String(student.student_id) === String(studentId))
 }
 
 function getSectionById(sectionId) {
-  return sections.find(
-    (section) => String(section.section_id) === String(sectionId),
-  )
+  return sections.find(section => String(section.section_id) === String(sectionId))
 }
 
 function getReportContext() {
   const year = schoolYearSelect.value || 'All School Years'
-  const grade = gradeLevelSelect.value
-    ? getGradeLabel(gradeLevelSelect.value)
-    : 'All Grade Levels'
+  const grade = gradeLevelSelect.value ? getGradeLabel(gradeLevelSelect.value) : 'All Grade Levels'
 
-  const section = sectionSelect.value
-    ? getSectionById(sectionSelect.value)?.section_name ?? 'Selected Section'
-    : 'All Sections'
+  const section = sectionSelect.value ? (getSectionById(sectionSelect.value)?.section_name ?? 'Selected Section') : 'All Sections'
 
   return `${year} | ${grade} | ${section}`
 }
@@ -273,9 +217,7 @@ function renderTable(headers, rows) {
       <table class="reports-table">
         <thead>
           <tr>
-            ${headers
-              .map((header) => `<th>${escapeHtml(header)}</th>`)
-              .join('')}
+            ${headers.map(header => `<th>${escapeHtml(header)}</th>`).join('')}
           </tr>
         </thead>
 
@@ -284,16 +226,11 @@ function renderTable(headers, rows) {
             rows.length
               ? rows
                   .map(
-                    (row) => `
+                    row => `
                       <tr>
-                        ${row
-                          .map(
-                            (cell) =>
-                              `<td>${escapeHtml(cell ?? '—')}</td>`,
-                          )
-                          .join('')}
+                        ${row.map(cell => `<td>${escapeHtml(cell ?? '—')}</td>`).join('')}
                       </tr>
-                    `,
+                    `
                   )
                   .join('')
               : `
@@ -312,14 +249,14 @@ function renderTable(headers, rows) {
 
 function renderClassList(filteredEnrollments) {
   const rows = filteredEnrollments
-    .map((enrollment) => {
+    .map(enrollment => {
       const student = getStudentById(enrollment.student_id)
       const section = getSectionById(enrollment.section_id)
 
       return {
         student,
         enrollment,
-        section,
+        section
       }
     })
     .sort((a, b) => {
@@ -331,35 +268,24 @@ function renderClassList(filteredEnrollments) {
 
   const tableRows = rows.map(({ student, enrollment, section }, index) => [
     index + 1,
-    student?.student_id ?? enrollment.student_id ?? '—',
+    student?.lrn_number ?? enrollment.student_id ?? '—',
     getStudentName(student),
     getGradeLabel(enrollment.grade_level),
     section?.section_name ?? 'Unassigned',
     student?.gender ?? '—',
-    enrollment.school_year ?? '—',
+    enrollment.school_year ?? '—'
   ])
 
   return `
     ${renderReportHeading('Master Class List')}
-    ${renderTable(
-      [
-        '#',
-        'Student ID',
-        'Student Name',
-        'Grade Level',
-        'Section',
-        'Gender',
-        'School Year',
-      ],
-      tableRows,
-    )}
+    ${renderTable(['#', 'Student ID', 'Student Name', 'Grade Level', 'Section', 'Gender', 'School Year'], tableRows)}
   `
 }
 
 function renderSectionSummary(filteredEnrollments) {
   const sectionMap = new Map()
 
-  filteredEnrollments.forEach((enrollment) => {
+  filteredEnrollments.forEach(enrollment => {
     const sectionId = String(enrollment.section_id ?? 'unassigned')
     const section = getSectionById(enrollment.section_id)
 
@@ -371,7 +297,7 @@ function renderSectionSummary(filteredEnrollments) {
         studentCount: 0,
         maleCount: 0,
         femaleCount: 0,
-        otherCount: 0,
+        otherCount: 0
       })
     }
 
@@ -390,54 +316,39 @@ function renderSectionSummary(filteredEnrollments) {
     }
   })
 
-  const summaries = [...sectionMap.values()].sort((a, b) =>
-    String(a.sectionName).localeCompare(String(b.sectionName)),
-  )
+  const summaries = [...sectionMap.values()].sort((a, b) => String(a.sectionName).localeCompare(String(b.sectionName)))
 
-  const tableRows = summaries.map((summary) => [
+  const tableRows = summaries.map(summary => [
     summary.sectionName,
     getGradeLabel(summary.gradeLevel),
     summary.schoolYear ?? '—',
     summary.studentCount,
     summary.maleCount,
     summary.femaleCount,
-    summary.otherCount,
+    summary.otherCount
   ])
 
   return `
     ${renderReportHeading('Section Summary')}
-    ${renderTable(
-      [
-        'Section',
-        'Grade Level',
-        'School Year',
-        'Total Students',
-        'Male',
-        'Female',
-        'Other / Unspecified',
-      ],
-      tableRows,
-    )}
+    ${renderTable(['Section', 'Grade Level', 'School Year', 'Total Students', 'Male', 'Female', 'Other / Unspecified'], tableRows)}
   `
 }
 
 function renderSchoolStatistics(filteredEnrollments) {
-  const uniqueStudentIds = new Set(
-    filteredEnrollments.map((enrollment) => String(enrollment.student_id)),
-  )
+  const uniqueStudentIds = new Set(filteredEnrollments.map(enrollment => String(enrollment.student_id)))
 
   const sectionIds = new Set(
     filteredEnrollments
-      .map((enrollment) => enrollment.section_id)
-      .filter((sectionId) => sectionId !== null && sectionId !== undefined)
-      .map(String),
+      .map(enrollment => enrollment.section_id)
+      .filter(sectionId => sectionId !== null && sectionId !== undefined)
+      .map(String)
   )
 
   let maleCount = 0
   let femaleCount = 0
   let otherCount = 0
 
-  uniqueStudentIds.forEach((studentId) => {
+  uniqueStudentIds.forEach(studentId => {
     const student = getStudentById(studentId)
     const gender = String(student?.gender ?? '').toLowerCase()
 
@@ -452,7 +363,7 @@ function renderSchoolStatistics(filteredEnrollments) {
 
   const gradeMap = new Map()
 
-  filteredEnrollments.forEach((enrollment) => {
+  filteredEnrollments.forEach(enrollment => {
     const grade = normalizeGradeLevel(enrollment.grade_level) || 'Unspecified'
 
     gradeMap.set(grade, (gradeMap.get(grade) ?? 0) + 1)
@@ -518,9 +429,7 @@ function generateReport() {
   currentReportGenerated = true
   printButton.disabled = false
 
-  setStatus(
-    `Report generated. ${filteredEnrollments.length} active enrollment record(s) included.`,
-  )
+  setStatus(`Report generated. ${filteredEnrollments.length} active enrollment record(s) included.`)
 }
 
 async function initializeReportsPage() {
@@ -557,14 +466,9 @@ async function initializeReportsPage() {
   } catch (error) {
     console.error(error)
 
-    setStatus(
-      error.message || 'Unable to load reports data. Check your Supabase setup.',
-      true,
-    )
+    setStatus(error.message || 'Unable to load reports data. Check your Supabase setup.', true)
 
-    showEmptyMessage(
-      'Unable to load report data. Check the browser console for details.',
-    )
+    showEmptyMessage('Unable to load report data. Check the browser console for details.')
 
     toast(error.message || 'Unable to load reports data.', 'error')
   } finally {
