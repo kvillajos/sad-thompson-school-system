@@ -6,6 +6,7 @@ import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
+import { mountEditableGrid } from './faculty-grades-upload.js'
 
 // Q1 to Q4 and an optional Final Grade override. Midterm and the letter grade are no longer entered by hand.
 const TEMPLATE_SCORES = ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2', 'final']
@@ -38,6 +39,12 @@ if (context) {
     $('save-upload').disabled = !rows.length || bad > 0
     if (bad) toast(`${bad} row(s) have problems (shown in red). Fix them in the file and choose it again.`, 'error')
   }
+  mountEditableGrid({
+    body: $('upload-preview'),
+    getRows: () => rows,
+    getSchoolYear: () => $('upload-year').value.trim(),
+    saveButton: $('save-upload')
+  })
   // The CSV is keyed by the internal student_id, which faculty never see, so the template fills it in.
   // The name goes last (commas stripped) because parseGradeCsv splits on every comma.
   $('download-template').onclick = () => {

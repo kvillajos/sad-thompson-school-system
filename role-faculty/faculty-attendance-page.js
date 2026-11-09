@@ -5,6 +5,7 @@ import { withBusy } from '../shared/ui/shell.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
 import { guardUnsaved } from './unsaved.js'
+import { mountAttendanceDraft } from './faculty-attendance-entry.js'
 
 const context = await loadFacultyContext('attendance')
 if (context) {
@@ -37,6 +38,13 @@ if (context) {
   }
   $('attendance-table-body').addEventListener('input', () => unsaved.mark())
   $('attendance-table-body').addEventListener('change', () => unsaved.mark())
+  mountAttendanceDraft({
+    body: $('attendance-table-body'),
+    userId: context.user.user_id,
+    getClassKey: () => $('attendance-class').value,
+    getDate: () => $('attendance-date').value,
+    saveButton: $('save-attendance')
+  })
 
   async function loadAttendance() {
     const { chosen, roster } = selected()
