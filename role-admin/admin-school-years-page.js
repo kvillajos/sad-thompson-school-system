@@ -1,7 +1,7 @@
 import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
-import { escapeHtml as escape, errorRow } from '../shared/lib/html.js'
+import { escapeHtml as escape, errorRow, longDate as formatDate } from '../shared/lib/html.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
 import { withBusy } from '../shared/ui/shell.js'
@@ -28,10 +28,6 @@ const badge = status => {
   if (status === 'Active') return '<span class="badge active">Active</span>'
   const color = status === 'Upcoming' ? '#2161d1' : '#6b7280'
   return `<span class="badge" style="background:${color}1a;color:${color}">${status}</span>`
-}
-const formatDate = value => {
-  const [year, month, day] = String(value).split('-').map(Number)
-  return new Date(year, month - 1, day).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 const close = () => {
