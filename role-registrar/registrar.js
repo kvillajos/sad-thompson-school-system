@@ -14,6 +14,7 @@ import { loadStudents, refreshShiftSections } from './registrar-shifting.js'
 import { loadPromotionCandidates } from './registrar-promotion.js'
 import { mountStudentQuickviewModal } from './student-quickview-modal.js'
 import { mountEnrollmentWindow } from './enrollment-window.js'
+import { showLifecycleTab } from './registrar-lifecycle-tabs.js'
 
 applyUiTheme()
 
@@ -28,6 +29,7 @@ mountSidebar(
     { label: 'Manage Enrollment', tab: 'enrollment', active: true, icon: '▣' },
     { label: 'New Admission', tab: 'admission', icon: '▣' },
     { label: 'Applications', tab: 'applications', icon: '♙' },
+    { label: 'Bulk Import', tab: 'import', icon: '⇧' },
     { label: 'Section Students', tab: 'sectioning', icon: '▤' },
     { label: 'Active Directory', tab: 'directory', icon: '▤' },
     { label: 'Academic History', tab: 'academic', icon: '♧' },
@@ -58,6 +60,7 @@ function showTab(name) {
   }
   if (name === 'requests') loadMyRequests()
   if (name === 'restore') mountRestoreChanges($('restore-changes-host'))
+  showLifecycleTab(name)
 }
 $('refresh-restore').onclick = event => withBusy(event.currentTarget, 'Refreshing…', () => mountRestoreChanges($('restore-changes-host')))
 const tabFromHash = () => {

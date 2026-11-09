@@ -46,6 +46,7 @@ async function loadAccounts() {
   accounts = result.data || []
   filters.update(accounts)
   renderAccounts()
+  showProvisionPending()
 }
 function renderAccounts() {
   const search = document.getElementById('account-search').value.trim().toLowerCase()
@@ -349,6 +350,34 @@ async function runAccountAction(userId, action, button) {
     else if (action === 'provision') toast(`Login "${data.username}" is ready to use.`)
     else toast(action === 'deactivate' ? `${item?.username || 'Account'} deactivated.` : `${item?.username || 'Account'} activated.`)
     await loadAccounts()
+  })
+}
+// Bulk-imported and newly approved students wait with an initial_password until their real login is made.
+// One password check, then each pending account is provisioned in turn (the Edge Function takes one at a time).
+const provisionPending = document.getElementById('provision-pending')
+const pendingAccounts = () => accounts.filter(account => account.initial_password && account.is_active)
+const showProvisionPending = () => {
+  const count = pendingAccounts().length
+  provisionPending.hidden = !count
+  provisionPending.textContent = `Provision pending logins (${count})`
+}
+provisionPending.onclick = async () => {
+  const pending = pendingAccounts()
+  if (!pending.length) return
+  if (!(await verify(`Enter your password to provision ${pending.length} pending login(s).`))) return
+  await withBusy(provisionPending, 'Provisioning…', async () => {
+    const failed = []
+    for (const [index, item] of pending.entries()) {
+      provisionPending.textContent = `Provisioning ${index + 1} of ${pending.length}…`
+      const { error } = await supabase.functions.invoke('provision-account', { body: { user_id: item.user_id, action: 'provision' } })
+      if (error) failed.push(`${item.username}: ${await describeFunctionError(error, 'Provision')}`)
+    }
+    await loadAccounts()
+    if (failed.length)
+      await noticeDialog(`${pending.length - failed.length} provisioned, ${failed.length} failed:\n${failed.join('\n')}`, {
+        title: 'Provision logins'
+      })
+    else toast(`${pending.length} login(s) are ready. Each student signs in with username + "123".`)
   })
 }
 document.getElementById('account-search').oninput = renderAccounts
