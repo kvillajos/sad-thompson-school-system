@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <title>Admissions | TCSMS</title>
+  </head>
+
+  <body class="admin-shell">
+    <div
+      id="tcsms-loading-screen"
+      class="loading-screen"
+      style="position:fixed;inset:0;background:#091c3c"
+    ></div>
+
+    <main>
+      <div class="admin-page-head">
+        <div>
+          <h2>Admissions</h2>
+          <p>Review submitted admission applications and record rejection decisions.</p>
+        </div>
+      </div>
+
+      <section class="admin-table-wrap">
+        <div class="admin-section-title">
+          <h3>Applications Awaiting Review</h3>
+          <button id="refresh-admissions" class="admin-secondary" type="button">
+            Refresh
+          </button>
+        </div>
+
+        <table class="audit-events-table">
+          <thead>
+            <tr>
+              <th>Application ID</th>
+              <th>Applicant</th>
+              <th>Grade Level</th>
+              <th>Status</th>
+              <th>Date Submitted</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+
+          <tbody id="admission-rejection-table">
+            <tr>
+              <td colspan="6">Loading applications...</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="admin-table-wrap" style="margin-top:18px">
+        <div class="admin-section-title">
+          <h3>Reject an Application</h3>
+        </div>
+
+        <form id="rejection-form">
+          <div class="admin-form-group">
+            <label for="rejection-application">Application</label>
+            <select id="rejection-application" required>
+              <option value="">Select an application</option>
+            </select>
+          </div>
+
+          <h4>Prerequisite Checklist</h4>
+
+          <div>
+            <label>
+              <input id="check-details" type="checkbox" required />
+              I reviewed the applicant's submitted information.
+            </label>
+          </div>
+
+          <div>
+            <label>
+              <input id="check-documents" type="checkbox" required />
+              I checked the applicant's required documents.
+            </label>
+          </div>
+
+          <div>
+            <label>
+              <input id="check-eligibility" type="checkbox" required />
+              I reviewed the applicant's eligibility for the requested grade level.
+            </label>
+          </div>
+
+          <div class="admin-form-group" style="margin-top:16px">
+            <label for="rejection-reason">Rejection Reason</label>
+            <textarea
+              id="rejection-reason"
+              rows="4"
+              maxlength="500"
+              placeholder="Explain why this application is being rejected."
+              required
+            ></textarea>
+            <small>Maximum 500 characters.</small>
+          </div>
+
+          <p id="rejection-message" role="status" aria-live="polite"></p>
+
+          <button class="admin-primary" type="submit">
+            Reject Application
+          </button>
+        </form>
+      </section>
+    </main>
+
+    <script type="module" src="/role-admin/admin-admission-rejection.js"></script>
+  </body>
+</html>

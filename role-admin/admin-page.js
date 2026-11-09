@@ -12,6 +12,7 @@ const NAV = [
   ['Manage Subjects', '/role-admin/admin-subjects.html', '♧', 'subjects'],
   ['Manage Schedules', '/role-admin/admin-schedules.html', '▱', 'schedules'],
   ['School Years', '/role-admin/admin-school-years.html', '↺', 'school-years'],
+  ['Admissions', '/role-admin/admin-admissions.html', '▤', 'admissions'],
   ['Audit Trail', '/role-admin/admin-audit.html', '▤', 'audit']
 ]
 
