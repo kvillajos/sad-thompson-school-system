@@ -36,6 +36,7 @@ mountSidebar(
     { label: 'Section Reports', tab: 'section-reports', icon: '▧' },
     { label: 'Promotion & Transfers', tab: 'promotion', icon: '↗' },
     { label: 'Discipline', tab: 'discipline', icon: '⚑' },
+    { label: 'Document Requests', tab: 'documents', icon: '▱' },
     { label: 'Requests & Feedback', tab: 'requests', icon: '✉' },
     { label: 'Restore Changes', tab: 'restore', icon: '↺' }
   ],

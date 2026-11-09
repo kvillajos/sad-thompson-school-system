@@ -19,6 +19,7 @@ import { historicalSchoolYears, renderHistoricalRecords } from './student-histor
 import { mountStudentRequestPortal } from './student-request-portal.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
 import { mountSanctions } from '../shared/ui/sanctions.js'
+import { mountStudentDocumentRequests } from '../shared/ui/document-requests.js'
 applyUiTheme()
 const user = await requireRole(4)
 if (!user) throw new Error('Unauthorized')
@@ -39,6 +40,7 @@ mountSidebar(
 )
 mountStudentDashboardLayout()
 mountStudentRequestPortal({ supabase, user })
+mountStudentDocumentRequests(document.getElementById('document-requests-host'))
 if (user.student_id) mountSanctions(document.getElementById('student-discipline'), { studentId: user.student_id, readOnly: true })
 
 let student = null

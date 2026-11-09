@@ -6,8 +6,10 @@ import { mountImportTab } from './registrar-import.js'
 import { mountStaffSanctions } from '../shared/ui/sanctions.js'
 import { mountSectionReportsTab } from './registrar-section-reports.js'
 import { mountDepedForms } from './registrar-deped-forms.js'
+import { mountRegistrarDocumentRequests } from '../shared/ui/document-requests.js'
 
 const TABS = {
+  documents: mountRegistrarDocumentRequests,
   import: mountImportTab,
   'section-reports': async host => mountDepedForms(host.querySelector('#deped-forms-host'), await mountSectionReportsTab(host)),
   discipline: host => mountStaffSanctions(host)
