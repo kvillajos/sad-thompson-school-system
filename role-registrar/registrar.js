@@ -10,7 +10,9 @@ import { loadSections, loadEnrollments } from './registrar-sectioning.js'
 import { loadAcademic } from './registrar-academic.js'
 import { mountAnnouncements } from '../shared/ui/announcements.js'
 import { loadMyRequests } from './registrar-requests.js'
-import { loadStudents, refreshShiftSections, renderPromotionExclusions } from './registrar-shifting.js'
+import { loadStudents, refreshShiftSections } from './registrar-shifting.js'
+import { loadPromotionCandidates } from './registrar-promotion.js'
+import { mountStudentQuickviewModal } from './student-quickview-modal.js'
 
 applyUiTheme()
 
@@ -26,6 +28,7 @@ mountSidebar(
     { label: 'New Admission', tab: 'admission', icon: '▣' },
     { label: 'Applications', tab: 'applications', icon: '♙' },
     { label: 'Section Students', tab: 'sectioning', icon: '▤' },
+    { label: 'Active Directory', tab: 'directory', icon: '▤' },
     { label: 'Academic History', tab: 'academic', icon: '♧' },
     { label: 'Promotion & Transfers', tab: 'promotion', icon: '↗' },
     { label: 'Requests & Feedback', tab: 'requests', icon: '✉' },
@@ -34,15 +37,24 @@ mountSidebar(
   'Registry and<br>Student Records',
   'registrar'
 )
+mountStudentQuickviewModal()
 
 const tabs = [...document.querySelectorAll('[data-tab]')]
 const panels = [...document.querySelectorAll('[data-panel]')]
+let academicLoadStarted = false
 // The open tab lives in the URL hash so refresh and the browser Back button keep your place.
 function showTab(name) {
   tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name))
   panels.forEach(p => p.classList.add('hidden'))
   $(name).classList.remove('hidden')
   if (name === 'sectioning') loadSections()
+  if (name === 'academic' && !academicLoadStarted) {
+    academicLoadStarted = true
+    loadAcademic().catch(error => {
+      academicLoadStarted = false
+      toast(describeError(error, 'Load academic history'), 'error')
+    })
+  }
   if (name === 'requests') loadMyRequests()
   if (name === 'restore') mountRestoreChanges($('restore-changes-host'))
 }
@@ -63,12 +75,12 @@ if (tabFromHash()) showTab(tabFromHash())
 mountAnnouncements($('announcements-host'), 'registrar')
 
 async function init() {
-  const results = await Promise.allSettled([loadApplications(), loadSections(), loadStudents(), loadEnrollments()])
+  const results = await Promise.allSettled([loadApplications(), loadSections(), loadStudents()])
   results
     .filter(result => result.status === 'rejected')
     .forEach(result => toast(describeError(result.reason, 'Loading some records'), 'error'))
-  await loadAcademic()
-  renderPromotionExclusions()
+  await loadEnrollments()
+  await loadPromotionCandidates()
   await refreshShiftSections()
   hideLoadingScreen()
 }

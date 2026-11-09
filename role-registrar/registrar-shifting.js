@@ -3,34 +3,12 @@ import { toast } from '../shared/ui/ui-theme.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { $, state } from './registrar-state.js'
 import { escapeHtml, lastFirst, byLastName, gradeLabel, gradeToNumber } from '../shared/lib/html.js'
-import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { describeError } from '../shared/lib/errors.js'
 import { loadSections, loadEnrollments, renderStudentDirectory } from './registrar-sectioning.js'
 import { renderAcademicStudents } from './registrar-academic.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
-
-// Label values ("Grade 7"), which gradeToNumber() reads back.
-$('promotion-grade').innerHTML = OFFERED_GRADES.map(grade => `<option>${gradeLabel(grade)}</option>`).join('')
-
-export function renderPromotionExclusions() {
-  const search = $('promotion-exclude-search').value.trim().toLowerCase()
-  const grade = gradeToNumber($('promotion-grade').value)
-  const students = state.students.filter(
-    student =>
-      Number(student.grade_level) === grade &&
-      `${student.lrn_number} ${student.first_name} ${student.last_name}`.toLowerCase().includes(search)
-  )
-  $('promotion-exclude-list').innerHTML =
-    students
-      .map(
-        student =>
-          `<label><input type="checkbox" value="${student.student_id}"> ${escapeHtml(student.lrn_number || student.student_id)} - ${escapeHtml(lastFirst(student))}</label>`
-      )
-      .join('') || '<small>No matching students.</small>'
-}
-$('promotion-exclude-search').oninput = renderPromotionExclusions
-$('promotion-grade').onchange = renderPromotionExclusions
+import { clearExcludedPromotionStudentIds, getExcludedPromotionStudentIds, renderPromotionCandidates } from './registrar-promotion.js'
 
 export async function loadStudents() {
   const [{ data, error }, { data: enrollments }] = await Promise.all([
@@ -79,7 +57,7 @@ $('shift-student-filter').onchange = renderShiftStudents
 $('promotion-form').addEventListener('submit', e => {
   e.preventDefault()
   const grade = gradeToNumber($('promotion-grade').value)
-  const excluded = [...document.querySelectorAll('#promotion-exclude-list input:checked')].map(input => Number(input.value))
+  const excluded = getExcludedPromotionStudentIds()
   return withBusy(e.submitter || e.target.querySelector('button'), 'Sending…', async () => {
     const { data, error } = await supabase.rpc('request_promotion', {
       p_grade_level: grade,
@@ -88,7 +66,8 @@ $('promotion-form').addEventListener('submit', e => {
     })
     if (error) return toast(describeError(error, 'Request promotion'), 'error')
     toast(`Promotion request for ${data?.students || 0} students sent to the admin for approval.`)
-    renderPromotionExclusions()
+    clearExcludedPromotionStudentIds()
+    renderPromotionCandidates()
   })
 })
 
@@ -124,7 +103,8 @@ $('shift-mode').onchange = () => {
 // Third mode, "Swap with a student", lives in registrar-swap.js.
 mountSwapMode({
   onDone: async () => {
-    await Promise.all([loadSections(), loadEnrollments(), loadStudents()])
+    await Promise.all([loadSections(), loadStudents()])
+    await loadEnrollments()
     await refreshShiftSections()
   }
 })
@@ -148,7 +128,8 @@ $('shift-form').addEventListener('submit', async e => {
     if (error) return toast(describeError(error, 'Shift student'), 'error')
     toast('Student shift completed successfully.')
     $('shift-reason').value = ''
-    await Promise.all([loadSections(), loadEnrollments(), loadStudents()])
+    await Promise.all([loadSections(), loadStudents()])
+    await loadEnrollments()
     await refreshShiftSections()
   })
 })

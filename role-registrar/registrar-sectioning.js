@@ -118,50 +118,43 @@ async function viewSectionStudents(sectionId) {
   bindViewStudentButtons($('section-students-body'))
 }
 export async function loadEnrollments() {
-const [studentResult, enrollmentResult, schoolYearResult] = await Promise.all([
-  fetchAll(() =>
-    supabase
-      .from('students')
-      .select('*')
-      .order('last_name')
-      .order('student_id')
-  ),
+  const schoolYear = currentSchoolYear()
+  const [enrollmentResult, schoolYearResult] = await Promise.all([
+    fetchAll(() =>
+      supabase
+        .from('enrollments')
+        .select('id,student_id,school_year,enrolled_at,status,section_id,sections(section_name)')
+        .eq('status', 'active')
+        .order('school_year', { ascending: false })
+        .order('id')
+    ),
 
-  fetchAll(() =>
-    supabase
-      .from('enrollments')
-      .select('id,student_id,school_year,enrolled_at,status,section_id,sections(section_name)')
-      .eq('status', 'active')
-      .order('school_year', { ascending: false })
-      .order('id')
-  ),
-
-  fetchAll(() =>
-    supabase
-      .from('student_school_years')
-      .select('student_id,school_year,grade_level,section_id')
-      .order('school_year', { ascending: false })
-  )
-])
-  const loadError = studentResult.error || enrollmentResult.error
-  if (loadError) {
-    $('enrollment-table').innerHTML = errorRow(7, loadError, 'Load enrollments')
+    fetchAll(() =>
+      supabase
+        .from('student_school_years')
+        .select('student_id,school_year,grade_level,section_id')
+        .eq('school_year', schoolYear)
+        .order('student_id')
+    )
+  ])
+  if (enrollmentResult.error) {
+    $('enrollment-table').innerHTML = errorRow(7, enrollmentResult.error, 'Load enrollments')
     return
   }
   if (schoolYearResult.error) {
-  studentSchoolYearRows = []
-  toast(
-    describeError(schoolYearResult.error, 'Load student school years'),
-    'error'
-  )
-} else {
-  studentSchoolYearRows = schoolYearResult.data || []
-}
+    currentSchoolYearRecordsError = describeError(schoolYearResult.error, 'Load current school year records')
+    toast(currentSchoolYearRecordsError, 'error')
+    studentSchoolYearRows = studentSchoolYearRows.filter(row => row.school_year !== schoolYear)
+  } else {
+    currentSchoolYearRecordsError = ''
+    const historicalRows = studentSchoolYearRows.filter(row => row.school_year !== schoolYear)
+    studentSchoolYearRows = [...historicalRows, ...(schoolYearResult.data || [])]
+  }
   const enrollmentByStudent = new Map((enrollmentResult.data || []).map(row => [String(row.student_id), row]))
   // Keep the directory's Section column in step after placements and shifts.
   state.studentSections = new Map([...enrollmentByStudent].map(([id, row]) => [id, row.sections?.section_name || 'No Section']))
   renderStudentDirectory()
-  enrollmentData = (studentResult.data || []).map(student => ({
+  enrollmentData = state.students.map(student => ({
     ...enrollmentByStudent.get(String(student.student_id)),
     student_id: student.student_id,
     students: student
@@ -578,6 +571,38 @@ $('confirm-auto-assign').onclick = () => {
 // Student Directory school-year filtering
 let studentSchoolYearRows = []
 let studentDirectoryView = 'current'
+let historicalSchoolYearRecordsLoaded = false
+let historicalSchoolYearRecordsPromise = null
+let currentSchoolYearRecordsError = ''
+
+async function loadHistoricalSchoolYearRecords() {
+  if (historicalSchoolYearRecordsLoaded) return true
+  if (!historicalSchoolYearRecordsPromise) {
+    historicalSchoolYearRecordsPromise = (async () => {
+      const { data, error } = await fetchAll(() =>
+        supabase
+          .from('student_school_years')
+          .select('student_id,school_year,grade_level,section_id')
+          .order('school_year', { ascending: false })
+          .order('student_id')
+      )
+      if (error) {
+        toast(describeError(error, 'Load historical school year records'), 'error')
+        return false
+      }
+
+      const records = new Map(studentSchoolYearRows.map(row => [`${row.student_id}:${row.school_year}`, row]))
+      ;(data || []).forEach(row => records.set(`${row.student_id}:${row.school_year}`, row))
+      studentSchoolYearRows = [...records.values()]
+      historicalSchoolYearRecordsLoaded = true
+      return true
+    })()
+  }
+
+  const loaded = await historicalSchoolYearRecordsPromise
+  historicalSchoolYearRecordsPromise = null
+  return loaded
+}
 
 function getStudentSchoolYearRecord(studentId, schoolYear) {
   return studentSchoolYearRows.find(
@@ -631,6 +656,11 @@ export function renderStudentDirectory() {
   ).trim().toLowerCase()
 
   const schoolYear = currentSchoolYear()
+  updateStudentDirectoryFilterButtons()
+  if (studentDirectoryView === 'current' && currentSchoolYearRecordsError) {
+    $('student-directory-table').innerHTML = errorRow(9, currentSchoolYearRecordsError, 'Load current school year records')
+    return
+  }
 
   // Filter a separate list. Do not modify state.students because
   // other registrar features also depend on the complete student list.
@@ -702,12 +732,8 @@ export function renderStudentDirectory() {
         return `
           <tr>
             <td>${escapeHtml(student.lrn_number || student.student_id)}</td>
-            <td>${escapeHtml(
-              `${student.first_name || ''} ${student.last_name || ''}`
-            )}</td>
-            <td>${escapeHtml(
-              student.date_of_birth || student.birth_date || '-'
-            )}</td>
+            <td>${escapeHtml(`${student.first_name || ''} ${student.last_name || ''}`)}</td>
+            <td>${escapeHtml(student.date_of_birth || student.birth_date || '-')}</td>
             <td>${escapeHtml(student.gender || student.sex || '-')}</td>
             <td>${escapeHtml(grade)}</td>
             <td>${escapeHtml(isNotReenrolled ? lastEnrolledRecord?.school_year || '-' : '-')}</td>
@@ -731,10 +757,7 @@ export function renderStudentDirectory() {
       .join('') ||
     '<tr><td colspan="9" class="empty-state">No students found for this filter.</td></tr>'
 
-  updateStudentDirectoryFilterButtons()
-
   bindViewStudentButtons($('student-directory-table'))
-
   // Attach the re-enrollment action to the visible rows.
   $('student-directory-table')
     .querySelectorAll('[data-reenroll-student]')
@@ -807,16 +830,15 @@ function exportStudentDirectory() {
 $('export-student-directory').addEventListener('click', exportStudentDirectory)
 
 // Switch between the three school-year views.
-document
-  .querySelectorAll('#student-school-year-filters [data-student-view]')
-  .forEach(button => {
-    button.addEventListener('click', () => {
-      studentDirectoryView = button.dataset.studentView
-      renderStudentDirectory()
-    })
+document.querySelectorAll('#student-school-year-filters [data-student-view]').forEach(button => {
+  button.addEventListener('click', async () => {
+    studentDirectoryView = button.dataset.studentView
+    if (studentDirectoryView === 'not-reenrolled' && !(await loadHistoricalSchoolYearRecords())) {
+      studentDirectoryView = 'current'
+    }
+    renderStudentDirectory()
   })
+})
 
 // Keep the existing search behavior.
-$('student-directory-search').oninput = renderStudentDirectory
-
 $('student-directory-search').oninput = renderStudentDirectory

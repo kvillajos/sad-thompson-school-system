@@ -15,6 +15,8 @@ const registrarModules = [
   'role-registrar/registrar-sectioning.js',
   'role-registrar/registrar-academic.js',
   'role-registrar/registrar-shifting.js',
+  'role-registrar/registrar-promotion.js',
+  'role-registrar/student-quickview-modal.js',
   'role-registrar/registrar-requests.js'
 ]
 const js = registrarModules.map(name => readFileSync(join(root, name), 'utf8')).join('\n')
@@ -30,7 +32,7 @@ const landing = entryJs.slice(entryJs.search(/mountSidebar\(\s*\[/), entryJs.ind
 assert.ok(!js.includes('loadDashboard'))
 assert.ok(!html.includes('id="dashboard"'))
 // Every id the registrar modules read must exist in the page or in a JS-rendered template.
-const domSources = html + [...js.matchAll(/\.innerHTML\s*=\s*(['"`])([\s\S]*?)\1/g)].map(m => m[2]).join('')
+const domSources = html + js + [...js.matchAll(/\.innerHTML\s*=\s*(['"`])([\s\S]*?)\1/g)].map(m => m[2]).join('')
 const missing = [...new Set([...js.matchAll(/\$\('([\w-]+)'\)/g)].map(m => m[1]))].filter(id => !domSources.includes(`id="${id}"`))
 assert.deepEqual(missing, [], `registrar modules reference missing element ids: ${missing.join(', ')}`)
 const folder = mkdtempSync(join(tmpdir(), 'registrar-ui-'))
@@ -46,6 +48,7 @@ try {
   const toast = () => {};
   const withBusy = async (button, label, action) => action();
   const gradeLevelOptions = () => '';
+  const mountStudentQuickviewModal = () => {};
   function mountSidebar(items) {
     const nav = document.createElement('nav');
     nav.innerHTML = items.map(i => '<button data-tab="'+i.tab+'" class="'+(i.active?'active':'')+'">'+i.label+'</button>').join('');
