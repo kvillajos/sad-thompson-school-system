@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <title>Grade Tracker | TCSMS</title>
+  </head>
+  <body class="admin-shell">
+    <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
+    <main>
+      <div class="admin-page-head">
+        <div><h2>Grade Submission Tracker</h2></div>
+      </div>
+      <div class="admin-filterbar">
+        <label class="scale-year">School year<select id="tracker-year"></select></label>
+        <label class="scale-year"
+          >Quarter<select id="tracker-quarter">
+            <option value="1">Q1</option>
+            <option value="2">Q2</option>
+            <option value="3">Q3</option>
+            <option value="4">Q4</option>
+          </select></label
+        >
+        <label class="scale-year"
+          >Show<select id="tracker-show">
+            <option value="open">Not complete</option>
+            <option value="late">Late only</option>
+            <option value="all">All classes</option>
+          </select></label
+        >
+        <input id="tracker-search" type="search" maxlength="100" placeholder="Search faculty, section or subject" />
+      </div>
+      <p class="year-summary" id="tracker-summary"></p>
+
+      <section class="admin-table-wrap">
+        <div class="admin-section-title"><h3>By faculty</h3></div>
+        <table>
+          <thead>
+            <tr>
+              <th>Faculty</th>
+              <th>Classes complete</th>
+              <th>Late</th>
+            </tr>
+          </thead>
+          <tbody id="tracker-faculty">
+            <tr>
+              <td colspan="3">Loading…</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="admin-table-wrap lunch-card">
+        <div class="admin-section-title"><h3>By class</h3></div>
+        <table>
+          <thead>
+            <tr>
+              <th>Faculty</th>
+              <th>Section</th>
+              <th>Subject</th>
+              <th>Grades entered</th>
+              <th>Submitted (locked)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tracker-classes">
+            <tr>
+              <td colspan="6">Loading…</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <script type="module" src="/role-admin/admin-grade-tracker-page.js"></script>
+  </body>
+</html>
