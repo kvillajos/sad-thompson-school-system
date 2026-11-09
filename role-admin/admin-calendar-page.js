@@ -178,7 +178,8 @@ $('compute-days').onclick = event =>
 
 $('calendar-year').onchange = loadYear
 try {
-  years = await fillYearSelect($('calendar-year'))
+  const fromLink = new URLSearchParams(location.search).get('year')
+  years = await fillYearSelect($('calendar-year'), fromLink ? { selected: fromLink } : {})
   await loadYear()
 } catch (error) {
   toast(describeError(error, 'Load school years'), 'error')

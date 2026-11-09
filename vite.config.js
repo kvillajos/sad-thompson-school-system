@@ -42,6 +42,7 @@ const pages = {
   adminAudit: 'role-admin/admin-audit.html',
   adminSchoolYears: 'role-admin/admin-school-years.html',
   adminCalendar: 'role-admin/admin-calendar.html',
+  adminYearSetup: 'role-admin/admin-year-setup.html',
   adminAdmissions: 'role-admin/admin-admissions.html',
   adminReports: 'role-admin/admin-reports.html',
 

@@ -7,21 +7,19 @@ import { nextSchoolYear, planYearCopy, sectionYearKey } from '../shared/lib/year
 import { toast } from '../shared/ui/ui-theme.js'
 import { withBusy } from '../shared/ui/shell.js'
 
-const sectionLabel = section =>
-  `${section.section_name} (Grade ${section.grade_level}, ${section.semester || '1st Semester'})`
+const sectionLabel = section => `${section.section_name} (Grade ${section.grade_level}, ${section.semester || '1st Semester'})`
 
 const scheduleLabel = (schedule, key, sectionsByKey) => {
   const section = sectionsByKey.get(key)
   return `${section ? sectionLabel(section) : key}: subject ${schedule.subject_id}, day ${schedule.day_of_week}, ${String(schedule.start_time).slice(0, 5)}-${String(schedule.end_time).slice(0, 5)}`
 }
 
-export function mountCopyYear(host, onCopied) {
+// Defaults to this school year -> next one; the Year Setup page passes the years it is preparing.
+export function mountCopyYear(host, onCopied, { sourceYear = currentSchoolYear(), targetYear } = {}) {
   if (!host) return
 
-  const sourceYear = currentSchoolYear()
-  let targetYear
   try {
-    targetYear = nextSchoolYear(sourceYear)
+    targetYear ||= nextSchoolYear(sourceYear)
   } catch (error) {
     toast(error.message, 'error')
     return
@@ -48,11 +46,7 @@ export function mountCopyYear(host, onCopied) {
       if (!sourceSections?.length) return toast(`No sections found for ${sourceYear}.`, 'error')
 
       const { data: targetSections, error: targetError } = await fetchAll(() =>
-        supabase
-          .from('sections')
-          .select('section_id,section_name,grade_level,semester')
-          .eq('academic_year', targetYear)
-          .order('section_id')
+        supabase.from('sections').select('section_id,section_name,grade_level,semester').eq('academic_year', targetYear).order('section_id')
       )
       if (targetError) return toast(describeError(targetError, 'Check next school year sections'), 'error')
 
@@ -98,17 +92,11 @@ export function mountCopyYear(host, onCopied) {
         ...previewRows(plan.sectionsToSkip.map(({ section }) => `- ${sectionLabel(section)} (already exists)`)),
         '',
         `Schedules to create (${plan.schedulesToCreate.length}):`,
-        ...previewRows(
-          plan.schedulesToCreate.map(({ schedule, key }) =>
-            `+ ${scheduleLabel(schedule, key, sourceSectionsByKey)}`
-          )
-        ),
+        ...previewRows(plan.schedulesToCreate.map(({ schedule, key }) => `+ ${scheduleLabel(schedule, key, sourceSectionsByKey)}`)),
         '',
         `Schedules to skip (${plan.schedulesToSkip.length}):`,
         ...previewRows(
-          plan.schedulesToSkip.map(({ schedule, key }) =>
-            `- ${scheduleLabel(schedule, key, sourceSectionsByKey)} (already exists)`
-          )
+          plan.schedulesToSkip.map(({ schedule, key }) => `- ${scheduleLabel(schedule, key, sourceSectionsByKey)} (already exists)`)
         ),
         '',
         'Students will not be copied.'
@@ -138,10 +126,7 @@ export function mountCopyYear(host, onCopied) {
           faculty_assigned: section.faculty_assigned,
           academic_year: targetYear
         }))
-        const { data, error } = await supabase
-          .from('sections')
-          .insert(sectionRows)
-          .select('section_id,section_name,grade_level,semester')
+        const { data, error } = await supabase.from('sections').insert(sectionRows).select('section_id,section_name,grade_level,semester')
         if (error) return toast(describeError(error, 'Copy sections'), 'error')
         createdSections = data || []
         if (createdSections.length !== sectionRows.length) {

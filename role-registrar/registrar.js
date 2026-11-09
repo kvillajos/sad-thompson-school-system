@@ -13,6 +13,7 @@ import { loadMyRequests } from './registrar-requests.js'
 import { loadStudents, refreshShiftSections } from './registrar-shifting.js'
 import { loadPromotionCandidates } from './registrar-promotion.js'
 import { mountStudentQuickviewModal } from './student-quickview-modal.js'
+import { mountEnrollmentWindow } from './enrollment-window.js'
 
 applyUiTheme()
 
@@ -73,6 +74,7 @@ window.addEventListener('popstate', () => showTab(tabFromHash() || tabs[0].datas
 if (tabFromHash()) showTab(tabFromHash())
 
 mountAnnouncements($('announcements-host'), 'registrar')
+mountEnrollmentWindow($('enrollment-window'))
 
 async function init() {
   const results = await Promise.allSettled([loadApplications(), loadSections(), loadStudents()])

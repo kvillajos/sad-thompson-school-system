@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <title>Year Setup | TCSMS</title>
+  </head>
+  <body class="admin-shell">
+    <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
+    <main>
+      <div class="admin-page-head">
+        <div><h2>Year Setup</h2></div>
+      </div>
+      <div class="admin-filterbar">
+        <label class="scale-year">School year<select id="setup-year"></select></label>
+        <button id="create-next-year" class="admin-primary admin-action" type="button" hidden></button>
+      </div>
+      <p class="year-summary" id="setup-summary"></p>
+
+      <section class="admin-table-wrap lunch-card" style="margin-top:0">
+        <div class="admin-section-title">
+          <div>
+            <h3>Start of the year</h3>
+            <p class="admin-note" style="margin:4px 0 0">Work through the steps in order. A step turns green once it is done.</p>
+          </div>
+        </div>
+        <ol class="checklist" id="setup-steps">
+          <li><p>Loading…</p></li>
+        </ol>
+      </section>
+    </main>
+    <script type="module" src="/role-admin/admin-year-setup-page.js"></script>
+  </body>
+</html>

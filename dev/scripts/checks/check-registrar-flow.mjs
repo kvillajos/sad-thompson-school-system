@@ -1,7 +1,7 @@
 // Full registrar workflow smoke test: runs the REAL registrar.js in headless Chrome/Edge with
 // only the Supabase client stubbed. Verifies the auto-assign flow (plan -> confirm ->
 // RPC payload) and the Grade -> Section -> student filtering, without touching live data.
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { globSync, readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { browserPath } from './browser-path.mjs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -287,40 +287,8 @@ try {
     mkdirSync(dirname(join(folder, path)), { recursive: true })
     writeFileSync(join(folder, path), content)
   }
-  for (const name of [
-    'role-registrar/registrar.js',
-    'role-registrar/registrar-state.js',
-    'role-registrar/registrar-admissions.js',
-    'role-registrar/registrar-sectioning.js',
-    'role-registrar/registrar-academic.js',
-    'role-registrar/registrar-shifting.js',
-    'role-registrar/registrar-promotion.js',
-    'role-registrar/student-quickview-modal.js',
-    'role-registrar/registrar-requests.js',
-    'shared/ui/override-form.js',
-    'shared/ui/search-picker.js',
-    'shared/ui/table-copy.js',
-    'shared/ui/filter-bar.js',
-    'shared/lib/sectioning.js',
-    'shared/ui/announcements.js',
-    'shared/ui/restore-changes.js',
-    'shared/ui/dialog.js',
-    'shared/lib/html.js',
-    'shared/lib/grade-levels.js',
-    'shared/lib/strands.js',
-    'shared/lib/errors.js',
-    'shared/lib/grades.js',
-    'shared/lib/grading-scale.js',
-    'shared/lib/attendance.js',
-    'shared/lib/semester-grades.js',
-    'shared/lib/fetch-all.js',
-    'shared/lib/edit-request.js',
-    'shared/documents/report-card.js',
-    'shared/documents/transcript.js',
-    'shared/documents/print.js',
-    'shared/documents/pdf-preview.js'
-  ])
-    put(name, read(name))
+  // Every registrar and shared module (new ones included); the stubs below then replace auth, theme, shell, loader.
+  for (const name of globSync('{role-registrar,shared/lib,shared/ui,shared/documents}/*.js', { cwd: root })) put(name, read(name))
   put('shared/lib/auth-client.js', stubAuth)
   put('shared/ui/ui-theme.js', stubTheme)
   put('shared/ui/shell.js', stubShell)
