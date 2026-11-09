@@ -20,6 +20,7 @@ import { mountStudentRequestPortal } from './student-request-portal.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
 import { mountSanctions } from '../shared/ui/sanctions.js'
 import { mountStudentDocumentRequests } from '../shared/ui/document-requests.js'
+import { applyGraduateAccess } from './graduate-access.js'
 applyUiTheme()
 const user = await requireRole(4)
 if (!user) throw new Error('Unauthorized')
@@ -382,6 +383,7 @@ document.getElementById('print-unofficial-transcript').onclick = () =>
   })
 
 await Promise.all([loadGradingScales(), loadStudent()])
+applyGraduateAccess(student)
 await Promise.all([
   loadSchedule(),
   loadGrades(),
