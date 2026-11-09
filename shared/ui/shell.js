@@ -194,7 +194,7 @@ export function mountProfile(user, roleLabel, onSignOut) {
     /[&<>"']/g,
     character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]
   )
-  profile.innerHTML = `<button class="theme-toggle" type="button" aria-pressed="false"></button><button class="profile-toggle" aria-expanded="false"><span class="profile-avatar">${safeName.charAt(0).toUpperCase()}</span><span><strong>${safeName}</strong><small>${safeRole}</small></span><span class="profile-chevron">⌄</span></button><div class="profile-dropdown hidden"><button class="profile-edit"><span aria-hidden="true">✎</span> Edit Profile</button><button class="profile-change-password"><span aria-hidden="true">⚿</span> Change Password</button><button class="profile-signout"><span aria-hidden="true">↪</span> Sign Out</button></div>`
+  profile.innerHTML = `<button class="theme-toggle" type="button" aria-pressed="false"></button><button class="profile-toggle" aria-expanded="false"><span class="profile-avatar">${safeName.charAt(0).toUpperCase()}</span><span><strong>${safeName}</strong><small>${safeRole}</small></span><span class="profile-chevron">⌄</span></button><div class="profile-dropdown hidden"><button class="profile-help"><span aria-hidden="true">?</span> How do I…</button><button class="profile-edit"><span aria-hidden="true">✎</span> Edit Profile</button><button class="profile-change-password"><span aria-hidden="true">⚿</span> Change Password</button><button class="profile-signout"><span aria-hidden="true">↪</span> Sign Out</button></div>`
   document.body.appendChild(profile)
   const toggle = profile.querySelector('.profile-toggle')
   const dropdown = profile.querySelector('.profile-dropdown')
@@ -290,6 +290,10 @@ export function mountProfile(user, roleLabel, onSignOut) {
     toggle.setAttribute('aria-expanded', 'false')
   })
   profile.querySelector('.profile-signout').addEventListener('click', onSignOut)
+  profile.querySelector('.profile-help').addEventListener('click', () => {
+    dropdown.classList.add('hidden')
+    import('./help.js').then(module => module.openHelp(roleLabel))
+  })
   profile.querySelector('.profile-edit').addEventListener('click', () => {
     dropdown.classList.add('hidden')
     openProfileModal(user, roleLabel, profile)
