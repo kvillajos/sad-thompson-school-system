@@ -9,11 +9,14 @@ import { describeError } from '../shared/lib/errors.js'
 import { attendanceSummaryLine } from '../shared/lib/attendance.js'
 import { changedFields } from '../shared/lib/edit-request.js'
 import { generalAverage, letterGrade } from '../shared/lib/grades.js'
-import { buildSemesterTable, generalAverageRow, semesterRows } from '../shared/lib/semester-grades.js'
+import { generalAverageRow } from '../shared/lib/semester-grades.js'
 import { buildTranscript } from '../shared/documents/transcript.js'
 import { previewPdf, pdfName } from '../shared/documents/pdf-preview.js'
 import { mountAnnouncements } from '../shared/ui/announcements.js'
 import { mountNotificationBell } from './notifications.js'
+import { mountStudentDashboardLayout } from './student-dashboard-layout.js'
+import { historicalSchoolYears, renderHistoricalRecords } from './student-history-view.js'
+import { mountStudentRequestPortal } from './student-request-portal.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
 applyUiTheme()
 const user = await requireRole(4)
@@ -25,29 +28,16 @@ mountSidebar(
     { label: 'Dashboard', tab: 'dashboard', active: true, icon: '⌂' },
     { label: 'Schedule', tab: 'schedule', icon: '▤' },
     { label: 'Grades', tab: 'grades', icon: '♧' },
+    { label: 'History', tab: 'history', icon: '↺' },
+    { label: 'Requests', tab: 'requests', icon: '▣' },
     { label: 'Transcript', tab: 'transcript', icon: '▱' },
     { label: 'Profile', tab: 'profile', icon: '☷' }
   ],
   'Student Portal',
   'student'
 )
-
-const tabs = [...document.querySelectorAll('[data-tab]')]
-const panels = [...document.querySelectorAll('[data-panel]')]
-// The open tab lives in the URL hash so refresh and the browser Back button keep your place.
-const showTab = name => {
-  if (!document.querySelector(`[data-panel="${name}"]`)) name = 'dashboard'
-  tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name))
-  panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== name))
-}
-tabs.forEach(tab =>
-  tab.addEventListener('click', () => {
-    if (location.hash.slice(1) !== tab.dataset.tab) history.pushState(null, '', `#${tab.dataset.tab}`)
-    showTab(tab.dataset.tab)
-  })
-)
-window.addEventListener('popstate', () => showTab(location.hash.slice(1) || 'dashboard'))
-showTab(location.hash.slice(1) || 'dashboard')
+mountStudentDashboardLayout()
+mountStudentRequestPortal({ supabase, user })
 
 let student = null
 let sectionId = null
@@ -56,8 +46,9 @@ let schoolYear = ''
 let currentSemester = ''
 let gradeRows = []
 let scheduleRows = []
-let gradeYears = []
-let gradePageIndex = 0
+let enrollmentHistory = []
+let historyError = ''
+let gradesError = ''
 
 // Same placeholder as the profile bar and dashboard card: initials on a blue circle until a photo is set.
 function showProfilePicture(url) {
@@ -215,30 +206,88 @@ async function loadSchedule() {
 }
 
 async function loadGrades() {
-  const hosts = [
-    document.getElementById('grades-table-first'),
-    document.getElementById('grades-table-second'),
-    document.getElementById('current-grades-table')
-  ]
-  const showMessage = html =>
-    hosts.forEach(host => {
-      host.innerHTML = html
-    })
-  if (!user.student_id) return showMessage('<p>No student record linked.</p>')
+  const host = document.getElementById('current-grades-table')
+  if (!user.student_id) {
+    gradesError = 'No student record linked.'
+    host.innerHTML = `<p>${escape(gradesError)}</p>`
+    return
+  }
   const { data, error } = await supabase
     .from('academic_history')
     .select('school_year,subject,grade,letter_grade,remarks,first_sem_q1,first_sem_q2,second_sem_q1,second_sem_q2')
     .eq('student_id', user.student_id)
     .order('school_year', { ascending: false })
-  if (error) return showMessage(`<p class="note" role="alert">${escape(describeError(error, 'Load grades'))}</p>`)
+  if (error) {
+    gradesError = describeError(error, 'Load grades')
+    host.innerHTML = `<p class="note" role="alert">${escape(gradesError)}</p>`
+    return
+  }
+  gradesError = ''
   gradeRows = data || []
-  gradeYears = [...new Set(gradeRows.map(row => row.school_year).filter(Boolean))].sort().reverse()
-  gradePageIndex = 0
-  const transcriptYears = gradeYears
+  const transcriptYears = [...new Set(gradeRows.map(row => row.school_year).filter(Boolean))].sort().reverse()
   document.getElementById('transcript-year-filter').innerHTML =
     '<option value="">All school years</option>' + transcriptYears.map(year => `<option>${escape(year)}</option>`).join('')
-  renderGrades()
   renderTranscript()
+}
+
+async function loadEnrollmentHistory() {
+  const placement = document.getElementById('history-placement')
+  if (!user.student_id) {
+    historyError = 'No student record linked.'
+    return
+  }
+  const { data, error } = await supabase
+    .from('enrollments')
+    .select('school_year,grade_level,status,enrolled_at,sections(section_name,academic_year)')
+    .eq('student_id', user.student_id)
+    .order('school_year', { ascending: false })
+  if (error) {
+    historyError = describeError(error, 'Load section history')
+    placement.innerHTML = `<p class="note" role="alert">${escape(historyError)}</p>`
+    return
+  }
+  enrollmentHistory = data || []
+}
+
+function renderHistory() {
+  const filter = document.getElementById('history-year-filter')
+  const years = historicalSchoolYears(enrollmentHistory, gradeRows, schoolYear)
+  const selectedYear = years.includes(filter.value) ? filter.value : years[0] || ''
+
+  filter.innerHTML = years.map(year => `<option value="${escape(year)}">${escape(year)}</option>`).join('')
+  filter.disabled = years.length === 0
+  filter.value = selectedYear
+
+  if (!years.length) {
+    const error = historyError || gradesError
+    const message = error || 'No historical academic records are available yet.'
+    const state = error
+      ? `<p class="note" role="alert">${escape(message)}</p>`
+      : `<p class="admin-note">${escape(message)}</p>`
+    document.getElementById('history-placement').innerHTML = state
+    document.getElementById('history-grades-first').innerHTML = state
+    document.getElementById('history-grades-second').innerHTML = ''
+    return
+  }
+
+  const render = () => {
+    const records = renderHistoricalRecords({
+      schoolYear: filter.value,
+      enrollments: enrollmentHistory,
+      gradeRows
+    })
+    document.getElementById('history-placement').innerHTML = historyError
+      ? `<p class="note" role="alert">${escape(historyError)}</p>`
+      : records.placementHtml
+    document.getElementById('history-grades-first').innerHTML = gradesError
+      ? `<p class="note" role="alert">${escape(gradesError)}</p>`
+      : records.firstSemesterHtml
+    document.getElementById('history-grades-second').innerHTML = gradesError
+      ? ''
+      : records.secondSemesterHtml
+  }
+  filter.onchange = render
+  render()
 }
 
 async function renderCurrentGrades() {
@@ -264,20 +313,6 @@ async function renderCurrentGrades() {
     .join('')
   const footer = body ? generalAverageRow(6, generalAverage(rows), schoolYear) : ''
   host.innerHTML = `<table><thead><tr><th>Subject</th><th>Teacher</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Final Grade</th><th>Letter Grade</th><th>Remarks</th></tr></thead><tbody>${body ? body + footer : '<tr><td colspan="9" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`
-}
-
-// All Grades is paged one school year at a time, most recent first, each page split into its own 1st/2nd semester tables.
-function renderGrades() {
-  const year = gradeYears[gradePageIndex]
-  document.getElementById('grades-year-label').textContent = year ? `${year} (${gradePageIndex + 1} of ${gradeYears.length})` : 'No records'
-  document.getElementById('grades-prev-year').disabled = gradePageIndex <= 0
-  document.getElementById('grades-next-year').disabled = gradePageIndex >= gradeYears.length - 1
-  const rows = year ? gradeRows.filter(row => row.school_year === year) : []
-  // The year's general average sits as the last row of the 2nd semester table (the 1st if the 2nd has none yet).
-  const hasSecond = semesterRows(rows).some(row => row.semester === 'second' && row.semesterGrade != null)
-  const average = { average: generalAverage(rows), schoolYear: year }
-  document.getElementById('grades-table-first').innerHTML = buildSemesterTable(rows, { semester: 'first', ...(hasSecond ? {} : average) })
-  document.getElementById('grades-table-second').innerHTML = buildSemesterTable(rows, { semester: 'second', ...(hasSecond ? average : {}) })
 }
 
 function renderTranscript() {
@@ -354,14 +389,6 @@ async function loadAttendance() {
     '<tr><td colspan="2">No absences, lates or excused days recorded.</td></tr>'
 }
 
-document.getElementById('grades-prev-year').onclick = () => {
-  gradePageIndex--
-  renderGrades()
-}
-document.getElementById('grades-next-year').onclick = () => {
-  gradePageIndex++
-  renderGrades()
-}
 document.getElementById('transcript-year-filter').onchange = renderTranscript
 document.getElementById('print-unofficial-transcript').onclick = () =>
   previewPdf(document.getElementById('student-transcript-print'), {
@@ -374,8 +401,10 @@ await Promise.all([loadGradingScales(), loadStudent()])
 await Promise.all([
   loadSchedule(),
   loadGrades(),
+  loadEnrollmentHistory(),
   mountAnnouncements(document.getElementById('announcements-host'), 'student'),
   loadAttendance()
 ])
+renderHistory()
 await renderCurrentGrades()
 hideLoadingScreen()

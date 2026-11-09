@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <link rel="stylesheet" href="/css/student-portal.css" />
     <title>Student Dashboard | TCSMS</title>
   </head>
   <body>
@@ -35,18 +36,73 @@
           <div class="admin-section-title"><h3 id="current-grades-title">Current Term</h3></div>
           <div id="current-grades-table"><p>Loading grades...</p></div>
         </section>
-        <div class="admin-page-head" style="margin-top:24px">
-          <div><h3>All Grades</h3></div>
+      </section>
+
+      <section data-panel="history" class="hidden">
+        <div class="admin-page-head">
+          <div><h2>Historical Academic Records</h2></div>
         </div>
-        <div class="admin-actions">
-          <button type="button" id="grades-prev-year" class="admin-secondary">‹ Prev</button
-          ><span id="grades-year-label" class="admin-note"></span
-          ><button type="button" id="grades-next-year" class="admin-secondary">Next ›</button>
+        <p class="admin-note">
+          Current-year grades stay in Grades. Choose a prior school year to review your section placement and recorded grades.
+        </p>
+        <div class="student-history-controls">
+          <label for="history-year-filter">School year</label>
+          <select id="history-year-filter" aria-label="Historical school year"></select>
         </div>
+        <section class="admin-table-wrap student-history-placement">
+          <div class="admin-section-title"><h3>Section Placement</h3></div>
+          <div id="history-placement"><p>Loading academic history...</p></div>
+        </section>
         <div class="admin-section-title"><h3>1st Semester</h3></div>
-        <section class="admin-table-wrap" id="grades-table-first"><p>Loading grades...</p></section>
-        <div class="admin-section-title" style="margin-top:16px"><h3>2nd Semester</h3></div>
-        <section class="admin-table-wrap" id="grades-table-second"><p>Loading grades...</p></section>
+        <section class="admin-table-wrap student-history-table" id="history-grades-first"><p>Loading grades...</p></section>
+        <div class="admin-section-title"><h3>2nd Semester</h3></div>
+        <section class="admin-table-wrap student-history-table" id="history-grades-second"><p>Loading grades...</p></section>
+      </section>
+
+      <section data-panel="requests" class="hidden">
+        <div class="admin-page-head">
+          <div><h2>Student Requests</h2></div>
+        </div>
+        <p class="admin-note">Submit an LRN update, account correction, or section transfer request. An administrator will review it.</p>
+        <section class="admin-table-wrap student-request-card">
+          <div class="admin-section-title"><h3>Submit a Request</h3></div>
+          <form id="student-request-form" class="student-request-form">
+            <label for="student-request-category">Request type</label>
+            <select id="student-request-category" name="category" required>
+              <option value="lrn_update">LRN update</option>
+              <option value="account_fix">Account fix</option>
+              <option value="section_transfer">Section transfer</option>
+            </select>
+            <label for="student-request-details">Details</label>
+            <textarea id="student-request-details" name="details" rows="4" maxlength="1000" required></textarea>
+            <div class="student-request-submit">
+              <small class="admin-note">Do not include passwords or other sensitive login credentials.</small>
+              <button class="admin-primary" type="submit">Submit request</button>
+            </div>
+          </form>
+        </section>
+        <section class="admin-table-wrap student-request-history">
+          <div class="admin-section-title"><h3>My Requests</h3></div>
+          <div id="student-requests-status" class="admin-note" role="status" aria-live="polite"></div>
+          <div class="student-request-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Request</th>
+                  <th>Details</th>
+                  <th>Submitted</th>
+                  <th>Status</th>
+                  <th>Review note</th>
+                </tr>
+              </thead>
+              <tbody id="student-requests-table">
+                <tr>
+                  <td colspan="5">Loading requests...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </section>
 
       <section data-panel="transcript" class="hidden">

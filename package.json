@@ -8,6 +8,7 @@
     "preview": "vite preview",
     "format": "prettier --write .",
     "check": "node dev/scripts/checks/run-all.mjs",
+    "check:student-portal": "node dev/scripts/checks/check-student-portal.mjs",
     "check:admin-lock": "node dev/scripts/checks/check-admin-lock.mjs",
     "check:attendance": "node dev/scripts/checks/check-attendance.mjs",
     "check:attendance-draft": "node dev/scripts/checks/check-attendance-draft.mjs",

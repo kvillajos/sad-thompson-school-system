@@ -30,6 +30,9 @@ role-faculty/                 6 faculty pages
   faculty-common.js           loadFacultyContext (shell + assigned classes), class picker, roster
   unsaved.js                  guardUnsaved: warn before losing typed grades/attendance
 role-student/                 student-dashboard.html
+  student-dashboard-layout.js URL-aware portal navigation
+  student-history-view.js     historical enrollment and grade views
+  student-request-portal.js   student service requests and live status tracking
   notifications.js            notification bell
 
 shared/
@@ -138,7 +141,7 @@ ordering bugs. Keep it that way.
 - Two logout clocks: 30 minutes idle in a visible tab, 4 hours in a background tab
 - Sortable, paged and copyable tables everywhere (default Name A-Z), row action menus
 - **Admin**: dashboard with Pending Approvals (admissions, profile changes, grade corrections, withdrawals,
-  promotions, account actions, capacity overrides), sections, subjects, schedules with conflict detection
+  promotions, account actions, capacity overrides, student portal requests), sections, subjects, schedules with conflict detection
   (section / faculty / room) and multi-day entries, faculty management, Manage Accounts (via `provision-account`),
   announcements (notice/maintenance, per-role audience, expiry), audit trail with restore
 - **Registrar**: admissions with drafts and photo, enrollment, placement tool, balanced auto-assign with
@@ -147,8 +150,9 @@ ordering bugs. Keep it that way.
 - **Faculty**: dashboard with schedule-change notices, class list, grade entry with DepEd letter grades and
   submit-and-lock, CSV grade upload with per-row validation, correction requests on locked grades,
   attendance, reports
-- **Student**: dashboard, semester/year grade views, transcript preview/print, schedule, profile with
-  guardian/medical fields, attendance, notifications, edit requests
+- **Student**: dashboard, current grades and separate historical enrollment/grade views, transcript
+  preview/print, schedule, profile with guardian/medical fields, attendance, notifications, edit requests,
+  and LRN/account/section-transfer requests with live approval status
 - RBAC through RLS, append-only audit logs (including promotions and CRUD), daily audit archives
 
 ## Known limits
