@@ -1,0 +1,41 @@
+<body>
+  <main class="admin-reports-page">
+    <h1>Admin Reports Generator</h1>
+
+    <div class="report-filters">
+      <label for="report-school-year">School Year</label>
+      <select id="report-school-year">
+        <option value="">All School Years</option>
+      </select>
+
+      <label for="report-grade">Grade Level</label>
+      <select id="report-grade">
+        <option value="">All Grade Levels</option>
+      </select>
+
+      <label for="report-section">Section</label>
+      <select id="report-section">
+        <option value="">All Sections</option>
+      </select>
+
+      <label for="report-type">Report Type</label>
+      <select id="report-type">
+        <option value="class-list">Master Class List</option>
+        <option value="section-summary">Section Summary</option>
+        <option value="school-statistics">School Statistics</option>
+      </select>
+
+      <button id="generate-report" type="button">
+        Generate Report
+      </button>
+
+      <button id="print-report" type="button">
+        Print Report
+      </button>
+    </div>
+
+    <div id="report-results"></div>
+  </main>
+
+  <script type="module" src="/role-admin/admin-reports-page.js"></script>
+</body>

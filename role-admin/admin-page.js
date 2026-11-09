@@ -14,6 +14,7 @@ const NAV = [
   ['School Years', '/role-admin/admin-school-years.html', '↺', 'school-years'],
   ['Admissions', '/role-admin/admin-admissions.html', '▤', 'admissions'],
   ['Audit Trail', '/role-admin/admin-audit.html', '▤', 'audit']
+  ['Reports', '/role-admin/admin-reports.html', '▤', 'reports'],
 ]
 
 export function adminNav(active) {
