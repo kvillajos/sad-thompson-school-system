@@ -5619,3 +5619,959 @@ $$;
 NOTIFY pgrst, 'reload schema';
 COMMIT;
 -- END v55-requests.sql
+
+-- BEGIN v56-school-calendar.sql  (applied live 2026-11-09; branch SchoolYearLifecycle)
+-- v56-school-calendar.sql  (branch SchoolYearLifecycle)
+-- School calendar: quarter dates, grade submission deadlines and holidays per school year.
+-- Also adds link_school_year_column(), the v47b treatment (FK to school_years + Past-year lock trigger)
+-- as a reusable function, so every new table with a school_year column gets the same protection.
+-- Safe to run twice.
+begin;
+
+-- Same FK name and trigger name v47b uses, so re-running v47b skips them.
+create or replace function public.link_school_year_column(p_table text, p_column text default 'school_year')
+returns void
+language plpgsql
+set search_path = public
+as $$
+declare
+  fk_name  text := left(p_table || '_' || p_column || '_school_year_fkey', 63);
+  trg_name text := left('trg_' || p_table || '_' || p_column || '_lock_past', 63);
+begin
+  if not exists (select 1 from pg_constraint where conname = fk_name and conrelid = format('public.%I', p_table)::regclass) then
+    execute format('alter table public.%I add constraint %I foreign key (%I) references public.school_years(label) on update cascade',
+      p_table, fk_name, p_column);
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = trg_name and tgrelid = format('public.%I', p_table)::regclass and not tgisinternal) then
+    execute format('create trigger %I before insert or update or delete on public.%I for each row execute function public.block_past_school_year_changes(%L)',
+      trg_name, p_table, p_column);
+  end if;
+end $$;
+
+create table if not exists public.school_quarters (
+  id             serial unique,
+  school_year    text not null,
+  quarter        smallint not null check (quarter between 1 and 4),
+  start_date     date not null,
+  end_date       date not null,
+  grade_deadline date,
+  updated_at     timestamptz not null default now(),
+  primary key (school_year, quarter),
+  constraint school_quarters_dates check (end_date >= start_date),
+  constraint school_quarters_deadline check (grade_deadline is null or grade_deadline >= start_date)
+);
+
+create table if not exists public.school_holidays (
+  id           serial primary key,
+  school_year  text not null,
+  holiday_date date not null,
+  name         text not null check (length(trim(name)) between 1 and 120),
+  created_at   timestamptz not null default now(),
+  unique (school_year, holiday_date)
+);
+
+select public.link_school_year_column('school_quarters');
+select public.link_school_year_column('school_holidays');
+
+-- Audit trail + Restore Changes, like every other admin-edited table (single-column key: id).
+create or replace function public.attach_change_tracking(p_table text, p_pk text default 'id')
+returns void
+language plpgsql
+set search_path = public
+as $$
+begin
+  execute format('drop trigger if exists %I on public.%I', p_table || '_audit', p_table);
+  execute format('create trigger %I after insert or update or delete on public.%I for each row execute function audit_row_change(%L)',
+    p_table || '_audit', p_table, p_pk);
+  execute format('drop trigger if exists zz_snapshot_change on public.%I', p_table);
+  execute format('create trigger zz_snapshot_change after insert or update or delete on public.%I for each row execute function snapshot_row_change(%L)',
+    p_table, p_pk);
+end $$;
+select public.attach_change_tracking('school_quarters');
+select public.attach_change_tracking('school_holidays');
+
+-- Quarters must sit inside their school year (the page checks this too; this stops direct API writes).
+create or replace function public.school_quarters_inside_year()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare y school_years%rowtype;
+begin
+  select * into y from school_years where label = new.school_year;
+  if new.start_date < y.start_date or new.end_date > y.end_date then
+    raise exception 'Q% must fall inside % (% to %)', new.quarter, y.label, y.start_date, y.end_date
+      using errcode = 'check_violation';
+  end if;
+  new.updated_at := now();
+  return new;
+end $$;
+drop trigger if exists trg_school_quarters_inside_year on public.school_quarters;
+create trigger trg_school_quarters_inside_year before insert or update on public.school_quarters
+  for each row execute function public.school_quarters_inside_year();
+
+alter table public.school_quarters enable row level security;
+alter table public.school_holidays enable row level security;
+
+drop policy if exists school_quarters_read on public.school_quarters;
+create policy school_quarters_read on public.school_quarters for select to authenticated
+  using ((select current_app_role()) = any (array[1, 2, 3, 4]));
+drop policy if exists school_quarters_admin on public.school_quarters;
+create policy school_quarters_admin on public.school_quarters for all to authenticated
+  using ((select current_app_role()) = 1) with check ((select current_app_role()) = 1);
+
+drop policy if exists school_holidays_read on public.school_holidays;
+create policy school_holidays_read on public.school_holidays for select to authenticated
+  using ((select current_app_role()) = any (array[1, 2, 3, 4]));
+drop policy if exists school_holidays_admin on public.school_holidays;
+create policy school_holidays_admin on public.school_holidays for all to authenticated
+  using ((select current_app_role()) = 1) with check ((select current_app_role()) = 1);
+
+grant select, insert, update, delete on public.school_quarters, public.school_holidays to authenticated;
+grant usage on sequence public.school_holidays_id_seq to authenticated;
+
+notify pgrst, 'reload schema';
+commit;
+-- END v56-school-calendar.sql
+
+-- BEGIN v57-enrollment-window.sql  (applied live 2026-11-09; branch SchoolYearLifecycle)
+-- v57-enrollment-window.sql  (branch SchoolYearLifecycle)
+-- 1. school_years.enrollment_open: a real per-year switch the admin flips on the Year Setup page.
+--    While it is off, nobody (admin included) can enroll a student into that year: no new enrollment, no first
+--    section placement, no re-enroll and no bulk import. Moves inside the year (shift, swap, transfer, promotion)
+--    are not enrollment and still work. Server-side scripts (no logged-in user) are not blocked.
+-- 2. school_years.closed_at / closed_by / close_reason: "Close year" on the year-end checklist (v63). A closed
+--    year counts as Past, so the v47b Past-year lock makes it read-only right away instead of on its end date.
+-- Safe to run twice: the backfill only runs when the column is first added.
+begin;
+
+do $$
+begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'school_years' and column_name = 'enrollment_open') then
+    alter table public.school_years add column enrollment_open boolean not null default false;
+    -- Keep today's work going: the year in progress starts open; any other year is opened from Year Setup.
+    update public.school_years set enrollment_open = true where label = public.current_school_year();
+  end if;
+end $$;
+alter table public.school_years add column if not exists closed_at timestamptz;
+alter table public.school_years add column if not exists closed_by text;
+alter table public.school_years add column if not exists close_reason text;
+
+-- As v47, plus: a closed year is Past.
+create or replace function public.school_year_status(p_label text)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when sy.closed_at is not null then 'Past'
+    when (now() at time zone 'Asia/Manila')::date < sy.start_date then 'Upcoming'
+    when (now() at time zone 'Asia/Manila')::date > sy.end_date   then 'Past'
+    else 'Active'
+  end
+  from public.school_years sy
+  where sy.label = p_label;
+$$;
+
+create or replace function public.enrollment_is_open(p_label text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select enrollment_open and closed_at is null from public.school_years where label = p_label), false);
+$$;
+grant execute on function public.enrollment_is_open(text) to authenticated;
+
+create or replace function public.enrollment_window_error(p_label text)
+returns void
+language plpgsql
+as $$
+begin
+  raise exception 'Enrollment for % is closed. The admin opens it on the Year Setup page.', p_label
+    using errcode = 'check_violation';
+end $$;
+
+-- enrollments: a new active enrollment, a re-activated one, or a first section placement needs an open year.
+create or replace function public.enforce_enrollment_window()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or new.status is distinct from 'active' or public.enrollment_is_open(new.school_year) then
+    return new;
+  end if;
+  if tg_op = 'UPDATE' and old.status = 'active'
+     and (old.section_id is not null or new.section_id is not distinct from old.section_id) then
+    return new; -- moving a placed student (shift/swap) or editing details is not enrollment
+  end if;
+  if tg_op = 'INSERT' and exists (
+    select 1 from public.enrollments e
+    where e.student_id = new.student_id and e.school_year = new.school_year
+      and e.status = 'active' and e.section_id is not null
+  ) then
+    return new; -- insert ... on conflict update of an already placed student (assign_student_to_section)
+  end if;
+  perform public.enrollment_window_error(new.school_year);
+  return new;
+end $$;
+drop trigger if exists trg_enrollments_window on public.enrollments;
+create trigger trg_enrollments_window before insert or update on public.enrollments
+  for each row execute function public.enforce_enrollment_window();
+
+-- student_school_years: the registrar's "Enroll for <SY>" (re-enroll) writes here directly. Rows written by the
+-- enrollments sync trigger (nested, depth > 1) were already checked above.
+create or replace function public.enforce_reenroll_window()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or pg_trigger_depth() > 1 or public.enrollment_is_open(new.school_year) then
+    return new;
+  end if;
+  perform public.enrollment_window_error(new.school_year);
+  return new;
+end $$;
+drop trigger if exists trg_student_school_years_window on public.student_school_years;
+create trigger trg_student_school_years_window before insert on public.student_school_years
+  for each row execute function public.enforce_reenroll_window();
+
+notify pgrst, 'reload schema';
+commit;
+-- END v57-enrollment-window.sql
+
+-- BEGIN v58-admission-requirements.sql  (applied live 2026-11-09; branch SchoolYearLifecycle)
+-- v58-admission-requirements.sql  (branch SchoolYearLifecycle)
+-- Requirements checklist for admission applications.
+--   requirement_types        the admin-editable list (seeded with the DepEd standard set). A code that matches an
+--                            upload's application_documents.document_type is ticked by that upload automatically.
+--   application_requirements items the registrar marks as received (e.g. paper copies handed in).
+--   admission_applications.admission_type  'new' or 'transferee' (null: Grade 7 and 11 count as new).
+-- Approving an application is refused while a required item is missing, unless the admin approved a
+-- 'requirements_override' request for it (filed with request_requirements_override, reviewed in Pending Approvals).
+-- Safe to run twice.
+begin;
+
+create table if not exists public.requirement_types (
+  id              serial unique,
+  code            text primary key check (code ~ '^[a-z0-9_]{2,40}$'),
+  label           text not null check (length(trim(label)) between 1 and 120),
+  grade_levels    integer[],                       -- null = every grade
+  transferee_only boolean not null default false,
+  required        boolean not null default true,
+  sort_order      smallint not null default 0,
+  is_active       boolean not null default true
+);
+
+insert into public.requirement_types (code, label, grade_levels, transferee_only, sort_order) values
+  ('birth_certificate', 'PSA birth certificate', null, false, 1),
+  ('report_card', 'Form 138 (report card)', null, false, 2),
+  ('good_moral', 'Good moral certificate', null, false, 3),
+  ('form_137', 'Form 137 / SF10 (permanent record)', null, true, 4),
+  ('jhs_completion', 'Junior High completion certificate', '{11,12}', false, 5)
+on conflict (code) do nothing;
+
+alter table public.admission_applications add column if not exists admission_type text;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'admission_applications_admission_type_check') then
+    alter table public.admission_applications add constraint admission_applications_admission_type_check
+      check (admission_type is null or admission_type in ('new', 'transferee'));
+  end if;
+end $$;
+
+create table if not exists public.application_requirements (
+  id             serial unique,
+  application_id integer not null references public.admission_applications(id) on delete cascade,
+  code           text not null references public.requirement_types(code) on update cascade on delete cascade,
+  received_at    timestamptz not null default now(),
+  received_by    text default (auth.jwt() ->> 'email'),
+  note           text check (note is null or length(note) <= 200),
+  primary key (application_id, code)
+);
+
+-- Labels of the required items an application is still missing (same rule as shared/lib/requirements.js).
+create or replace function public.application_missing_requirements(p_application_id integer)
+returns text[]
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(array_agg(rt.label order by rt.sort_order, rt.label), '{}')
+  from public.admission_applications a
+  cross join lateral (select substring(a.grade_level from '\d+')::integer as grade) g
+  join public.requirement_types rt
+    on rt.is_active and rt.required
+   and (rt.grade_levels is null or g.grade = any (rt.grade_levels))
+   and (not rt.transferee_only
+        or coalesce(a.admission_type, case when g.grade in (7, 11) then 'new' else 'transferee' end) = 'transferee')
+  where a.id = p_application_id
+    and not exists (select 1 from public.application_requirements r where r.application_id = a.id and r.code = rt.code)
+    and not exists (select 1 from public.application_documents d where d.application_id = a.id and d.document_type = rt.code);
+$$;
+grant execute on function public.application_missing_requirements(integer) to authenticated;
+
+create or replace function public.enforce_admission_requirements()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare missing text[];
+begin
+  if auth.uid() is null or new.status is distinct from 'approved' or old.status = 'approved' then
+    return new;
+  end if;
+  missing := public.application_missing_requirements(new.id);
+  if cardinality(missing) > 0 and not exists (
+    select 1 from public.approval_requests
+    where request_type = 'requirements_override' and status = 'approved' and (payload ->> 'application_id')::integer = new.id
+  ) then
+    raise exception 'Missing requirements: %. Mark them received, or have the registrar request a requirements override.',
+      array_to_string(missing, ', ') using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_admission_requirements on public.admission_applications;
+create trigger trg_admission_requirements before update of status on public.admission_applications
+  for each row execute function public.enforce_admission_requirements();
+
+-- New approval request type (keeps every type v55 allows).
+alter table public.approval_requests drop constraint if exists approval_requests_request_type_check;
+alter table public.approval_requests add constraint approval_requests_request_type_check check (
+  request_type in ('grade_correction', 'withdrawal', 'promotion', 'account_action', 'override', 'student_profile',
+                   'student_portal_request', 'requirements_override')
+);
+
+create or replace function public.request_requirements_override(p_application_id integer, p_reason text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare actor record; app public.admission_applications%rowtype; missing text[]; rid integer;
+begin
+  select user_id as uid, username::text as uname into actor from public.users
+    where lower(email) = lower(auth.jwt() ->> 'email') and is_active and role_id in (1, 2) limit 1;
+  if actor.uid is null then raise exception 'Not authorized for this request'; end if;
+  if nullif(trim(p_reason), '') is null then raise exception 'A reason is required'; end if;
+  if length(p_reason) > 500 then raise exception 'The reason must be 500 characters or fewer'; end if;
+  select * into app from public.admission_applications where id = p_application_id;
+  if not found then raise exception 'Application not found'; end if;
+  if app.status not in ('submitted', 'under_review') then raise exception 'This application is no longer pending'; end if;
+  missing := public.application_missing_requirements(p_application_id);
+  if cardinality(missing) = 0 then raise exception 'Nothing is missing, so no override is needed'; end if;
+  if exists (select 1 from public.approval_requests where request_type = 'requirements_override'
+             and status in ('pending', 'approved') and (payload ->> 'application_id')::integer = p_application_id) then
+    raise exception 'This application already has a requirements override request';
+  end if;
+  insert into public.approval_requests (request_type, payload, summary, reason, requested_by, requester_name)
+  values ('requirements_override',
+    jsonb_build_object('application_id', p_application_id, 'missing', to_jsonb(missing)),
+    format('Requirements override: %s %s (missing %s)', app.first_name, app.last_name, array_to_string(missing, ', ')),
+    trim(p_reason), actor.uid, actor.uname)
+  returning id into rid;
+  return jsonb_build_object('request_id', rid);
+end $$;
+revoke all on function public.request_requirements_override(integer, text) from public, anon;
+grant execute on function public.request_requirements_override(integer, text) to authenticated;
+
+alter table public.requirement_types enable row level security;
+alter table public.application_requirements enable row level security;
+
+drop policy if exists requirement_types_read on public.requirement_types;
+create policy requirement_types_read on public.requirement_types for select to authenticated
+  using ((select current_app_role()) = any (array[1, 2]));
+drop policy if exists requirement_types_admin on public.requirement_types;
+create policy requirement_types_admin on public.requirement_types for all to authenticated
+  using ((select current_app_role()) = 1) with check ((select current_app_role()) = 1);
+
+drop policy if exists application_requirements_staff on public.application_requirements;
+create policy application_requirements_staff on public.application_requirements for all to authenticated
+  using ((select current_app_role()) = any (array[1, 2])) with check ((select current_app_role()) = any (array[1, 2]));
+
+grant select, insert, update, delete on public.requirement_types, public.application_requirements to authenticated;
+grant usage on sequence public.requirement_types_id_seq, public.application_requirements_id_seq to authenticated;
+
+select public.attach_change_tracking('requirement_types');
+select public.attach_change_tracking('application_requirements');
+
+notify pgrst, 'reload schema';
+commit;
+-- END v58-admission-requirements.sql
+
+-- BEGIN v59-bulk-student-import.sql  (applied live 2026-11-09; branch SchoolYearLifecycle)
+-- v59-bulk-student-import.sql  (branch SchoolYearLifecycle)
+-- bulk_import_students(): the registrar (or admin) imports a spreadsheet of new students for one school year.
+-- Each row becomes, exactly as an approved admission does (review_admission_application):
+--   a students row (Enrolled), an enrollments row for the year (no section yet: auto-assign places them),
+--   and a users row with a pending initial_password (username + '123'); the admin turns those into real logins
+--   with "Provision pending logins" on Manage Accounts.
+-- All or nothing: one bad row stops the whole import with its row number. Enrollment for the year must be open
+-- (v57). Rows that match an existing student (same last name, first name and birth date) are refused: those
+-- students are re-enrolled instead. Safe to run twice.
+begin;
+
+create or replace function public.bulk_import_students(p_school_year text, p_rows jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actor text;
+  r jsonb;
+  n integer := 0;
+  grade integer;
+  strand_code text;
+  birth date;
+  student_no text;
+  new_student integer;
+  new_username text;
+  created jsonb := '[]'::jsonb;
+begin
+  select username into actor from users
+    where lower(email) = lower(auth.jwt() ->> 'email') and is_active and role_id in (1, 2) limit 1;
+  if actor is null then raise exception 'Not authorized to import students'; end if;
+  if not exists (select 1 from school_years where label = p_school_year) then
+    raise exception 'School year % does not exist', p_school_year;
+  end if;
+  if not enrollment_is_open(p_school_year) then perform enrollment_window_error(p_school_year); end if;
+  if coalesce(jsonb_typeof(p_rows), '') <> 'array' or jsonb_array_length(p_rows) = 0 then
+    raise exception 'The file has no student rows';
+  end if;
+  if jsonb_array_length(p_rows) > 500 then raise exception 'Import at most 500 students at a time'; end if;
+
+  for r in select value from jsonb_array_elements(p_rows) loop
+    n := n + 1;
+    if nullif(trim(r ->> 'first_name'), '') is null or nullif(trim(r ->> 'last_name'), '') is null then
+      raise exception 'Row %: first and last name are required', n + 1;
+    end if;
+    begin
+      birth := (r ->> 'birth_date')::date;
+    exception when others then
+      raise exception 'Row %: birth date is not a valid date', n + 1;
+    end;
+    if birth is null then raise exception 'Row %: birth date is required', n + 1; end if;
+    if coalesce(r ->> 'sex', '') not in ('Male', 'Female') then raise exception 'Row %: sex must be Male or Female', n + 1; end if;
+    grade := nullif(r ->> 'grade_level', '')::integer;
+    if grade is null or not exists (select 1 from grade_levels where grade_level = grade and offered) then
+      raise exception 'Row %: grade level % is not offered', n + 1, coalesce(grade::text, '(blank)');
+    end if;
+    strand_code := nullif(trim(r ->> 'strand'), '');
+    if grade >= 11 and (strand_code is null or not exists (select 1 from strands where code = strand_code)) then
+      raise exception 'Row %: choose a valid strand for Grade %', n + 1, grade;
+    end if;
+    if grade < 11 then strand_code := null; end if;
+    if exists (select 1 from students where lower(first_name) = lower(trim(r ->> 'first_name'))
+               and lower(last_name) = lower(trim(r ->> 'last_name')) and date_of_birth = birth) then
+      raise exception 'Row %: % % (born %) is already a student; re-enroll them instead', n + 1,
+        trim(r ->> 'first_name'), trim(r ->> 'last_name'), birth;
+    end if;
+    student_no := nullif(trim(r ->> 'student_no'), '');
+    if student_no is not null and exists (select 1 from students where lower(lrn_number) = lower(student_no)) then
+      raise exception 'Row %: student no. % is already used', n + 1, student_no;
+    end if;
+    if student_no is null then
+      student_no := 'TCS-' || to_char(now(), 'YY') || '-' || lpad(nextval('student_number_seq')::text, 5, '0');
+    end if;
+
+    insert into students (lrn_number, first_name, middle_name, last_name, date_of_birth, gender, enrollment_status,
+      grade_level, strand, address, contact_number, guardian_name, guardian_relationship, guardian_phone, guardian_email)
+    values (student_no, trim(r ->> 'first_name'), nullif(trim(r ->> 'middle_name'), ''), trim(r ->> 'last_name'), birth,
+      r ->> 'sex', 'Enrolled', grade, strand_code, nullif(trim(r ->> 'address'), ''), nullif(trim(r ->> 'contact_number'), ''),
+      nullif(trim(r ->> 'guardian_name'), ''), nullif(trim(r ->> 'guardian_relationship'), ''),
+      nullif(trim(r ->> 'guardian_phone'), ''), nullif(trim(r ->> 'guardian_email'), ''))
+    returning student_id into new_student;
+
+    insert into enrollments (student_id, school_year, grade_level, status, enrolled_at)
+    values (new_student, p_school_year, grade, 'active', now());
+
+    new_username := generate_username(trim(r ->> 'first_name'), trim(r ->> 'last_name'));
+    insert into users (username, email, password_hash, role_id, is_active, student_id, initial_password)
+    values (new_username, new_username || '@tcs.edu.ph',
+      extensions.crypt(new_username || '123', extensions.gen_salt('bf')), 4, true, new_student, new_username || '123');
+
+    created := created || jsonb_build_object('row', n + 1, 'student_id', new_student, 'student_no', student_no,
+      'username', new_username, 'name', trim(r ->> 'last_name') || ', ' || trim(r ->> 'first_name'));
+  end loop;
+
+  insert into audit_logs (action, entity_type, entity_id, details)
+  values ('BULK_IMPORT_STUDENTS', 'school_year', null,
+    jsonb_build_object('school_year', p_school_year, 'count', n, 'actor', actor));
+  return jsonb_build_object('created', created, 'count', n);
+end $$;
+
+revoke all on function public.bulk_import_students(text, jsonb) from public, anon;
+grant execute on function public.bulk_import_students(text, jsonb) to authenticated;
+
+notify pgrst, 'reload schema';
+commit;
+-- END v59-bulk-student-import.sql
+
+-- BEGIN v60-adviser-access.sql  (applied live 2026-11-09; branch SchoolYearLifecycle)
+-- v60-adviser-access.sql  (branch SchoolYearLifecycle)
+-- A class adviser (the faculty named in sections.faculty_assigned for the current school year) may READ their
+-- advisory section's students, roster, every subject's grades, attendance, and the requests those students
+-- filed. Faculty already read the students they teach; this adds the adviser's whole-section view.
+-- Read-only: grades stay editable only by the subject teacher. Safe to run twice.
+begin;
+
+-- Advisory sections of the signed-in faculty member, this school year. Matched by name, as the Manage
+-- Sections page stores the adviser ("First Last" of the staff profile).
+create or replace function public.adviser_section_ids()
+returns setof integer
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select s.section_id
+  from public.sections s
+  join public.staff_profiles sp on lower(trim(s.faculty_assigned)) = lower(sp.first_name || ' ' || sp.last_name)
+  join public.users u on u.user_id = sp.user_id
+  where lower(u.email) = lower(auth.jwt() ->> 'email') and u.is_active and u.role_id = 3
+    and s.academic_year = public.current_school_year();
+$$;
+
+create or replace function public.adviser_of_student(p_student_id integer)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.enrollments e
+    where e.student_id = p_student_id and e.status in ('active', 'completed')
+      and e.section_id in (select public.adviser_section_ids())
+  );
+$$;
+grant execute on function public.adviser_section_ids() to authenticated;
+grant execute on function public.adviser_of_student(integer) to authenticated;
+
+drop policy if exists adviser_students_read on public.students;
+create policy adviser_students_read on public.students for select to authenticated
+  using ((select current_app_role()) = 3 and public.adviser_of_student(student_id));
+
+drop policy if exists adviser_enrollments_read on public.enrollments;
+create policy adviser_enrollments_read on public.enrollments for select to authenticated
+  using ((select current_app_role()) = 3 and section_id in (select public.adviser_section_ids()));
+
+drop policy if exists adviser_academic_read on public.academic_history;
+create policy adviser_academic_read on public.academic_history for select to authenticated
+  using ((select current_app_role()) = 3 and public.adviser_of_student(student_id));
+
+drop policy if exists adviser_attendance_read on public.attendance;
+create policy adviser_attendance_read on public.attendance for select to authenticated
+  using ((select current_app_role()) = 3 and public.adviser_of_student(student_id));
+
+-- Requests filed by the adviser's students (profile edits, LRN/account/section requests, ...). The users
+-- lookup runs as definer: faculty cannot read other people's users rows.
+create or replace function public.adviser_of_user(p_user_id integer)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.users u
+    where u.user_id = p_user_id and u.role_id = 4 and public.adviser_of_student(u.student_id)
+  );
+$$;
+grant execute on function public.adviser_of_user(integer) to authenticated;
+
+drop policy if exists adviser_requests_read on public.approval_requests;
+create policy adviser_requests_read on public.approval_requests for select to authenticated
+  using ((select current_app_role()) = 3 and public.adviser_of_user(requested_by));
+
+notify pgrst, 'reload schema';
+commit;
+-- END v60-adviser-access.sql
+
+-- BEGIN v61-student-sanctions.sql  (applied live 2026-11-09; branch SchoolYearLifecycle)
+-- v61-student-sanctions.sql  (branch SchoolYearLifecycle)
+-- Discipline and sanctions records. Replaces Sam's unapplied v50-sanctions.sql (same idea, now with a school
+-- year, RLS and an audit trail).
+--   admin, registrar: read and write every record (only they may delete)
+--   adviser (faculty): read and write records for students in their advisory section (v60 helpers)
+--   student: read their own records
+-- Safe to run twice.
+begin;
+
+create table if not exists public.student_sanctions (
+  sanction_id      serial primary key,
+  student_id       integer not null references public.students(student_id) on delete cascade,
+  school_year      text not null default public.current_school_year(),
+  incident_date    date not null default current_date,
+  violation_type   text not null check (length(trim(violation_type)) between 1 and 120),
+  description      text not null check (length(trim(description)) between 1 and 1000),
+  sanction_type    text not null check (length(trim(sanction_type)) between 1 and 120),
+  sanction_details text check (sanction_details is null or length(sanction_details) <= 1000),
+  status           text not null default 'active' check (status in ('active', 'resolved', 'dismissed')),
+  issued_by        integer references public.users(user_id) on delete set null,
+  issued_by_name   text,
+  resolution_notes text check (resolution_notes is null or length(resolution_notes) <= 1000),
+  resolved_at      timestamptz,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+create index if not exists idx_student_sanctions_student on public.student_sanctions(student_id);
+create index if not exists idx_student_sanctions_year on public.student_sanctions(school_year);
+
+select public.link_school_year_column('student_sanctions');
+select public.attach_change_tracking('student_sanctions', 'sanction_id');
+
+-- Who filed it comes from the session, not the client; resolved_at follows the status.
+create or replace function public.student_sanctions_stamp()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare me record;
+begin
+  select user_id, username::text as username into me from users
+    where lower(email) = lower(auth.jwt() ->> 'email') and is_active limit 1;
+  if tg_op = 'INSERT' then
+    new.issued_by := me.user_id;
+    new.issued_by_name := coalesce(me.username, 'system');
+    new.created_at := now();
+  else
+    new.issued_by := old.issued_by;
+    new.issued_by_name := old.issued_by_name;
+    new.created_at := old.created_at;
+  end if;
+  new.updated_at := now();
+  new.resolved_at := case when new.status = 'active' then null else coalesce(old.resolved_at, now()) end;
+  return new;
+end $$;
+drop trigger if exists trg_student_sanctions_stamp on public.student_sanctions;
+create trigger trg_student_sanctions_stamp before insert or update on public.student_sanctions
+  for each row execute function public.student_sanctions_stamp();
+
+alter table public.student_sanctions enable row level security;
+
+drop policy if exists sanctions_read on public.student_sanctions;
+create policy sanctions_read on public.student_sanctions for select to authenticated using (
+  (select current_app_role()) = any (array[1, 2])
+  or ((select current_app_role()) = 3 and public.adviser_of_student(student_id))
+  or exists (select 1 from public.users u
+             where lower(u.email) = lower(auth.jwt() ->> 'email') and u.is_active and u.student_id = student_sanctions.student_id)
+);
+drop policy if exists sanctions_insert on public.student_sanctions;
+create policy sanctions_insert on public.student_sanctions for insert to authenticated with check (
+  (select current_app_role()) = any (array[1, 2])
+  or ((select current_app_role()) = 3 and public.adviser_of_student(student_id))
+);
+drop policy if exists sanctions_update on public.student_sanctions;
+create policy sanctions_update on public.student_sanctions for update to authenticated
+  using ((select current_app_role()) = any (array[1, 2]) or ((select current_app_role()) = 3 and public.adviser_of_student(student_id)))
+  with check ((select current_app_role()) = any (array[1, 2]) or ((select current_app_role()) = 3 and public.adviser_of_student(student_id)));
+drop policy if exists sanctions_delete on public.student_sanctions;
+create policy sanctions_delete on public.student_sanctions for delete to authenticated
+  using ((select current_app_role()) = any (array[1, 2]));
+
+grant select, insert, update, delete on public.student_sanctions to authenticated;
+grant usage on sequence public.student_sanctions_sanction_id_seq to authenticated;
+
+notify pgrst, 'reload schema';
+commit;
+-- END v61-student-sanctions.sql
+
+-- BEGIN v62-document-requests.sql  (applied live 2026-11-09; branch SchoolYearLifecycle)
+-- v62-document-requests.sql  (branch SchoolYearLifecycle)
+-- Document requests: a student (graduates included) asks for a Form 137, Good Moral certificate or Certificate
+-- of Enrollment; the registrar moves it Pending -> Approved / Rejected -> Ready for pickup -> Released.
+-- Writes go through two functions only (no direct insert/update), and each status change notifies the student.
+-- Safe to run twice.
+begin;
+
+create table if not exists public.document_requests (
+  id            serial primary key,
+  student_id    integer not null references public.students(student_id) on delete cascade,
+  document_type text not null check (document_type in ('form_137', 'good_moral', 'coe')),
+  purpose       text not null check (length(trim(purpose)) between 1 and 300),
+  copies        smallint not null default 1 check (copies between 1 and 5),
+  status        text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'ready', 'released')),
+  remarks       text check (remarks is null or length(remarks) <= 500),
+  requested_by  integer references public.users(user_id) on delete set null,
+  processed_by  text,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  released_at   timestamptz
+);
+create index if not exists idx_document_requests_student on public.document_requests(student_id);
+create index if not exists idx_document_requests_status on public.document_requests(status);
+
+select public.attach_change_tracking('document_requests');
+
+create or replace function public.document_type_label(p_type text)
+returns text
+language sql
+immutable
+as $$
+  select case p_type
+    when 'form_137' then 'Form 137 (SF10)'
+    when 'good_moral' then 'Good Moral Certificate'
+    when 'coe' then 'Certificate of Enrollment'
+    else p_type end;
+$$;
+
+create or replace function public.submit_document_request(p_document_type text, p_purpose text, p_copies integer default 1)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare me record; rid integer;
+begin
+  select user_id, student_id into me from users
+    where lower(email) = lower(auth.jwt() ->> 'email') and is_active and role_id = 4 limit 1;
+  if me.student_id is null then raise exception 'Only a student account can request documents'; end if;
+  if p_document_type not in ('form_137', 'good_moral', 'coe') then raise exception 'Choose a document'; end if;
+  if nullif(trim(p_purpose), '') is null then raise exception 'Say what the document is for'; end if;
+  if length(p_purpose) > 300 then raise exception 'The purpose must be 300 characters or fewer'; end if;
+  if coalesce(p_copies, 0) not between 1 and 5 then raise exception 'Request 1 to 5 copies'; end if;
+  if exists (select 1 from document_requests where student_id = me.student_id and document_type = p_document_type
+             and status in ('pending', 'approved', 'ready')) then
+    raise exception 'You already have an open request for this document';
+  end if;
+  insert into document_requests (student_id, document_type, purpose, copies, requested_by)
+  values (me.student_id, p_document_type, trim(p_purpose), p_copies, me.user_id)
+  returning id into rid;
+  return jsonb_build_object('id', rid);
+end $$;
+
+-- Registrar (or admin) moves a request one step: pending -> approved | rejected, approved -> ready | rejected,
+-- ready -> released. Rejecting needs remarks.
+create or replace function public.set_document_request_status(p_id integer, p_status text, p_remarks text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare actor text; r document_requests%rowtype; student_user record; message text;
+begin
+  select username into actor from users
+    where lower(email) = lower(auth.jwt() ->> 'email') and is_active and role_id in (1, 2) limit 1;
+  if actor is null then raise exception 'Not authorized to process document requests'; end if;
+  select * into r from document_requests where id = p_id for update;
+  if not found then raise exception 'Request not found'; end if;
+  if not ((r.status = 'pending' and p_status in ('approved', 'rejected'))
+       or (r.status = 'approved' and p_status in ('ready', 'rejected'))
+       or (r.status = 'ready' and p_status = 'released')) then
+    raise exception 'A % request cannot be marked %', r.status, p_status;
+  end if;
+  if p_status = 'rejected' and nullif(trim(p_remarks), '') is null then raise exception 'Give a reason for rejecting'; end if;
+  if length(coalesce(p_remarks, '')) > 500 then raise exception 'Remarks must be 500 characters or fewer'; end if;
+
+  update document_requests
+     set status = p_status, remarks = coalesce(nullif(trim(p_remarks), ''), remarks), processed_by = actor,
+         updated_at = now(), released_at = case when p_status = 'released' then now() else released_at end
+   where id = p_id;
+
+  message := document_type_label(r.document_type) || case p_status
+    when 'approved' then ' request approved. We will tell you when it is ready.'
+    when 'rejected' then ' request was not approved: ' || trim(p_remarks)
+    when 'ready' then ' is ready for pickup at the Registrar''s Office.'
+    else ' was released. Thank you.' end;
+  select user_id, email into student_user from users where student_id = r.student_id and role_id = 4 limit 1;
+  if student_user.user_id is not null then
+    insert into notifications (recipient_email, recipient_user_id, title, message, entity_type, entity_id)
+    values (student_user.email, student_user.user_id, 'Document request update', message, 'document_request', r.id);
+  end if;
+  return jsonb_build_object('id', p_id, 'status', p_status);
+end $$;
+
+revoke all on function public.submit_document_request(text, text, integer) from public, anon;
+revoke all on function public.set_document_request_status(integer, text, text) from public, anon;
+grant execute on function public.submit_document_request(text, text, integer) to authenticated;
+grant execute on function public.set_document_request_status(integer, text, text) to authenticated;
+
+alter table public.document_requests enable row level security;
+drop policy if exists document_requests_read on public.document_requests;
+create policy document_requests_read on public.document_requests for select to authenticated using (
+  (select current_app_role()) = any (array[1, 2])
+  or ((select current_app_role()) = 3 and public.adviser_of_student(student_id))
+  or exists (select 1 from public.users u
+             where lower(u.email) = lower(auth.jwt() ->> 'email') and u.is_active and u.student_id = document_requests.student_id)
+);
+grant select on public.document_requests to authenticated;
+
+notify pgrst, 'reload schema';
+commit;
+-- END v62-document-requests.sql
+
+-- BEGIN v63-year-end-checklist.sql  (applied live 2026-11-09; branch SchoolYearLifecycle)
+-- v63-year-end-checklist.sql  (branch SchoolYearLifecycle)
+-- Year-end checklist and "Close year" (columns from v57).
+--   year_end_checklist(label)   what still blocks closing: grades not submitted, students not promoted, and
+--                               unfinished requests (approvals, admissions, document requests, shift requests)
+--   close_school_year(label, override_reason)  admin only; refuses while anything is open unless a reason is
+--                               given; closes enrollment and makes the year Past (read-only) at once
+--   reopen_school_year(label, reason)          admin only; undoes a close
+-- closed_at can only be set through close_school_year(). Safe to run twice.
+begin;
+
+create or replace function public.year_end_checklist(p_label text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  next_label text := (split_part(p_label, '-', 1)::int + 1) || '-' || (split_part(p_label, '-', 2)::int + 1);
+  grades_missing integer; classes_missing integer; not_promoted integer;
+  approvals integer; admissions integer; documents integer; shifts integer;
+begin
+  if coalesce(current_app_role(), 0) not in (1, 2) then raise exception 'Not authorized'; end if;
+
+  -- Every enrolled student of every class (section + subject) needs a submitted (locked) final grade.
+  with classes as (
+    select distinct ss.section_id, sub.subject_name
+    from subject_schedules ss
+    join sections s on s.section_id = ss.section_id and s.academic_year = p_label
+    join subjects sub on sub.subject_id = ss.subject_id
+  ), missing as (
+    select c.section_id, c.subject_name
+    from classes c
+    join enrollments e on e.section_id = c.section_id and e.school_year = p_label and e.status in ('active', 'completed')
+    where not exists (
+      select 1 from academic_history ah
+      where ah.student_id = e.student_id and ah.school_year = p_label and ah.subject = c.subject_name
+        and ah.locked and coalesce(ah.final, ah.grade) is not null
+    )
+  )
+  select count(*), count(distinct (section_id, subject_name)) into grades_missing, classes_missing from missing;
+
+  -- Promotion is logged under the next school year (batch_promote_students); a promoted student's enrollment
+  -- turns 'completed', so anyone still 'active' without a log has not been through promotion.
+  select count(*) into not_promoted from enrollments e
+  where e.school_year = p_label and e.status = 'active'
+    and not exists (select 1 from promotion_logs pl where pl.student_id = e.student_id and pl.school_year = next_label);
+
+  select count(*) into approvals from approval_requests where status = 'pending';
+  select count(*) into admissions from admission_applications where status in ('submitted', 'under_review');
+  select count(*) into shifts from shift_requests where status = 'pending';
+  select count(*) into documents from document_requests where status in ('pending', 'approved', 'ready');
+
+  return jsonb_build_array(
+    jsonb_build_object('key', 'grades', 'label', 'All grades submitted', 'count', grades_missing,
+      'detail', format('%s student grade(s) in %s class(es) not submitted', grades_missing, classes_missing)),
+    jsonb_build_object('key', 'promotion', 'label', 'Promotion done', 'count', not_promoted,
+      'detail', format('%s enrolled student(s) not yet promoted, retained or graduated', not_promoted)),
+    jsonb_build_object('key', 'approvals', 'label', 'Pending approvals handled', 'count', approvals,
+      'detail', format('%s request(s) waiting in Pending Approvals', approvals)),
+    jsonb_build_object('key', 'admissions', 'label', 'Applications decided', 'count', admissions,
+      'detail', format('%s admission application(s) not yet approved or declined', admissions)),
+    jsonb_build_object('key', 'documents', 'label', 'Document requests finished', 'count', documents,
+      'detail', format('%s document request(s) not yet released or rejected', documents)),
+    jsonb_build_object('key', 'shifts', 'label', 'Section shift requests handled', 'count', shifts,
+      'detail', format('%s shift request(s) pending', shifts))
+  );
+end $$;
+
+create or replace function public.close_school_year(p_label text, p_override_reason text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare actor text; open_items text;
+begin
+  select username into actor from users where lower(email) = lower(auth.jwt() ->> 'email') and is_active and role_id = 1 limit 1;
+  if actor is null then raise exception 'Only the admin can close a school year'; end if;
+  if not exists (select 1 from school_years where label = p_label) then raise exception 'School year % does not exist', p_label; end if;
+  if exists (select 1 from school_years where label = p_label and closed_at is not null) then raise exception '% is already closed', p_label; end if;
+  select string_agg(item ->> 'detail', '; ') into open_items
+    from jsonb_array_elements(year_end_checklist(p_label)) item where (item ->> 'count')::int > 0;
+  if open_items is not null and nullif(trim(p_override_reason), '') is null then
+    raise exception 'The year-end checklist is not complete: %. Finish it, or close anyway with a reason.', open_items;
+  end if;
+  if length(coalesce(p_override_reason, '')) > 500 then raise exception 'The reason must be 500 characters or fewer'; end if;
+
+  perform set_config('app.closing_year', 'on', true);
+  update school_years
+     set closed_at = now(), closed_by = actor, enrollment_open = false,
+         close_reason = case when open_items is null then null else trim(p_override_reason) end
+   where label = p_label;
+  insert into audit_logs (action, entity_type, entity_id, details)
+  values ('CLOSE_SCHOOL_YEAR', 'school_year', null,
+    jsonb_build_object('school_year', p_label, 'override_reason', p_override_reason, 'open_items', open_items, 'actor', actor));
+  return jsonb_build_object('closed', p_label, 'overridden', open_items is not null);
+end $$;
+
+create or replace function public.reopen_school_year(p_label text, p_reason text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare actor text;
+begin
+  select username into actor from users where lower(email) = lower(auth.jwt() ->> 'email') and is_active and role_id = 1 limit 1;
+  if actor is null then raise exception 'Only the admin can reopen a school year'; end if;
+  if nullif(trim(p_reason), '') is null then raise exception 'A reason is required'; end if;
+  update school_years set closed_at = null, closed_by = null, close_reason = null where label = p_label and closed_at is not null;
+  if not found then raise exception '% is not closed', p_label; end if;
+  insert into audit_logs (action, entity_type, entity_id, details)
+  values ('REOPEN_SCHOOL_YEAR', 'school_year', null, jsonb_build_object('school_year', p_label, 'reason', p_reason, 'actor', actor));
+  return jsonb_build_object('reopened', p_label);
+end $$;
+
+-- Setting closed_at directly (the admin can update school_years) would skip the checklist.
+create or replace function public.guard_school_year_close()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.closed_at is not null and old.closed_at is null and auth.uid() is not null
+     and current_setting('app.closing_year', true) is distinct from 'on' then
+    raise exception 'Close a school year from Year Setup so the year-end checklist is checked' using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_guard_school_year_close on public.school_years;
+create trigger trg_guard_school_year_close before update of closed_at on public.school_years
+  for each row execute function public.guard_school_year_close();
+
+revoke all on function public.year_end_checklist(text) from public, anon;
+revoke all on function public.close_school_year(text, text) from public, anon;
+revoke all on function public.reopen_school_year(text, text) from public, anon;
+grant execute on function public.year_end_checklist(text) to authenticated;
+grant execute on function public.close_school_year(text, text) to authenticated;
+grant execute on function public.reopen_school_year(text, text) to authenticated;
+
+-- Safety net: every school_year / academic_year column added by this branch has the v47b FK and Past lock.
+do $$
+declare r record;
+begin
+  for r in
+    select c.table_name, c.column_name from information_schema.columns c
+    join information_schema.tables t on t.table_schema = c.table_schema and t.table_name = c.table_name and t.table_type = 'BASE TABLE'
+    where c.table_schema = 'public' and c.column_name in ('school_year', 'academic_year')
+      and c.data_type in ('text', 'character varying') and not (c.table_name = 'school_years')
+  loop
+    begin
+      perform public.link_school_year_column(r.table_name, r.column_name);
+    exception when others then
+      raise notice 'Could not link %.%: %', r.table_name, r.column_name, sqlerrm;
+    end;
+  end loop;
+end $$;
+
+notify pgrst, 'reload schema';
+commit;
+-- END v63-year-end-checklist.sql
