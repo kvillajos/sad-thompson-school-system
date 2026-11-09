@@ -29,7 +29,8 @@ const requestLabels = {
   account_action: 'Account action',
   override: 'Capacity override',
   student_profile: 'Student profile edit',
-  student_portal_request: 'Student portal request'
+  student_portal_request: 'Student portal request',
+  requirements_override: 'Requirements override'
 }
 const approvalsTable = document.getElementById('approvals-table')
 const approvalFilter = document.getElementById('approval-filter')

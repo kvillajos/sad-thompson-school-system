@@ -10,6 +10,7 @@ import { fetchAll } from '../shared/lib/fetch-all.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
 import { isSeniorHigh, strandOptions } from '../shared/lib/strands.js'
+import { loadRequirementData, mountRequirementChecklist, requirementBadge } from '../shared/ui/requirements-checklist.js'
 
 // Label values ("Grade 7"), so an application's stored grade still selects through gradeSelectLabel().
 const applicationGrade = document.querySelector('#application-form [name=grade_level]')
@@ -187,6 +188,7 @@ async function saveApplication(data, status) {
     prior_grade: data.prior_grade || null,
     grade_level: data.grade_level ? gradeToNumber(data.grade_level) : null,
     strand: data.strand || null,
+    admission_type: data.admission_type || null,
     special_program: data.special_program || null,
     status,
     ...(removeSavedPhoto ? { profile_picture_url: null } : {})
@@ -265,11 +267,12 @@ async function uploadDocuments(applicationId) {
 }
 
 export async function loadApplications() {
-  const { data, error } = await fetchAll(() =>
-    supabase.from('admission_applications').select('*').order('created_at', { ascending: false }).order('id')
-  )
+  const [{ data, error }] = await Promise.all([
+    fetchAll(() => supabase.from('admission_applications').select('*').order('created_at', { ascending: false }).order('id')),
+    loadRequirementData()
+  ])
   if (error) {
-    $('applications-table').innerHTML = errorRow(5, error, 'Load applications')
+    $('applications-table').innerHTML = errorRow(6, error, 'Load applications')
     return
   }
   state.applications = data || []
@@ -281,6 +284,7 @@ export async function loadApplications() {
     <td data-label="Student">${escapeHtml(`${a.first_name} ${a.last_name}`)}</td>
     <td data-label="Grade">${escapeHtml(gradeLabel(a.grade_level))}</td>
     <td data-label="Status">${statusBadge(a.status)}</td>
+    <td data-label="Requirements">${requirementBadge(a)}</td>
     <td data-label="Date">${formatDate(a.created_at)}</td>
     <td data-label="Actions">${
       a.status === 'draft'
@@ -289,7 +293,7 @@ export async function loadApplications() {
     }</td>
   </tr>`
       )
-      .join('') || '<tr><td colspan="5">No applications found.</td></tr>'
+      .join('') || '<tr><td colspan="6">No applications found.</td></tr>'
 
   document.querySelectorAll('[data-review]').forEach(b => b.addEventListener('click', () => openView(b.dataset.review)))
   document.querySelectorAll('[data-resume]').forEach(b => b.addEventListener('click', () => resumeApplication(b.dataset.resume)))
@@ -452,7 +456,8 @@ async function openView(id) {
   const show = (key, value) => (value == null || value === '' ? '-' : key === 'grade_level' ? gradeLabel(value) : value)
   document.querySelector('#review-modal h2').textContent = `${a.first_name || ''} ${a.last_name || ''}`.trim() || 'Application'
   $('review-content').innerHTML =
-    '<div id="view-fields"></div><h3>Documents</h3><ul class="document-list" id="view-documents"><li>Loading documents…</li></ul><div id="view-actions"></div>'
+    '<div id="view-fields"></div><h3>Requirements</h3><div id="view-requirements"><p>Loading requirements…</p></div><h3>Documents</h3><ul class="document-list" id="view-documents"><li>Loading documents…</li></ul><div id="view-actions"></div>'
+  mountRequirementChecklist($('view-requirements'), a, { editable, onChange: loadApplications })
   $('view-fields').innerHTML =
     `<div class="review-grid">${APPLICATION_FIELDS.map(([label, key]) => `<div><b>${label}</b><p>${escapeHtml(show(key, a[key]))}</p></div>`).join('')}<div><b>Status</b><p>${statusBadge(a.status)}</p></div><div><b>Submitted</b><p>${formatDate(a.created_at, true)}</p></div></div>`
   $('view-actions').innerHTML =

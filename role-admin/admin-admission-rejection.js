@@ -5,21 +5,27 @@ import { escapeHtml, errorRow, formatDate, gradeLabel, lastFirst } from '../shar
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
 import { withBusy } from '../shared/ui/shell.js'
+import { loadRequirementData, requirementBadge } from '../shared/ui/requirements-checklist.js'
+import { mountRequirementTypes } from './requirement-types.js'
 import { mountAdminShell } from './admin-page.js'
 
 await mountAdminShell('admissions')
+mountRequirementTypes(document.getElementById('requirement-types-host'))
 
 const $ = id => document.getElementById(id)
 const form = $('rejection-form')
 let applications = []
 
 async function loadApplications() {
-  const { data, error } = await supabase
-    .from('admission_applications')
-    .select('id,first_name,last_name,grade_level,status,created_at')
-    .in('status', ['submitted', 'under_review'])
-    .order('created_at')
-  if (error) return ($('admission-rejection-table').innerHTML = errorRow(6, error, 'Load applications'))
+  const [{ data, error }] = await Promise.all([
+    supabase
+      .from('admission_applications')
+      .select('id,first_name,last_name,grade_level,admission_type,status,created_at')
+      .in('status', ['submitted', 'under_review'])
+      .order('created_at'),
+    loadRequirementData()
+  ])
+  if (error) return ($('admission-rejection-table').innerHTML = errorRow(7, error, 'Load applications'))
   applications = data || []
   $('admission-rejection-table').innerHTML =
     applications
@@ -29,11 +35,12 @@ async function loadApplications() {
           <td data-label="Applicant">${escapeHtml(lastFirst(app))}</td>
           <td data-label="Grade Level">${escapeHtml(gradeLabel(app.grade_level))}</td>
           <td data-label="Status">${escapeHtml(app.status.replace('_', ' '))}</td>
+          <td data-label="Requirements">${requirementBadge(app)}</td>
           <td data-label="Date Submitted">${escapeHtml(formatDate(app.created_at))}</td>
           <td data-label="Action"><button type="button" class="admin-remove" data-reject="${app.id}">Reject</button></td>
         </tr>`
       )
-      .join('') || '<tr><td colspan="6">No applications are waiting for review.</td></tr>'
+      .join('') || '<tr><td colspan="7">No applications are waiting for review.</td></tr>'
   $('rejection-application').innerHTML =
     '<option value="">Select an application</option>' +
     applications.map(app => `<option value="${app.id}">#${app.id} ${escapeHtml(lastFirst(app))}</option>`).join('')

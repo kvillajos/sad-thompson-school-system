@@ -291,6 +291,12 @@
                   <option value="">Select</option>
                 </select></label
               ><label class="application-strand-field" hidden>Strand<select name="strand"></select></label
+              ><label
+                >Admission Type<select name="admission_type">
+                  <option value="">From the grade level</option>
+                  <option value="new">New student</option>
+                  <option value="transferee">Transferee</option>
+                </select></label
               ><label class="full"
                 >Address (optional)<textarea
                   data-own-counter
@@ -327,13 +333,35 @@
                 ><b>Supporting Documents (optional)</b>
                 <div id="application-documents" class="upload-grid">
                   <label
-                    >Birth Certificate<input
+                    >PSA Birth Certificate<input
                       type="file"
                       data-type="birth_certificate"
-                      data-label="Birth Certificate"
+                      data-label="PSA Birth Certificate"
                       accept=".pdf,.jpg,.jpeg,.png" /></label
                   ><label
-                    >Report Card<input type="file" data-type="report_card" data-label="Report Card" accept=".pdf,.jpg,.jpeg,.png" /></label
+                    >Form 138 (Report Card)<input
+                      type="file"
+                      data-type="report_card"
+                      data-label="Form 138 (Report Card)"
+                      accept=".pdf,.jpg,.jpeg,.png" /></label
+                  ><label
+                    >Good Moral Certificate<input
+                      type="file"
+                      data-type="good_moral"
+                      data-label="Good Moral Certificate"
+                      accept=".pdf,.jpg,.jpeg,.png" /></label
+                  ><label
+                    >Form 137 / SF10 (Transferees)<input
+                      type="file"
+                      data-type="form_137"
+                      data-label="Form 137 / SF10"
+                      accept=".pdf,.jpg,.jpeg,.png" /></label
+                  ><label
+                    >JHS Completion Certificate (Grades 11-12)<input
+                      type="file"
+                      data-type="jhs_completion"
+                      data-label="JHS Completion Certificate"
+                      accept=".pdf,.jpg,.jpeg,.png" /></label
                   ><label
                     >Other Document<input type="file" data-type="other" data-label="Other Document" accept=".pdf,.jpg,.jpeg,.png"
                   /></label></div
@@ -354,6 +382,7 @@
                   <th>Student</th>
                   <th>Grade</th>
                   <th>Status</th>
+                  <th>Requirements</th>
                   <th>Date</th>
                   <th>Action</th>
                 </tr>
