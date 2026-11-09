@@ -5,10 +5,11 @@ import { describeError } from '../shared/lib/errors.js'
 import { mountImportTab } from './registrar-import.js'
 import { mountStaffSanctions } from '../shared/ui/sanctions.js'
 import { mountSectionReportsTab } from './registrar-section-reports.js'
+import { mountDepedForms } from './registrar-deped-forms.js'
 
 const TABS = {
   import: mountImportTab,
-  'section-reports': mountSectionReportsTab,
+  'section-reports': async host => mountDepedForms(host.querySelector('#deped-forms-host'), await mountSectionReportsTab(host)),
   discipline: host => mountStaffSanctions(host)
 }
 const mounted = new Set()
