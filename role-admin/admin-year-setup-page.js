@@ -8,6 +8,7 @@ import { withBusy } from '../shared/ui/shell.js'
 import { fillYearSelect, loadSchoolYears, yearStatus } from '../shared/lib/school-years.js'
 import { nextSchoolYear, previousSchoolYear } from '../shared/lib/year-copy.js'
 import { mountCopyYear } from './copy-year.js'
+import { mountYearEnd } from './year-end-checklist.js'
 import { mountAdminShell } from './admin-page.js'
 
 await mountAdminShell('year-setup')
@@ -149,6 +150,7 @@ async function renderSteps() {
   ].join('')
 
   mountCopyYear($('copy-sections-host'), renderSteps, { sourceYear: prev, targetYear: year.label })
+  mountYearEnd($('year-end-host'), year, () => load(year.label))
 
   const carry = $('carry-settings')
   if (carry)
