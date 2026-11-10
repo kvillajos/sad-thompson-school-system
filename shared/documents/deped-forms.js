@@ -7,6 +7,10 @@
 //   SF10 Learner's Permanent Academic Record     one sheet per learner
 import { byLastName } from '../lib/html.js'
 import { ACADEMIC_LABELS, DEFAULT_GRADING_SCALE, PASSING_GRADE, SCORE_FIELDS, generalAverage, letterGrade } from '../lib/grades.js'
+import { generateForm137Template } from './form-137-template.js'
+
+// Re-export generateForm137Template for cross-module compatibility
+export { generateForm137Template }
 
 // The transcript header uses the same names. School ID / district are not stored yet, so they print blank.
 export const SCHOOL = {
@@ -36,6 +40,7 @@ const WEEKDAY = ['Su', 'M', 'T', 'W', 'Th', 'F', 'Sa']
 
 export const sexOf = person =>
   /^f/i.test(person?.gender || person?.sex || '') ? 'F' : /^m/i.test(person?.gender || person?.sex || '') ? 'M' : ''
+
 // DepEd lists male learners first, then female, each A-Z by last name.
 export function bySex(students = []) {
   const sorted = [...students].sort(byLastName)
@@ -290,8 +295,12 @@ export function sf10Sheet({ student, history = [], enrollments = [] }) {
 export function uniqueSheetNames(specs) {
   const used = new Set()
   return specs.map(spec => {
-    let name = spec.name.slice(0, 31) || 'Sheet'
-    for (let n = 2; used.has(name.toLowerCase()); n++) name = `${spec.name.slice(0, 31 - String(n).length - 1)} ${n}`
+    let baseName = (spec.name || 'Sheet').slice(0, 31)
+    let name = baseName
+    for (let n = 2; used.has(name.toLowerCase()); n++) {
+      const suffix = ` ${n}`
+      name = `${spec.name.slice(0, 31 - suffix.length)}${suffix}`
+    }
     used.add(name.toLowerCase())
     return { ...spec, name }
   })
