@@ -22,7 +22,8 @@
           >
             Refresh</button
           ><button id="save-grades" class="admin-primary" type="button">Save Grades</button
-          ><button id="lock-grades" class="admin-secondary" type="button">Submit &amp; Lock</button>
+          ><button id="lock-grades" class="admin-secondary" type="button">Submit &amp; Lock</button
+          ><button id="open-upload" class="admin-secondary" type="button">Upload spreadsheet</button>
         </div>
         <div style="overflow:auto">
           <table>
@@ -77,6 +78,107 @@
         </div>
       </section>
     </main>
+    <div id="upload-modal" class="admin-modal hidden">
+      <div class="admin-modal-box upload-box" role="dialog" aria-modal="true" aria-labelledby="upload-title">
+        <div class="admin-modal-head">
+          <h3 id="upload-title">Upload spreadsheet</h3>
+          <button type="button" id="close-upload" aria-label="Close">x</button>
+        </div>
+        <ol class="upload-steps">
+          <li><b>Download the template</b> for this class. It already lists your students.</li>
+          <li><b>Fill in the scores</b> in Excel, then save it as CSV (File &gt; Save As &gt; CSV).</li>
+          <li><b>Choose the file</b>, fix any rows marked red right in the grid, then save.</li>
+        </ol>
+        <div class="admin-filterbar">
+          <button id="download-template" class="admin-secondary" type="button">Download template</button
+          ><input id="upload-file" type="file" accept=".csv" aria-label="Grade CSV" />
+        </div>
+        <div id="upload-preview-wrap" class="hidden" style="overflow:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>Student ID</th>
+                <th>Grade</th>
+                <th>Errors</th>
+              </tr>
+            </thead>
+            <tbody id="upload-preview"></tbody>
+          </table>
+        </div>
+        <details class="upload-sample">
+          <summary>See what the template looks like</summary>
+          <p class="admin-note">This is how the downloaded file looks in Excel. The student IDs and names below are examples only.</p>
+        <div class="excel-sample">
+          <table data-no-sort>
+            <thead>
+              <tr>
+                <th></th>
+                <th>A</th>
+                <th>B</th>
+                <th>C</th>
+                <th>D</th>
+                <th>E</th>
+                <th>F</th>
+                <th>G</th>
+                <th>H</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>1</th>
+                <td class="excel-head">student_id</td>
+                <td class="excel-head">first_sem_q1</td>
+                <td class="excel-head">first_sem_q2</td>
+                <td class="excel-head">second_sem_q1</td>
+                <td class="excel-head">second_sem_q2</td>
+                <td class="excel-head">final</td>
+                <td class="excel-head">remarks</td>
+                <td class="excel-head">student_name</td>
+              </tr>
+              <tr>
+                <th>2</th>
+                <td>101</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>Sample Student A</td>
+              </tr>
+              <tr>
+                <th>3</th>
+                <td>102</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>Sample Student B</td>
+              </tr>
+              <tr>
+                <th>4</th>
+                <td>103</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>Sample Student C</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        </details>
+        <div class="admin-actions">
+          <button type="button" id="cancel-upload" class="admin-secondary">Cancel</button>
+          <button id="save-upload" class="admin-primary" type="button" disabled>Save Upload</button>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/role-faculty/faculty-grades-page.js"></script>
   </body>
 </html>

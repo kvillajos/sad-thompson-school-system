@@ -14,6 +14,8 @@ const historyByYear = new Map()
 const sectionsByStudent = new Map()
 const subjectsBySection = new Map()
 let scheduleLoadError = ''
+// Redraws from what is already loaded, so ticking or filtering never refetches grades.
+let lastRender = () => {}
 let renderSequence = 0
 
 function gradedSchoolYear(nextYear) {
@@ -77,59 +79,56 @@ function candidateSubjects(studentId, gradedYear, history) {
   return { failed, unattempted, passed, passedAll: subjects.size > 0 && !failed.length && !unattempted.length }
 }
 
-function candidateMarkup(student, gradedYear, history) {
-  const status = candidateSubjects(student.student_id, gradedYear, history)
+// One table row per candidate. Classes promotion-candidate / promotion-status and data-quickview-student are hooks
+// (double-click opens Quick View; the registrar flow check reads them).
+const subjectList = (label, subjects) =>
+  subjects.length ? `<div><b>${label}:</b><ul>${subjects.map(subject => `<li>${escapeHtml(subject)}</li>`).join('')}</ul></div>` : ''
+function candidateRow(student, status) {
+  const excluded = excludedStudentIds.has(String(student.student_id))
+  const check = `<td><input type="checkbox" value="${student.student_id}"${excluded ? ' checked' : ''} aria-label="Exclude ${escapeHtml(lastFirst(student))}"></td>`
+  const who = `<td>${escapeHtml(student.lrn_number || student.student_id)}</td><td>${escapeHtml(lastFirst(student))}</td>`
+  const open = `<tr class="promotion-candidate${excluded ? ' is-excluded' : ''}" data-quickview-student="${escapeHtml(student.student_id)}">`
+  if (!status) return `${open}${check}${who}<td><span class="promotion-status promotion-status-unavailable" role="status">Unavailable</span></td><td>-</td></tr>`
   const concernCount = status.failed.length + status.unattempted.length
-  const details = [
-    status.failed.length
-      ? `<div><b>Failed:</b><ul>${status.failed.map(subject => `<li>${escapeHtml(subject)}</li>`).join('')}</ul></div>`
-      : '',
-    status.unattempted.length
-      ? `<div><b>Unattempted:</b><ul>${status.unattempted.map(subject => `<li>${escapeHtml(subject)}</li>`).join('')}</ul></div>`
-      : '',
-    status.passed.length
-      ? `<div><b>Passed:</b><ul>${status.passed.map(subject => `<li>${escapeHtml(subject)}</li>`).join('')}</ul></div>`
-      : ''
-  ].join('')
-
-  return `<div class="promotion-candidate" data-quickview-student="${escapeHtml(student.student_id)}">
-    <div class="promotion-candidate-heading">
-      <label><input type="checkbox" value="${student.student_id}"${excludedStudentIds.has(String(student.student_id)) ? ' checked' : ''}>
-        ${escapeHtml(student.lrn_number || student.student_id)} - ${escapeHtml(lastFirst(student))}
-      </label>
-      <span class="promotion-status ${status.passedAll ? 'promotion-status-pass' : 'promotion-status-fail'}" role="status">
-        Pass All Subjects: ${status.passedAll ? 'YES' : 'NO'}
-      </span>
-    </div>
-    <details class="promotion-breakdown">
-      <summary>${concernCount ? `${concernCount} failed or unattempted subject${concernCount === 1 ? '' : 's'}` : 'View subject breakdown'}</summary>
+  const details = subjectList('Failed', status.failed) + subjectList('Unattempted', status.unattempted) + subjectList('Passed', status.passed)
+  return `${open}${check}${who}
+    <td><span class="promotion-status ${status.passedAll ? 'promotion-status-pass' : 'promotion-status-fail'}" role="status">${status.passedAll ? 'Yes' : 'No'}</span></td>
+    <td><details class="promotion-breakdown">
+      <summary>${concernCount ? `${concernCount} failed or unattempted` : 'View breakdown'}</summary>
       <div>${details || '<p>All scheduled subjects have passing grades.</p>'}</div>
-    </details>
-  </div>`
+    </details></td></tr>`
+}
+
+// Shared by both states: search, the result filter, the select-all box and the excluded count. status(student) is null when unavailable.
+function renderCandidateTable(status, unavailableMessage = '') {
+  $('promotion-unavailable').hidden = !unavailableMessage
+  $('promotion-unavailable').textContent = unavailableMessage
+  const resultFilter = $('promotion-result-filter')
+  resultFilter.disabled = Boolean(unavailableMessage)
+  const search = $('promotion-exclude-search').value.trim().toLowerCase()
+  const grade = gradeToNumber($('promotion-grade').value)
+  const inGrade = state.students.filter(student => Number(student.grade_level) === grade)
+  const rows = inGrade
+    .filter(student => `${student.lrn_number} ${student.first_name} ${student.last_name}`.toLowerCase().includes(search))
+    .map(student => ({ student, result: status(student) }))
+    .filter(({ result }) => !resultFilter.value || !result || (resultFilter.value === 'pass') === result.passedAll)
+  $('promotion-exclude-list').innerHTML =
+    rows.map(({ student, result }) => candidateRow(student, result)).join('') ||
+    `<tr><td colspan="5">${inGrade.length ? 'No students match the search or filter.' : 'No students in this grade level.'}</td></tr>`
+  const listed = rows.map(({ student }) => String(student.student_id))
+  const ticked = listed.filter(id => excludedStudentIds.has(id)).length
+  const all = $('promotion-exclude-all')
+  all.checked = listed.length > 0 && ticked === listed.length
+  all.indeterminate = ticked > 0 && ticked < listed.length
+  all.disabled = !listed.length
+  const excludedInGrade = inGrade.filter(student => excludedStudentIds.has(String(student.student_id))).length
+  $('promotion-excluded-count').textContent = excludedInGrade ? `${excludedInGrade} excluded` : 'None excluded'
+  $('promotion-exclude-clear').disabled = !excludedInGrade
 }
 
 function renderUnavailable(message) {
-  const search = $('promotion-exclude-search').value.trim().toLowerCase()
-  const grade = gradeToNumber($('promotion-grade').value)
-  const students = state.students.filter(
-    student =>
-      Number(student.grade_level) === grade &&
-      `${student.lrn_number} ${student.first_name} ${student.last_name}`.toLowerCase().includes(search)
-  )
-
-  $('promotion-exclude-list').innerHTML =
-    students
-      .map(
-        student =>
-          `<div class="promotion-candidate" data-quickview-student="${escapeHtml(student.student_id)}">
-            <label><input type="checkbox" value="${student.student_id}"${excludedStudentIds.has(String(student.student_id)) ? ' checked' : ''}>
-              ${escapeHtml(student.lrn_number || student.student_id)} - ${escapeHtml(lastFirst(student))}
-            </label>
-            <span class="promotion-status promotion-status-unavailable" role="status">Pass All Subjects: unavailable</span>
-            <small>${escapeHtml(message)}</small>
-          </div>`
-      )
-      .join('') || '<small>No matching students.</small>'
+  lastRender = () => renderUnavailable(message)
+  renderCandidateTable(() => null, `Pass status is unavailable: ${message}`)
 }
 
 export async function renderPromotionCandidates() {
@@ -148,7 +147,7 @@ export async function renderPromotionCandidates() {
 
   let history = historyByYear.get(gradedYear)
   if (!history) {
-    $('promotion-exclude-list').innerHTML = '<small>Loading promotion subject results...</small>'
+    $('promotion-exclude-list').innerHTML = '<tr><td colspan="5">Loading promotion subject results...</td></tr>'
     const { data, error } = await fetchAll(() =>
       supabase
         .from('academic_history')
@@ -170,16 +169,13 @@ export async function renderPromotionCandidates() {
   }
 
   if (sequence !== renderSequence) return
-  const search = $('promotion-exclude-search').value.trim().toLowerCase()
-  const grade = gradeToNumber($('promotion-grade').value)
-  const students = state.students.filter(
-    student =>
-      Number(student.grade_level) === grade &&
-      `${student.lrn_number} ${student.first_name} ${student.last_name}`.toLowerCase().includes(search)
-  )
-
-  $('promotion-exclude-list').innerHTML =
-    students.map(student => candidateMarkup(student, gradedYear, history)).join('') || '<small>No matching students.</small>'
+  const byStudent = new Map()
+  const status = student => {
+    if (!byStudent.has(student.student_id)) byStudent.set(student.student_id, candidateSubjects(student.student_id, gradedYear, history))
+    return byStudent.get(student.student_id)
+  }
+  lastRender = () => renderCandidateTable(status)
+  lastRender()
 }
 
 export async function loadPromotionCandidates() {
@@ -246,7 +242,27 @@ $('promotion-exclude-list').addEventListener('change', event => {
   if (!checkbox.matches('input[type="checkbox"]')) return
   if (checkbox.checked) excludedStudentIds.add(String(checkbox.value))
   else excludedStudentIds.delete(String(checkbox.value))
+  lastRender()
 })
+// A click on the row (not on the breakdown) ticks it; double-click still opens Quick View.
+$('promotion-exclude-list').addEventListener('click', event => {
+  if (event.target.closest('input, details, a, button')) return
+  const box = event.target.closest('tr')?.querySelector('input[type="checkbox"]')
+  if (!box) return
+  box.checked = !box.checked
+  box.dispatchEvent(new Event('change', { bubbles: true }))
+})
+$('promotion-exclude-all').addEventListener('change', event => {
+  $('promotion-exclude-list')
+    .querySelectorAll('input[type="checkbox"]')
+    .forEach(box => (event.target.checked ? excludedStudentIds.add(String(box.value)) : excludedStudentIds.delete(String(box.value))))
+  lastRender()
+})
+$('promotion-exclude-clear').addEventListener('click', () => {
+  excludedStudentIds.clear()
+  lastRender()
+})
+$('promotion-result-filter').addEventListener('change', () => lastRender())
 $('promotion-exclude-search').addEventListener('input', renderPromotionCandidates)
 $('promotion-grade').addEventListener('change', renderPromotionCandidates)
 $('promotion-year').addEventListener('input', renderPromotionCandidates)

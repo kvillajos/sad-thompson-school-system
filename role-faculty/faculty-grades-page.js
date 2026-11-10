@@ -8,6 +8,7 @@ import { confirmDialog, formDialog } from '../shared/ui/dialog.js'
 import { guardUnsaved } from './unsaved.js'
 import { errorRow } from '../shared/lib/html.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
+import { mountGradeUpload } from './faculty-upload-panel.js'
 
 const SCORE_LABELS = {
   first_sem_q1: 'Q1',
@@ -195,6 +196,13 @@ if (context) {
   }
   if (loadedClass) await Promise.all([loadGrades(), loadAllGrades()])
   else renderAllGrades()
+  mountGradeUpload({
+    context,
+    classInput: $('grade-class'),
+    yearInput: $('grade-year'),
+    beforeOpen: () => unsaved.confirmDiscard(),
+    onSaved: () => Promise.all([loadGrades(), loadAllGrades()])
+  })
 
   $('grade-table').onclick = async event => {
     const button = event.target.closest('[data-correct]')

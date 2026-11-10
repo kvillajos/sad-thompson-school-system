@@ -327,18 +327,18 @@
     border-color: #000 !important;
   }
 
-  /* Bulk Upload sample: an Excel-like sheet in dark colours (beats the striped table rules). */
-  html[data-theme='dark'] .admin-table-wrap .excel-sample {
+  /* Upload spreadsheet sample: an Excel-like sheet in dark colours (beats the striped table rules). */
+  html[data-theme='dark'] .excel-sample {
     border-color: #2f5a41 !important;
   }
 
-  html[data-theme='dark'] .admin-table-wrap .excel-sample tbody tr:nth-child(n) td {
+  html[data-theme='dark'] .excel-sample tbody tr:nth-child(n) td {
     background: #182230 !important;
     color: #e5edf7 !important;
     border-color: #2b3a4d !important;
   }
 
-  html[data-theme='dark'] .admin-table-wrap .excel-sample tbody tr:nth-child(n) td.excel-head {
+  html[data-theme='dark'] .excel-sample tbody tr:nth-child(n) td.excel-head {
     background: #1d3326 !important;
     color: #c9f0d6 !important;
   }

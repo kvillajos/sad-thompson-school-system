@@ -51,7 +51,7 @@ try {
   const mountStudentQuickviewModal = () => {};
   function mountSidebar(items) {
     const nav = document.createElement('nav');
-    nav.innerHTML = items.map(i => '<button data-tab="'+i.tab+'" class="'+(i.active?'active':'')+'">'+i.label+'</button>').join('');
+    nav.innerHTML = items.flatMap(i => i.items || [i]).map(i => '<button data-tab="'+i.tab+'" class="'+(i.active?'active':'')+'">'+i.label+'</button>').join('');
     document.body.prepend(nav);
   }
   const loadMyRequests = () => {};

@@ -439,29 +439,48 @@ function renderAutoAssignGrades() {
       )
       .join('') || '<small>No sections are configured, so there is nothing to auto-assign.</small>'
 }
+// The exclude table lists only students auto-assign would place (no section yet), filtered by search, grade and sex.
+const sexOf = student => ({ m: 'Male', f: 'Female' })[String(student.gender || '').trim().toLowerCase().charAt(0)] || '-'
+const excludeFilters = mountFilterBar($('auto-assign-exclude-filters'), {
+  filters: [gradeFilter(student => student.grade_level), { key: 'sex', name: 'Sex', all: 'All sexes', get: sexOf }],
+  onChange: () => {
+    excludePage = 1
+    renderAutoAssignExclusions()
+  }
+})
+const excludeCandidates = () => {
+  const grades = new Set(chosenGrades())
+  return state.students.filter(student => grades.has(Number(student.grade_level)) && !state.enrolledByStudent.get(student.student_id))
+}
 function renderAutoAssignExclusions() {
   const search = $('auto-assign-exclude-search').value.trim().toLowerCase()
-  const grades = new Set(chosenGrades())
-  const students = state.students.filter(student => {
-    if (!grades.has(Number(student.grade_level))) return false
-    return (
+  const candidates = excludeCandidates()
+  excludeFilters.update(candidates)
+  const students = excludeFilters.apply(candidates).filter(
+    student =>
       !search ||
-      `${student.lrn_number || ''} ${student.student_id} ${student.first_name || ''} ${student.last_name || ''}`
-        .toLowerCase()
-        .includes(search)
-    )
-  })
+      `${student.lrn_number || ''} ${student.student_id} ${student.first_name || ''} ${student.last_name || ''}`.toLowerCase().includes(search)
+  )
   const pages = Math.max(1, Math.ceil(students.length / EXCLUDE_PAGE_SIZE))
   excludePage = Math.min(Math.max(1, excludePage), pages)
   const visible = students.slice((excludePage - 1) * EXCLUDE_PAGE_SIZE, excludePage * EXCLUDE_PAGE_SIZE)
   $('auto-assign-exclude-list').innerHTML =
     visible
-      .map(
-        student =>
-          `<label><input type="checkbox" value="${student.student_id}"${excludedIds.has(student.student_id) ? ' checked' : ''}> ${escapeHtml(student.lrn_number || student.student_id)} - ${escapeHtml(lastFirst(student))}</label>`
-      )
-      .join('') || '<small>No students in the selected grade levels.</small>'
-  $('auto-assign-exclude-page').textContent = students.length ? `Page ${excludePage} of ${pages} · ${students.length} students` : ''
+      .map(student => {
+        const on = excludedIds.has(student.student_id)
+        return `<tr class="${on ? 'is-excluded' : ''}"><td><input type="checkbox" value="${student.student_id}"${on ? ' checked' : ''} aria-label="Exclude ${escapeHtml(lastFirst(student))}"></td><td>${escapeHtml(student.lrn_number || student.student_id)}</td><td>${escapeHtml(lastFirst(student))}</td><td>${escapeHtml(gradeLabel(student.grade_level))}</td><td>${sexOf(student)}</td></tr>`
+      })
+      .join('') ||
+    `<tr><td colspan="5">${candidates.length ? 'No students match the search or filters.' : 'Every student in the selected grade levels already has a section.'}</td></tr>`
+  const pageAll = $('auto-assign-exclude-page-all')
+  const onPage = visible.filter(student => excludedIds.has(student.student_id)).length
+  pageAll.checked = visible.length > 0 && onPage === visible.length
+  pageAll.indeterminate = onPage > 0 && onPage < visible.length
+  pageAll.disabled = !visible.length
+  const excludedCount = candidates.filter(student => excludedIds.has(student.student_id)).length
+  $('auto-assign-excluded-count').textContent = excludedCount ? `${excludedCount} excluded` : 'None excluded'
+  $('auto-assign-exclude-clear').disabled = !excludedCount
+  $('auto-assign-exclude-page').textContent = students.length ? `Page ${excludePage} of ${pages} · ${students.length} student${students.length === 1 ? '' : 's'}` : ''
   $('auto-assign-exclude-prev').disabled = excludePage <= 1
   $('auto-assign-exclude-next').disabled = excludePage >= pages
 }
@@ -542,8 +561,28 @@ $('auto-assign-exclude-list').addEventListener('change', event => {
   const box = event.target
   if (box.checked) excludedIds.add(+box.value)
   else excludedIds.delete(+box.value)
+  renderAutoAssignExclusions()
   previewAutoAssign()
 })
+// Clicking anywhere on a row ticks it.
+$('auto-assign-exclude-list').addEventListener('click', event => {
+  const row = event.target.closest('tr')
+  const box = row?.querySelector('input[type=checkbox]')
+  if (!box || event.target === box) return
+  box.checked = !box.checked
+  box.dispatchEvent(new Event('change', { bubbles: true }))
+})
+$('auto-assign-exclude-page-all').onchange = event => {
+  const ids = [...$('auto-assign-exclude-list').querySelectorAll('input[type=checkbox]')].map(box => +box.value)
+  ids.forEach(id => (event.target.checked ? excludedIds.add(id) : excludedIds.delete(id)))
+  renderAutoAssignExclusions()
+  previewAutoAssign()
+}
+$('auto-assign-exclude-clear').onclick = () => {
+  excludedIds.clear()
+  renderAutoAssignExclusions()
+  previewAutoAssign()
+}
 $('auto-assign-exclude-prev').onclick = () => {
   excludePage--
   renderAutoAssignExclusions()

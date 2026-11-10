@@ -107,7 +107,7 @@ export const toast = () => {}
 const stubShell = `export const mountProfile = () => {}
 export function mountSidebar(items) {
   const nav = document.createElement('nav')
-  nav.innerHTML = items.map(i => '<button data-tab="' + i.tab + '">' + i.label + '</button>').join('')
+  nav.innerHTML = items.flatMap(i => i.items || [i]).map(i => '<button data-tab="' + i.tab + '">' + i.label + '</button>').join('')
   document.body.prepend(nav)
 }
 export const withBusy = async (button, label, action) => action()
@@ -335,10 +335,10 @@ try {
   assert.match(data.quickviewFlagHistory, /Prior subject requirements incomplete/)
   assert.equal(data.promotionDoubleClickOpensQuickview, true, 'promotion candidates should open the quick-view on double-click')
   assert.equal(data.promotionTabRemainsActive, true, 'the quick-view must not navigate away from Promotion')
-  assert.equal(data.promotionStatus, 'Pass All Subjects: NO')
+  assert.equal(data.promotionStatus, 'No')
   assert.match(data.promotionBreakdown, /Failed:English/)
   assert.match(data.promotionBreakdown, /Unattempted:Science/)
-  assert.equal(data.promotionPassingStatus, 'Pass All Subjects: YES')
+  assert.equal(data.promotionPassingStatus, 'Yes')
   assert.equal(data.enrollmentRows, 3, 'all directory students should list in Manage Enrollment')
   assert.deepEqual(data.defaultDirectoryIds, ['TCS-1'], 'Current SY is the default directory view')
   assert.equal(data.notReenrolledRows.length, 2, 'include previous-year students and students who skipped a year')
@@ -375,7 +375,7 @@ try {
   assert.ok(data.summaryShown)
   assert.ok(data.rpc1.length >= 2, 'both section-less students should be assigned')
   assert.equal(data.autoGradeBoxes, 2, 'every grade level with a section must be offered')
-  assert.equal(data.autoExcludeChoices, 3, 'students in the chosen grades must be excludable')
+  assert.equal(data.autoExcludeChoices, 2, 'only the section-less students auto-assign would place are listed to exclude')
   assert.equal(data.autoCountGradeTenOnly, '0', 'unchecking a grade level must shrink the preview')
   assert.equal(data.autoCountAfterExclude, '1', 'excluding a student must remove them from the preview')
   assert.equal(data.cancelClosed, true, 'auto-assign Cancel must close the modal')

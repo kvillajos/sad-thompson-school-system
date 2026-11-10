@@ -4,32 +4,97 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/assets/logo.png" />
-    <title>Reports | TCSMS</title>
+    <title>Reports &amp; Audit | TCSMS</title>
   </head>
   <body class="admin-shell">
     <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
     <main class="admin-reports-page">
       <div class="admin-page-head">
-        <div><h2>Reports</h2></div>
+        <div>
+          <h2>Reports &amp; Audit</h2>
+          <p class="admin-note" style="margin:4px 0 0">Print school reports, or see and undo what changed in the system.</p>
+        </div>
       </div>
-      <div class="admin-filterbar">
-        <label>School Year<select id="report-school-year"></select></label>
-        <label>Grade Level<select id="report-grade-level"></select></label>
-        <label>Section<select id="report-section"></select></label>
-        <label
-          >Report
-          <select id="report-type">
-            <option value="class-list">Master Class List</option>
-            <option value="section-summary">Section Summary</option>
-            <option value="school-statistics">School Statistics</option>
-          </select>
-        </label>
-        <button id="generate-report-btn" class="admin-primary" type="button">Generate Report</button>
-        <button id="print-report-btn" class="admin-secondary" type="button" disabled>Print Report</button>
+      <div class="subtabs" role="tablist" aria-label="Reports or audit">
+        <button type="button" class="subtab active" role="tab" id="tab-reports" aria-controls="panel-reports" aria-selected="true" data-page-tab="reports">Reports</button
+        ><button type="button" class="subtab" role="tab" id="tab-audit" aria-controls="panel-audit" aria-selected="false" data-page-tab="audit">Audit Trail</button>
       </div>
-      <p id="reports-status" class="admin-note" role="status" aria-live="polite"></p>
-      <section class="admin-table-wrap" id="reports-output"></section>
+      <div id="panel-reports" role="tabpanel" aria-labelledby="tab-reports">
+        <section class="admin-table-wrap" style="margin-top:0">
+          <div class="admin-filterbar">
+            <label>School Year<select id="report-school-year"></select></label>
+            <label>Grade Level<select id="report-grade-level"></select></label>
+            <label>Section<select id="report-section"></select></label>
+            <label
+              >Report
+              <select id="report-type">
+                <option value="class-list">Master Class List</option>
+                <option value="section-summary">Section Summary</option>
+                <option value="school-statistics">School Statistics</option>
+              </select>
+            </label>
+            <button id="generate-report-btn" class="admin-primary" type="button">Generate Report</button>
+            <button id="print-report-btn" class="admin-secondary" type="button" disabled>Print Report</button>
+          </div>
+          <p id="reports-status" class="admin-note" role="status" aria-live="polite"></p>
+        </section>
+        <section class="admin-table-wrap" id="reports-output"></section>
+      </div>
+      <div id="panel-audit" role="tabpanel" aria-labelledby="tab-audit" hidden>
+      <section class="admin-table-wrap" style="margin-top:0">
+        <div class="admin-section-title">
+          <h3>Recent Audit Events</h3>
+          <button id="refresh-audit" class="admin-secondary" type="button">Refresh</button>
+        </div>
+        <div class="admin-filterbar"><span id="audit-filters" class="filter-bar-host"></span></div>
+        <table class="audit-events-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Action</th>
+              <th>By</th>
+              <th>Entity</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="audit-table">
+            <tr>
+              <td colspan="5">Loading audit events...</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="admin-table-wrap audit-archive-panel" style="margin-top:18px">
+        <div class="admin-section-title">
+          <h3>Audit Archive</h3>
+          <div class="audit-export-controls">
+            <label for="audit-date">Date</label><input id="audit-date" type="date" /><button
+              id="export-audit"
+              class="admin-primary"
+              type="button"
+            >
+              Export PDF
+            </button>
+          </div>
+        </div>
+        <p class="audit-export-note">
+          Choose a date to preview its archived actions, then export the dated audit log through the browser PDF dialog.
+        </p>
+        <div id="audit-archive-table"><p>Select a date to load archived actions.</p></div>
+      </section>
+      <section class="admin-table-wrap" style="margin-top:18px">
+        <div class="admin-section-title">
+          <h3>Restore Changes</h3>
+          <button id="refresh-restore" class="admin-secondary" type="button">Refresh</button>
+        </div>
+        <p class="audit-export-note">
+          Undo any edit, deletion or addition from the last 30 days. Deleted accounts can be restored until they are erased.
+        </p>
+        <div id="restore-changes-host"><p>Loading changes…</p></div>
+      </section>
+      </div>
     </main>
+    <section id="audit-print-area" class="audit-print-area" aria-hidden="true" data-no-pages></section>
     <script type="module" src="/role-admin/admin-reports-page.js"></script>
   </body>
 </html>

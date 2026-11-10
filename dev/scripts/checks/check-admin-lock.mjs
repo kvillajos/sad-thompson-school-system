@@ -1,6 +1,6 @@
-// Runs the real admin-dashboard script in headless Chrome/Edge with a stubbed Supabase to
-// verify the registrar edit-lock surface: marker in the table, buttons stay disabled
-// for a fresh lock, and unlock for a non-locked application. No credentials needed.
+// Runs the real Admissions page (admin-admissions-page.js + admission-review.js) in headless Chrome/Edge with a
+// stubbed Supabase to verify the registrar edit-lock surface: marker in the table, buttons stay disabled for a
+// fresh lock, and unlock for a non-locked application only once the three checks are ticked. No credentials needed.
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { browserPath } from './browser-path.mjs'
 import { tmpdir } from 'node:os'
@@ -9,9 +9,10 @@ import { pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 const root = resolve(import.meta.dirname, '../../..')
-const html = readFileSync(join(root, 'role-admin/admin-dashboard.html'), 'utf8')
+const html = readFileSync(join(root, 'role-admin/admin-admissions.html'), 'utf8')
 const theme = readFileSync(join(root, 'shared/ui/ui-theme.js'), 'utf8').match(/const sharedTheme = (?:\/\* css \*\/ )?`([\s\S]*?)`;?\s/)[1]
-const script = readFileSync(join(root, 'role-admin/admin-dashboard-page.js'), 'utf8')
+const review = readFileSync(join(root, 'role-admin/admission-review.js'), 'utf8')
+const script = readFileSync(join(root, 'role-admin/admin-admissions-page.js'), 'utf8')
 // Replace the module imports with an in-page supabase/auth stub.
 const stub = `
   const rows = [
@@ -51,9 +52,19 @@ const stub = `
   const toast = () => {}
   const describeError = (error, context) => (context || 'Request') + ' failed: ' + (error?.message || error || 'an unexpected error occurred.')
   const mountAdminShell = async () => requireRole(1)
-  const mountAnnouncements = async () => {}
+  const escapeHtml = escape
+  const gradeLabel = value => String(value)
+  const lastFirst = a => a.last_name + ', ' + a.first_name
+  const errorRow = (span, error) => '<tr><td colspan="' + span + '">' + (error?.message || error) + '</td></tr>'
+  const loadRequirementData = async () => {}
+  const requirementBadge = () => ''
+  const mountRequirementTypes = () => {}
+  const confirmDialog = async () => true
+  const noticeDialog = async () => {}
+  const describeFunctionError = async error => String(error)
   window.addEventListener('error', event => { const el = document.getElementById('result'); if (el && !el.textContent) el.textContent = 'PAGE_ERROR: ' + (event.message || 'unknown') })`
-const body = script.replace(/^\s*import[^\n]*\n/gm, '')
+const strip = source => source.replace(/^\s*import[^\n]*\n/gm, '').replace(/^export /gm, '')
+const body = strip(review) + '\n' + strip(script)
 
 const fixture = html
   .replace(/<script[\s\S]*?<\/script>/g, '')
@@ -64,19 +75,22 @@ const fixture = html
   ${stub}
   ${body}
   try {
-  await loadApplications()
-  await new Promise(r => setTimeout(r, 3500))
-  const rowHtml = document.getElementById('approvals-table').innerHTML
-  const markerOnLocked = rowHtml.includes('data-review="1"') && rowHtml.includes('✏️')
-  const noMarkerOnOpen = !rowHtml.includes('data-review="2"') || !(rowHtml.split('data-review="2"')[0].endsWith('editing</b>'))
-  openReview('1')
+  const rowHtml = document.getElementById('admission-rejection-table').innerHTML
+  const [lockedRow, openRow] = rowHtml.split('</tr>')
+  const markerOnLocked = lockedRow.includes('data-review="1"') && lockedRow.includes('✏️')
+  const noMarkerOnOpen = openRow.includes('data-review="2"') && !openRow.includes('✏️')
+  const tickAll = () => document.querySelectorAll('[data-review-check]').forEach(box => { box.checked = true; box.onchange() })
+  openReview(applications.find(a => a.id === 1))
   await new Promise(r => setTimeout(r, 3200))
+  tickAll()
   const lockedDisabledAfterCountdown = document.getElementById('approve-application').disabled && document.getElementById('decline-application').disabled
   const lockNoticeShown = !document.getElementById('review-lock').classList.contains('hidden')
-  closeReview()
-  openReview('2')
+  document.getElementById('close-review').click()
+  openReview(applications.find(a => a.id === 2))
   await new Promise(r => setTimeout(r, 3200))
-  const openEnabledAfterCountdown = !document.getElementById('approve-application').disabled && !document.getElementById('decline-application').disabled
+  const openDisabledUntilChecked = document.getElementById('approve-application').disabled
+  tickAll()
+  const openEnabledAfterCountdown = openDisabledUntilChecked && !document.getElementById('approve-application').disabled && !document.getElementById('decline-application').disabled
   document.getElementById('result').textContent = JSON.stringify({ markerOnLocked, noMarkerOnOpen, lockedDisabledAfterCountdown, lockNoticeShown, openEnabledAfterCountdown })
   } catch (error) { document.getElementById('result').textContent = 'PAGE_ERROR: ' + (error && error.message || error) }
   })().catch(error => { document.getElementById('result').textContent = 'PAGE_ERROR: ' + (error && error.message || error) });</script></body>`

@@ -1,20 +1,64 @@
 import { supabase } from '../shared/lib/auth-client.js'
 import { currentSchoolYear } from '../shared/lib/grades.js'
 import { describeError } from '../shared/lib/errors.js'
-import { confirmDialog, noticeDialog } from '../shared/ui/dialog.js'
+import { confirmDialog } from '../shared/ui/dialog.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { nextSchoolYear, planYearCopy, sectionYearKey } from '../shared/lib/year-copy.js'
+import { escapeHtml, gradeLabel, subjectDisplayName } from '../shared/lib/html.js'
+import { formatDays, groupScheduleRows } from '../shared/lib/schedule-days.js'
+import { timeRange12 } from '../shared/ui/day-tabs.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { withBusy } from '../shared/ui/shell.js'
 
-const sectionLabel = section => `${section.section_name} (Grade ${section.grade_level}, ${section.semester || '1st Semester'})`
+const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`
 
-const scheduleLabel = (schedule, key, sectionsByKey) => {
-  const section = sectionsByKey.get(key)
-  return `${section ? sectionLabel(section) : key}: subject ${schedule.subject_id}, day ${schedule.day_of_week}, ${String(schedule.start_time).slice(0, 5)}-${String(schedule.end_time).slice(0, 5)}`
+// One collapsible row per section: its classes (days merged), marked new or already in the target year.
+function previewHtml(plan, sourceSections, subjectsById) {
+  const isNewSection = new Set(plan.sectionsToCreate.map(({ key }) => key))
+  const classesByKey = new Map()
+  for (const [list, skipped] of [
+    [plan.schedulesToCreate, false],
+    [plan.schedulesToSkip, true]
+  ]) {
+    const byKey = new Map()
+    list.forEach(({ schedule, key }) => byKey.set(key, [...(byKey.get(key) || []), schedule]))
+    byKey.forEach((rows, key) =>
+      classesByKey.set(key, [...(classesByKey.get(key) || []), ...groupScheduleRows(rows).map(row => ({ ...row, skipped }))])
+    )
+  }
+  const newClasses = plan.schedulesToCreate.length ? groupScheduleRows(plan.schedulesToCreate.map(({ schedule }) => schedule)).length : 0
+  const stats = `<div class="copy-preview-stats"><span><b>${plan.sectionsToCreate.length}</b> new sections</span><span><b>${newClasses}</b> new classes</span>${
+    plan.sectionsToSkip.length ? `<span><b>${plan.sectionsToSkip.length}</b> sections already copied</span>` : ''
+  }</div>`
+  const sections = sourceSections
+    .map(section => {
+      const key = sectionYearKey(section)
+      const classes = (classesByKey.get(key) || []).sort(
+        (a, b) => a.skipped - b.skipped || String(a.start_time).localeCompare(String(b.start_time))
+      )
+      const toAdd = classes.filter(row => !row.skipped).length
+      const badge = isNewSection.has(key)
+        ? '<em class="is-new">New section</em>'
+        : toAdd
+          ? `<em class="is-new">+${plural(toAdd, 'class')}</em>`
+          : '<em>Already copied</em>'
+      const rows = classes
+        .map(row => {
+          const subject = subjectsById.get(row.subject_id)
+          const name = subject ? `${subject.subject_code} - ${subjectDisplayName(subject.subject_name)}` : `Subject #${row.subject_id}`
+          return `<tr${row.skipped ? ' class="is-skipped"' : ''}><td>${escapeHtml(name)}${row.skipped ? ' (already copied)' : ''}</td><td>${escapeHtml(row.faculty_name || 'No teacher')}</td><td>${formatDays(row.days)}</td><td>${timeRange12(row.start_time, row.end_time)}</td></tr>`
+        })
+        .join('')
+      const meta = [gradeLabel(section.grade_level), section.strand, section.semester || '1st Semester'].filter(Boolean).join(' · ')
+      return `<details><summary><b>${escapeHtml(section.section_name)}</b><small>${escapeHtml(meta)} · ${plural(classes.length, 'class')}</small>${badge}</summary>${
+        rows ? `<table><thead><tr><th>Subject</th><th>Teacher</th><th>Days</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="dialog-message" style="padding:0 12px">No classes scheduled.</p>'
+      }</details>`
+    })
+    .join('')
+  return `${stats}<div class="copy-preview-list">${sections}</div>`
 }
 
-// Defaults to this school year -> next one; the Year Setup page passes the years it is preparing.
+// Defaults to this school year -> next one; School Years passes the years it is preparing (its only caller).
 export function mountCopyYear(host, onCopied, { sourceYear = currentSchoolYear(), targetYear } = {}) {
   if (!host) return
 
@@ -80,35 +124,23 @@ export function mountCopyYear(host, onCopied, { sourceYear = currentSchoolYear()
         sourceSchedules: sourceScheduleResult.data || [],
         targetSchedules: targetScheduleResult.data || []
       })
-      const sourceSectionsByKey = new Map(sourceSections.map(section => [sectionYearKey(section), section]))
-      const previewRows = rows => (rows.length ? rows : ['None'])
-      const preview = [
-        `From ${sourceYear} to ${targetYear}`,
-        '',
-        `Sections to create (${plan.sectionsToCreate.length}):`,
-        ...previewRows(plan.sectionsToCreate.map(({ section }) => `+ ${sectionLabel(section)}`)),
-        '',
-        `Sections to skip (${plan.sectionsToSkip.length}):`,
-        ...previewRows(plan.sectionsToSkip.map(({ section }) => `- ${sectionLabel(section)} (already exists)`)),
-        '',
-        `Schedules to create (${plan.schedulesToCreate.length}):`,
-        ...previewRows(plan.schedulesToCreate.map(({ schedule, key }) => `+ ${scheduleLabel(schedule, key, sourceSectionsByKey)}`)),
-        '',
-        `Schedules to skip (${plan.schedulesToSkip.length}):`,
-        ...previewRows(
-          plan.schedulesToSkip.map(({ schedule, key }) => `- ${scheduleLabel(schedule, key, sourceSectionsByKey)} (already exists)`)
-        ),
-        '',
-        'Students will not be copied.'
-      ].join('\n')
-      await noticeDialog(preview, { title: `Copy setup: ${sourceYear} to ${targetYear}` })
-
       const copyCount = plan.sectionsToCreate.length + plan.schedulesToCreate.length
       if (!copyCount) return toast(`All sections and schedules for ${targetYear} already exist.`)
+
+      const { data: subjects, error: subjectError } = await fetchAll(() =>
+        supabase.from('subjects').select('subject_id,subject_code,subject_name').order('subject_id')
+      )
+      if (subjectError) return toast(describeError(subjectError, 'Load subjects'), 'error')
+      const subjectsById = new Map((subjects || []).map(subject => [subject.subject_id, subject]))
       if (
         !(await confirmDialog(
-          `Create ${plan.sectionsToCreate.length} section(s) and ${plan.schedulesToCreate.length} schedule(s) for ${targetYear}?`,
-          { title: 'Confirm school-year setup copy', confirmText: 'Copy setup' }
+          `This copies each ${sourceYear} section and its class timetable (subject, teacher, days, time) into ${targetYear}. Students are not copied. Click a section to see its classes.`,
+          {
+            title: `Copy setup: ${sourceYear} to ${targetYear}`,
+            confirmText: 'Copy setup',
+            html: previewHtml(plan, sourceSections, subjectsById),
+            wide: true
+          }
         ))
       )
         return

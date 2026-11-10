@@ -6,6 +6,27 @@ import { fetchAll } from '../shared/lib/fetch-all.js'
 import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { currentSchoolYear } from '../shared/lib/grades.js'
 import { mountAdminShell } from './admin-page.js'
+import { mountAuditTrail } from './audit-trail.js'
+
+// Two tabs: Reports and Audit Trail. The audit data loads the first time its tab opens; ?tab=audit opens it directly.
+let auditMounted = null
+function showPageTab(tab) {
+  document.querySelectorAll('[data-page-tab]').forEach(button => {
+    const on = button.dataset.pageTab === tab
+    button.classList.toggle('active', on)
+    button.setAttribute('aria-selected', String(on))
+  })
+  document.getElementById('panel-reports').hidden = tab !== 'reports'
+  document.getElementById('panel-audit').hidden = tab !== 'audit'
+  history.replaceState(null, '', tab === 'audit' ? '?tab=audit' : location.pathname)
+  if (tab === 'audit')
+    auditMounted ||= mountAuditTrail().catch(error => {
+      auditMounted = null
+      toast(error.message || 'Unable to load the audit trail.', 'error')
+    })
+  return auditMounted
+}
+document.querySelectorAll('[data-page-tab]').forEach(button => (button.onclick = () => showPageTab(button.dataset.pageTab)))
 
 const reportTypeSelect = document.getElementById('report-type')
 const schoolYearSelect = document.getElementById('report-school-year')
@@ -435,6 +456,7 @@ function generateReport() {
 async function initializeReportsPage() {
   try {
     await mountAdminShell('reports')
+    if (new URLSearchParams(location.search).get('tab') === 'audit') showPageTab('audit')
 
     await loadReportData()
 

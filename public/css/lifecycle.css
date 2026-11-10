@@ -95,3 +95,52 @@
     justify-content: flex-start;
   }
 }
+/* School Years: one card per year. The colour bar on the left is the status. */
+.year-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+.year-card {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px 12px 18px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+}
+.year-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: var(--year-color, var(--ui-muted));
+}
+.year-card[data-status='Active'] { --year-color: #1f9d55; }
+.year-card[data-status='Upcoming'] { --year-color: var(--ui-blue); }
+.year-card[data-status='Past'] { --year-color: #8a94a6; }
+.year-card[data-status='Closed'] { --year-color: #8a94a6; }
+.year-card:hover { border-color: var(--year-color); }
+.year-card[aria-checked='true'] {
+  border-color: var(--year-color);
+  box-shadow: 0 0 0 2px var(--year-color) inset;
+}
+.year-card:focus-visible { outline: 2px solid var(--ui-blue); outline-offset: 2px; }
+.year-card .year-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.year-card strong { font-size: 18px; }
+.year-card .year-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--year-color);
+  background: color-mix(in srgb, var(--year-color) 14%, transparent);
+}
+.year-card small { color: var(--ui-muted); font-size: 13px; }

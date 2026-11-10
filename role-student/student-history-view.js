@@ -2,12 +2,14 @@ import { escapeHtml, gradeLabel } from '../shared/lib/html.js'
 import { buildSemesterTable, semesterRows } from '../shared/lib/semester-grades.js'
 import { generalAverage } from '../shared/lib/grades.js'
 
+// Every year the student has a placement or grade in, plus the current year (even before its first grade). Newest first.
 export function historicalSchoolYears(enrollments = [], gradeRows = [], currentSchoolYear = '') {
   const years = new Set([
+    currentSchoolYear,
     ...enrollments.map(row => row.school_year || row.sections?.academic_year),
     ...gradeRows.map(row => row.school_year)
   ])
-  return [...years].filter(year => year && year !== currentSchoolYear).sort((a, b) => String(b).localeCompare(String(a)))
+  return [...years].filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))
 }
 
 export function renderHistoricalRecords({ schoolYear, enrollments = [], gradeRows = [] }) {

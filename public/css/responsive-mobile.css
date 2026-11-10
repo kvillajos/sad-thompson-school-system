@@ -3985,33 +3985,6 @@
       min-height: 44px;
     }
 
-    body[data-role='registrar'] #promotion #promotion-exclude-list {
-      display: grid;
-      gap: 2px;
-      max-height: 40vh;
-      overflow-y: auto;
-      min-width: 0;
-      margin-top: 10px;
-    }
-
-    body[data-role='registrar'] #promotion #promotion-exclude-list label {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      min-width: 0;
-      padding: 10px 4px;
-      border-bottom: 1px solid #edf1f6;
-      line-height: 1.45;
-      overflow-wrap: anywhere;
-    }
-
-    body[data-role='registrar'] #promotion #promotion-exclude-list input[type='checkbox'] {
-      flex: 0 0 18px;
-      width: 18px;
-      height: 18px;
-      min-height: 18px;
-      margin: 1px 0 0;
-    }
 
     body[data-role='registrar'] #promotion .shift-student-picker {
       min-width: 0;

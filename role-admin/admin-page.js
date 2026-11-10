@@ -6,23 +6,27 @@ import { mountProfile, mountSidebar } from '../shared/ui/shell.js'
 
 const NAV = [
   ['Dashboard', '/role-admin/admin-dashboard.html', '⌂', 'dashboard'],
-  ['Manage Accounts', '/role-admin/admin-accounts.html', '▣', 'accounts'],
-  ['Manage Faculty', '/role-admin/admin-faculty.html', '♙', 'faculty'],
-  ['Manage Sections', '/role-admin/admin-sections.html', '▤', 'sections'],
-  ['Manage Subjects', '/role-admin/admin-subjects.html', '♧', 'subjects'],
-  ['Manage Schedules', '/role-admin/admin-schedules.html', '▱', 'schedules'],
+  {
+    group: 'Manage',
+    icon: '☷',
+    items: [
+      ['Accounts', '/role-admin/admin-accounts.html', '▣', 'accounts'],
+      ['Faculty', '/role-admin/admin-faculty.html', '♙', 'faculty'],
+      ['Sections', '/role-admin/admin-sections.html', '▤', 'sections'],
+      ['Subjects', '/role-admin/admin-subjects.html', '♧', 'subjects'],
+      ['Schedules', '/role-admin/admin-schedules.html', '◷', 'schedules']
+    ]
+  },
   ['Grade Tracker', '/role-admin/admin-grade-tracker.html', '✎', 'grade-tracker'],
-  ['Year Setup', '/role-admin/admin-year-setup.html', '☑', 'year-setup'],
-  ['School Years', '/role-admin/admin-school-years.html', '↺', 'school-years'],
-  ['School Calendar', '/role-admin/admin-calendar.html', '▦', 'calendar'],
+  ['School Years', '/role-admin/admin-year-setup.html', '☑', 'year-setup'],
   ['Admissions', '/role-admin/admin-admissions.html', '▤', 'admissions'],
   ['Discipline', '/role-admin/admin-discipline.html', '⚑', 'discipline'],
-  ['Audit Trail', '/role-admin/admin-audit.html', '▤', 'audit'],
-  ['Reports', '/role-admin/admin-reports.html', '▤', 'reports']
+  ['Reports & Audit', '/role-admin/admin-reports.html', '▤', 'reports']
 ]
 
+const navItem = active => ([label, href, icon, page]) => ({ label, href, icon, active: page === active })
 export function adminNav(active) {
-  return NAV.map(([label, href, icon, page]) => ({ label, href, icon, active: page === active }))
+  return NAV.map(entry => (entry.group ? { ...entry, items: entry.items.map(navItem(active)) } : navItem(active)(entry)))
 }
 
 export async function mountAdminShell(active) {

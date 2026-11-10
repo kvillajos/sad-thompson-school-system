@@ -4,24 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/assets/logo.png" />
-    <title>Year Setup | TCSMS</title>
+    <title>School Years | TCSMS</title>
   </head>
   <body class="admin-shell">
     <div id="tcsms-loading-screen" class="loading-screen" style="position:fixed;inset:0;background:#091c3c"></div>
     <main>
       <div class="admin-page-head">
-        <div><h2>Year Setup</h2></div>
+        <div>
+          <h2>School Years</h2>
+          <p class="admin-note" style="margin:4px 0 0">Every school year with its dates and status. Click a year to set it up, run it or close it.</p>
+        </div>
       </div>
       <div class="admin-filterbar">
-        <label class="scale-year">School year<select id="setup-year"></select></label>
-        <button id="create-next-year" class="admin-primary admin-action" type="button" hidden></button>
+        <button id="add-year" class="admin-primary admin-action" type="button">+ Add school year</button>
       </div>
+      <div class="year-cards" id="year-cards" role="radiogroup" aria-label="School year"><p class="admin-note">Loading…</p></div>
       <p class="year-summary" id="setup-summary"></p>
-
+      <div class="subtabs year-tabs" role="tablist" aria-label="Year view">
+        <button type="button" class="subtab active" role="tab" id="tab-setup" aria-controls="panel-setup" aria-selected="true" data-year-tab="setup">Setup &amp; closing</button
+        ><button type="button" class="subtab" role="tab" id="tab-calendar" aria-controls="panel-calendar" aria-selected="false" data-year-tab="calendar">Calendar</button>
+      </div>
+      <div id="panel-setup" role="tabpanel" aria-labelledby="tab-setup">
       <section class="admin-table-wrap lunch-card" style="margin-top:0">
         <div class="admin-section-title">
           <div>
-            <h3>Start of the year</h3>
+            <h3 id="start-title">Start of the year</h3>
             <p class="admin-note" style="margin:4px 0 0">Work through the steps in order. A step turns green once it is done.</p>
           </div>
         </div>
@@ -33,7 +40,7 @@
       <section class="admin-table-wrap lunch-card">
         <div class="admin-section-title">
           <div>
-            <h3>End of the year</h3>
+            <h3 id="end-title">End of the year</h3>
             <p class="admin-note" style="margin:4px 0 0">
               Everything must be done (or the close overridden with a reason) before the year closes. Closing ends enrollment and makes the
               year read-only for faculty and the registrar.
@@ -42,6 +49,76 @@
         </div>
         <div id="year-end-host"><p class="admin-note">Loading…</p></div>
       </section>
+      </div>
+      <div id="panel-calendar" role="tabpanel" aria-labelledby="tab-calendar" hidden>
+      <section class="admin-table-wrap lunch-card" style="margin-top:0">
+        <div class="admin-section-title">
+          <div>
+            <h3>Quarters and grade deadlines</h3>
+            <p class="admin-note" style="margin:4px 0 0">
+              Senior High: the 1st semester is Q1-Q2 and the 2nd semester is Q3-Q4. The deadline is the last day faculty may submit that
+              quarter's grades.
+            </p>
+          </div>
+        </div>
+        <form id="quarters-form">
+          <table data-no-sort data-no-pages>
+            <thead>
+              <tr>
+                <th>Quarter</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Grade deadline</th>
+              </tr>
+            </thead>
+            <tbody id="quarters-rows"></tbody>
+          </table>
+          <div class="scale-actions">
+            <button class="admin-primary lunch-save" type="submit">Save quarters</button>
+          </div>
+        </form>
+        <p class="admin-note" id="quarters-note" aria-live="polite"></p>
+      </section>
+
+      <section class="admin-table-wrap lunch-card">
+        <div class="admin-section-title">
+          <div><h3>Holidays and no-class days</h3></div>
+        </div>
+        <form id="holiday-form" class="admin-filterbar" style="margin-bottom:14px">
+          <input name="holiday_date" type="date" required aria-label="Holiday date" />
+          <input name="name" maxlength="120" required placeholder="Name, e.g. Independence Day" aria-label="Holiday name" />
+          <button class="admin-primary" type="submit">+ Add holiday</button>
+        </form>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Day</th>
+              <th>Name</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="holidays-table">
+            <tr>
+              <td colspan="4">Loading holidays...</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="admin-table-wrap lunch-card">
+        <div class="admin-section-title">
+          <div>
+            <h3>School days per month</h3>
+            <p class="admin-note" style="margin:4px 0 0">
+              Counts Monday to Friday from the first day of Q1 to the last day of Q4, minus the holidays above, and saves the numbers into
+              the School days card on Manage Subjects, where you can still adjust them.
+            </p>
+          </div>
+          <button id="compute-days" class="admin-secondary" type="button">Compute from calendar</button>
+        </div>
+      </section>
+      </div>
     </main>
     <script type="module" src="/role-admin/admin-year-setup-page.js"></script>
   </body>

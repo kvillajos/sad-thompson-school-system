@@ -88,10 +88,10 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .student-info-card small { display:block; color:var(--ui-muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
 .student-info-card strong { display:block; margin-top:2px; font-size:15px; }
 .excel-sample { overflow-x:auto; margin-top:12px; border:1px solid #b7cfc0; border-radius:6px; }
-.admin-table-wrap .excel-sample table { width:100%; border-collapse:collapse; font-family:Calibri, Arial, sans-serif; font-size:13px; background:#fff; }
-.admin-table-wrap .excel-sample th { background:#217346 !important; color:#fff !important; font-weight:600; text-align:center; border:1px solid #185c37 !important; border-radius:0 !important; padding:3px 12px; }
-.admin-table-wrap .excel-sample td { border:1px solid #cfdcd3 !important; padding:3px 12px; min-width:70px; height:22px; white-space:nowrap; color:#111 !important; background:#fff !important; }
-.admin-table-wrap .excel-sample .excel-head { font-weight:700; background:#e3f1e8 !important; }
+.excel-sample table { width:100%; border-collapse:collapse; font-family:Calibri, Arial, sans-serif; font-size:13px; background:#fff; }
+.excel-sample th { background:#217346 !important; color:#fff !important; font-weight:600; text-align:center; border:1px solid #185c37 !important; border-radius:0 !important; padding:3px 12px; }
+.excel-sample td { border:1px solid #cfdcd3 !important; padding:3px 12px; min-width:70px; height:22px; white-space:nowrap; color:#111 !important; background:#fff !important; }
+.excel-sample .excel-head { font-weight:700; background:#e3f1e8 !important; }
 #grade-table input { border:0; border-bottom:1px solid #94a3b8; border-radius:0; background:transparent; box-shadow:none; padding:6px 4px; text-align:center; font:inherit; color:inherit; appearance:textfield; -moz-appearance:textfield; }
 #grade-table input::-webkit-outer-spin-button, #grade-table input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
 #grade-table input:focus { outline:none; border-bottom-color:var(--ui-blue-dark); box-shadow:0 1px 0 var(--ui-blue-dark); }
@@ -554,6 +554,14 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .app-sidebar .sidebar-link:hover:not(.active) {
   background: #122b55;
 }
+/* Desktop: the hover fill is a pill drawn inside the link that stops 12px short of the edge, so it never runs
+   into the white page. The link itself keeps its size: shrinking it on hover made the pointer fall off its edge
+   and the highlight flicker on and off. Only the active link reaches the edge, where it merges with the page. */
+@media (min-width:701px) {
+  .app-sidebar .sidebar-link:hover:not(.active) { background: transparent; }
+  .app-sidebar .sidebar-link::before { content: ''; position: absolute; inset: 0 12px 0 0; z-index: -1; border-radius: 999px; background: transparent; transition: background-color .18s ease; pointer-events: none; }
+  .app-sidebar .sidebar-link:hover:not(.active)::before { background: #122b55; }
+}
 .app-sidebar .sidebar-link:focus-visible {
   outline: 2px solid #bcd3ff;
   outline-offset: -3px;
@@ -610,6 +618,20 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 body.has-app-sidebar > header { display:none; }
 body.has-app-sidebar > main { margin-left:244px; max-width:none; padding:36px 36px; }
 body.has-app-sidebar > .app-sidebar { position:fixed; inset:0 auto 0 0; z-index:90; }
+/* Collapsible group (e.g. Manage): a toggle with a chevron, its pages indented under it. */
+.app-sidebar .sidebar-group-toggle { grid-template-columns: var(--sidebar-rail) minmax(0, 1fr) 20px; }
+.app-sidebar .sidebar-chevron { font-size: 12px; transition: transform .18s ease; transform: rotate(-90deg); }
+.app-sidebar .sidebar-group-toggle.is-open .sidebar-chevron { transform: rotate(0deg); }
+.app-sidebar .sidebar-group { display: flex; flex-direction: column; gap: 6px; margin-top: -6px; }
+.app-sidebar .sidebar-group[hidden] { display: none; }
+.app-sidebar .sidebar-group .sidebar-link { min-height: 32px; font-size: 13px; padding-left: 14px; grid-template-columns: var(--sidebar-rail) minmax(0, 1fr); }
+.app-sidebar .sidebar-group .sidebar-link .sidebar-icon { height: 32px; }
+.app-sidebar .sidebar-group .sidebar-link .sidebar-icon svg { width: 15px; height: 15px; }
+@media (max-width:700px) {
+  .app-sidebar .sidebar-group:not([hidden]) { display: contents; }
+  .app-sidebar .sidebar-group .sidebar-link { padding-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .app-sidebar .sidebar-chevron { transition: none; } }
 /* Mobile: sidebar becomes a top bar with wrapped pill links.
    Placed AFTER the desktop rules above so it actually overrides them. */
 @media (max-width:700px) {
@@ -634,6 +656,10 @@ body.has-app-sidebar > .app-sidebar { position:fixed; inset:0 auto 0 0; z-index:
 }
 .spam-guard-cooling { opacity: .6; cursor: not-allowed !important; pointer-events: none; }
 .review-box { width: min(100%, 560px); }
+.upload-box { width:min(100%,820px) !important; max-height:92vh; overflow:auto; }
+.upload-steps { margin:0 0 14px; padding-left:20px; color:var(--ui-text); line-height:1.6; }
+.upload-sample { margin:12px 0 4px; }
+.upload-sample summary { cursor:pointer; font-weight:600; color:var(--ui-blue-dark); }
 .review-summary { margin-bottom: 14px; }
 .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 6px; }
 .review-grid small { display: block; color: var(--ui-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
@@ -722,6 +748,24 @@ button.btn-remove, .admin-remove { background:#fee2e2 !important; color:#c0392b 
 .shift-student-picker thead th { position:sticky; top:0; z-index:2; background:#eaf1ff; box-shadow:0 1px 0 var(--ui-border); }
 .exclude-list input[type=checkbox] { width:auto; }
 .exclude-list label { display:block; padding:3px 0; font-weight:400; }
+/* Auto-assign "Exclude Students" and Promotion Candidates: a filterable table instead of a loose checkbox list. */
+.exclude-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:6px; }
+.exclude-head label { margin:0; font-weight:700; }
+.exclude-note { margin:4px 0 10px; color:var(--ui-muted); font-size:13px; }
+.exclude-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+.exclude-toolbar input[type=search] { flex:1 1 220px; min-width:0; }
+.exclude-toolbar select { flex:0 1 auto; width:auto; }
+.exclude-table-wrap { overflow:auto; max-height:min(46vh,420px); border:1px solid var(--ui-border); border-radius:12px; }
+.exclude-table { width:100%; min-width:0 !important; border-collapse:collapse; font-size:14px; }
+.exclude-table thead th { position:sticky; top:0; z-index:1; padding:10px 12px; background:var(--ui-navy); color:#fff; text-align:left; font-weight:700; white-space:nowrap; }
+.exclude-table td { padding:9px 12px; border-top:1px solid var(--ui-border); color:var(--ui-text); vertical-align:middle; }
+.exclude-table th:first-child, .exclude-table td:first-child { width:44px; text-align:center; }
+.exclude-table input[type=checkbox] { width:16px; height:16px; margin:0; cursor:pointer; accent-color:var(--ui-blue); }
+.exclude-table tbody tr { cursor:pointer; }
+.exclude-table tbody tr:hover td { background:color-mix(in srgb, var(--ui-blue) 6%, transparent); }
+.exclude-table tbody tr.is-excluded:nth-child(n) td { background:color-mix(in srgb, var(--ui-blue) 11%, transparent) !important; }
+.exclude-table tbody tr.is-excluded td:not(:first-child) { color:var(--ui-muted); text-decoration:line-through; text-decoration-color:color-mix(in srgb, var(--ui-muted) 60%, transparent); }
+.exclude-table tbody tr:only-child td[colspan] { cursor:default; text-align:center; color:var(--ui-muted); font-style:italic; padding:22px 12px; }
 /* Auto-assign grade picker: each grade is a tile with its own tick box. */
 .grade-picker { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; margin:8px 0 12px; }
 .grade-option { position:relative; display:flex; align-items:center; gap:10px; min-height:50px; padding:10px 12px; border:1px solid var(--ui-border); border-radius:12px; background:var(--ui-surface-strong); color:var(--ui-text); font-size:13px; font-weight:700; cursor:pointer; transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
@@ -1098,6 +1142,26 @@ body[data-role="student"] { --role-bar: #091c3c; } /* solid, no gradient: same n
 
 /* dialog.js: in-page confirm / form / notice dialogs */
 .dialog-box { width:min(100%,440px) !important; }
+.dialog-box.dialog-wide { width:min(100%,720px) !important; }
+/* Admissions review: the checks to tick before Approve / Decline unlock. */
+.review-checks { display:grid; gap:8px; margin:4px 0 12px; padding:12px 14px; border:1px solid var(--ui-border); border-radius:10px; }
+.review-checks legend { padding:0 6px; font-weight:700; color:var(--ui-text); }
+.review-checks label { display:flex; gap:8px; align-items:flex-start; color:var(--ui-text); font-weight:400; line-height:1.4; }
+.review-checks input { margin-top:3px; }
+.badge:empty { display:none; }
+.copy-preview-stats { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px; }
+.copy-preview-stats span { padding:6px 10px; border:1px solid var(--ui-border); border-radius:999px; color:var(--ui-text); font-size:13px; }
+.copy-preview-stats b { color:var(--ui-blue-dark); }
+.copy-preview-list { max-height:min(55vh,460px); overflow:auto; margin:0 0 12px; }
+.copy-preview-list details { border:1px solid var(--ui-border); border-radius:10px; margin:0 0 6px; }
+.copy-preview-list summary { display:flex; gap:8px; align-items:baseline; padding:9px 12px; cursor:pointer; color:var(--ui-text); }
+.copy-preview-list summary small { color:var(--ui-muted); }
+.copy-preview-list summary em { margin-left:auto; font-style:normal; font-size:12px; font-weight:700; color:var(--ui-muted); white-space:nowrap; }
+.copy-preview-list summary em.is-new { color:var(--ui-blue); }
+.copy-preview-list table { width:100%; border-collapse:collapse; font-size:13px; }
+.copy-preview-list th, .copy-preview-list td { padding:6px 12px; border-top:1px solid var(--ui-border); text-align:left; color:var(--ui-text); }
+.copy-preview-list th { color:var(--ui-muted); font-weight:600; }
+.copy-preview-list tr.is-skipped td { color:var(--ui-muted); }
 .dialog-message { margin:0 0 10px; color:var(--ui-text); line-height:1.5; overflow-wrap:anywhere; }
 .dialog-warning { margin:0 0 12px; padding:10px 12px; border-radius:10px; background:#fff4d6; color:#7a5200; font-weight:600; line-height:1.45; }
 .dialog-fields { display:grid; gap:12px; margin-bottom:16px; }

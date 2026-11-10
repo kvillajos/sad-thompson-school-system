@@ -28,7 +28,21 @@ export function mountSidebar(items, brand, role) {
     '▤': '<svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="16"></rect><path d="M8 8h8M8 12h8M8 16h8"></path></svg>',
     '♧': '<svg viewBox="0 0 24 24"><path d="M12 20v-5"></path><path d="M12 15a4 4 0 1 0-3-6 4 4 0 1 0 3 6Z"></path><path d="M12 15a4 4 0 1 0 3-6 4 4 0 1 0-3 6Z"></path></svg>',
     '☷': '<svg viewBox="0 0 24 24"><path d="M4 6h4M12 6h8M4 12h8M16 12h4M4 18h4M12 18h8"></path></svg>',
-    '↺': '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg>'
+    '↺': '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg>',
+    '⇧': '<svg viewBox="0 0 24 24"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M5 20h14"></path></svg>',
+    '▧': '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M8 16v-4M12 16V8M16 16v-6"></path></svg>',
+    '↗': '<svg viewBox="0 0 24 24"><path d="M7 17 17 7"></path><path d="M8 7h9v9"></path></svg>',
+    '★': '<svg viewBox="0 0 24 24"><path d="m2 9 10-5 10 5-10 5Z"></path><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"></path></svg>',
+    '⚑': '<svg viewBox="0 0 24 24"><path d="M5 21V4"></path><path d="M5 4h11l-2 4 2 4H5"></path></svg>',
+    '▱': '<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"></path><path d="M14 3v5h5"></path><path d="M9 13h6M9 17h6"></path></svg>',
+    '✉': '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>',
+    '✚': '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v8M8 12h8"></path></svg>',
+    '☰': '<svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path></svg>',
+    '▦': '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M4 10h16M9 3v4M15 3v4"></path></svg>',
+    '⚐': '<svg viewBox="0 0 24 24"><path d="M4 13h4l2 3h4l2-3h4"></path><path d="M6 5h12l2 8v6H4v-6Z"></path></svg>',
+    '✎': '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16Z"></path><path d="m13 7 4 4"></path></svg>',
+    '☑': '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="m8 12 3 3 5-6"></path></svg>',
+    '◷': '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>'
   }
   const existing = document.querySelector('.app-sidebar, .side, .admin-sidebar')
   if (existing) existing.remove()
@@ -38,7 +52,7 @@ export function mountSidebar(items, brand, role) {
   sidebar.className = 'app-sidebar'
   sidebar.innerHTML = `<img src="/assets/logo.png" alt="Thompson Christian School" class="sidebar-logo"><div class="sidebar-brand">${brand}</div><nav class="sidebar-nav"></nav>`
   const nav = sidebar.querySelector('.sidebar-nav')
-  items.forEach(item => {
+  const makeLink = item => {
     const link = item.tab ? document.createElement('button') : document.createElement('a')
     link.className = 'sidebar-link'
     link.innerHTML = `<span class="sidebar-icon" aria-hidden="true">${icons[item.icon] || icons['▣']}</span><span class="sidebar-label"></span>`
@@ -48,7 +62,43 @@ export function mountSidebar(items, brand, role) {
     if (item.href) link.href = item.href
     if (item.active) link.classList.add('active')
     if (item.tab) link.type = 'button'
-    nav.appendChild(link)
+    return link
+  }
+  // { group, icon, items }: a toggle with its pages under it. It opens by itself on one of its pages;
+  // otherwise it remembers (per browser) whether it was last left open.
+  items.forEach((item, groupIndex) => {
+    if (!item.group) return nav.appendChild(makeLink(item))
+    const storeKey = `tcsms-nav-${role || 'app'}-${item.group}`
+    let remembered = null
+    try {
+      remembered = localStorage.getItem(storeKey)
+    } catch {}
+    const open = item.items.some(child => child.active) || remembered === 'open'
+    const toggle = document.createElement('button')
+    toggle.type = 'button'
+    toggle.className = 'sidebar-link sidebar-group-toggle'
+    toggle.innerHTML = `<span class="sidebar-icon" aria-hidden="true">${icons[item.icon] || icons['▣']}</span><span class="sidebar-label"></span><span class="sidebar-chevron" aria-hidden="true">▾</span>`
+    toggle.querySelector('.sidebar-label').textContent = item.group
+    toggle.dataset.icon = item.icon || ''
+    const list = document.createElement('div')
+    list.className = 'sidebar-group'
+    list.id = `sidebar-group-${groupIndex}`
+    list.hidden = !open
+    toggle.setAttribute('aria-expanded', String(open))
+    toggle.setAttribute('aria-controls', list.id)
+    item.items.forEach(child => list.appendChild(makeLink(child)))
+    toggle.onclick = () => {
+      const next = list.hidden
+      list.hidden = !next
+      toggle.setAttribute('aria-expanded', String(next))
+      // Re-place the highlight: links below the group moved.
+      toggle.classList.toggle('is-open', next)
+      try {
+        localStorage.setItem(storeKey, next ? 'open' : 'closed')
+      } catch {}
+    }
+    toggle.classList.toggle('is-open', open)
+    nav.append(toggle, list)
   })
   nav.querySelectorAll('.sidebar-link').forEach((link, index) => {
     const icon = link.dataset.icon
@@ -71,6 +121,13 @@ export function mountSidebar(items, brand, role) {
     const active = nav.querySelector('.sidebar-link.active')
     indicator.style.opacity = active ? '1' : '0'
     if (!active) return
+    // A tab switched in code (URL hash, Back button, another screen) can land inside a closed group: open it.
+    const group = active.closest('.sidebar-group')
+    if (group?.hidden) {
+      group.hidden = false
+      group.previousElementSibling?.setAttribute('aria-expanded', 'true')
+      group.previousElementSibling?.classList.add('is-open')
+    }
     indicator.style.transform = `translateY(${active.offsetTop}px)`
     indicator.style.height = `${active.offsetHeight}px`
   }

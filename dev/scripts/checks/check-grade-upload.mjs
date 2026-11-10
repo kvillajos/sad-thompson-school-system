@@ -29,8 +29,8 @@ assert.equal(parseGradeCsv('student_id,final').length, 0, 'a header-only file pa
 
 // --- the faculty page bulk upload wiring ----------------------------------
 const root = resolve(import.meta.dirname, '../../..')
-const html = readFileSync(join(root, 'role-faculty', 'faculty-upload.html'), 'utf8')
-const script = readFileSync(join(root, 'role-faculty', 'faculty-upload-page.js'), 'utf8')
+const html = readFileSync(join(root, 'role-faculty', 'faculty-grades.html'), 'utf8')
+const script = readFileSync(join(root, 'role-faculty', 'faculty-upload-panel.js'), 'utf8')
 assert.ok(html.includes('id="upload-file"') && html.includes('accept=".csv"'), 'a CSV file input must be present')
 assert.ok(html.includes('id="save-upload"') && html.includes('disabled'), 'bulk save must start disabled until a clean file is loaded')
 assert.ok(script.includes('parseGradeCsv'), 'the page must reuse the CSV parser')

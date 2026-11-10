@@ -7,7 +7,7 @@ const HELP = {
     [
       'Start a new school year',
       [
-        'Open <b>Year Setup</b> and press <b>+ Create</b> for the next year (or pick it if it exists).',
+        'Open <b>School Years</b> and press <b>+ Add school year</b> (it suggests the next year), or click its card if it exists.',
         'Work down the steps: copy sections and timetables from last year, carry over lunch times and the grading scale, set the calendar and school days, assign advisers.',
         'When every step is green, press <b>Open enrollment</b>.'
       ]
@@ -15,7 +15,7 @@ const HELP = {
     [
       'Set quarter dates, grade deadlines and holidays',
       [
-        'Open <b>School Calendar</b> and choose the year.',
+        'Open <b>School Years</b>, click the year, then the <b>Calendar</b> tab.',
         "Enter each quarter's start, end and grade deadline, then <b>Save quarters</b>.",
         'Add holidays one by one.',
         'Press <b>Compute from calendar</b> to fill the school days per month (you can still adjust them on <b>Manage Subjects</b>).'
@@ -24,7 +24,7 @@ const HELP = {
     [
       'Open or close enrollment',
       [
-        '<b>Year Setup</b> → step 5 → <b>Open enrollment</b> / <b>Close enrollment</b>.',
+        '<b>School Years</b> → click the year → step 5 → <b>Open enrollment</b> / <b>Close enrollment</b>.',
         'While it is closed nobody can enroll, re-enroll, import or place students into that year. Moving students who are already placed still works.'
       ]
     ],
@@ -32,7 +32,7 @@ const HELP = {
       'See which teachers have not submitted grades',
       [
         'Open <b>Grade Tracker</b>, choose the year and quarter.',
-        '"Late" means the quarter\'s grade deadline has passed and the class is not complete. Set deadlines on <b>School Calendar</b>.'
+        '"Late" means the quarter\'s grade deadline has passed and the class is not complete. Set deadlines on <b>School Years</b> → <b>Calendar</b>.'
       ]
     ],
     [
@@ -66,7 +66,7 @@ const HELP = {
     [
       'Close a school year',
       [
-        '<b>Year Setup</b> → <b>End of the year</b>. Finish every item (grades submitted, promotion done, requests handled).',
+        '<b>School Years</b> → click the year → <b>End of</b> that year. Finish every item (grades submitted, promotion done, requests handled).',
         'Press <b>Close</b>. If something must stay open, use <b>Close anyway…</b> and give a reason.',
         'A closed year is read-only for faculty and the registrar. <b>Reopen year</b> undoes it.'
       ]
@@ -80,7 +80,7 @@ const HELP = {
     ],
     [
       'Undo a change or bring back a deleted record',
-      ['<b>Audit Trail</b> → <b>Restore Changes</b>. Changes from the last 30 days can be restored.']
+      ['<b>Reports & Audit</b> → <b>Audit Trail</b> tab → <b>Restore Changes</b>. Changes from the last 30 days can be restored.']
     ],
     ['Change the grading scale', ['<b>Manage Subjects</b> → <b>Grading scale</b> → choose the year, edit the bands, <b>Save scale</b>.']]
   ],
@@ -109,7 +109,7 @@ const HELP = {
         'Enrollment for the year must be open.'
       ]
     ],
-    ['Re-enroll a returning student', ['<b>Active Directory</b> → <b>Not re-enrolled</b> → <b>Enroll for</b> the new year.']],
+    ['Re-enroll a returning student', ['<b>Students</b> → <b>Directory</b> → <b>Not re-enrolled</b> → <b>Enroll for</b> the new year.']],
     [
       'Place students in sections',
       [
@@ -150,7 +150,7 @@ const HELP = {
     ],
     [
       'Upload grades from a file',
-      ['<b>Bulk Upload</b> → download the template, fill it in, upload. Every row is checked before anything is saved.']
+      ['<b>Grades</b> → pick the class → <b>Upload spreadsheet</b> → download the template, fill it in, upload. Every row is checked before anything is saved.']
     ],
     [
       'Take attendance',

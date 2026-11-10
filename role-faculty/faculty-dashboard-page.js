@@ -2,7 +2,7 @@ import { supabase } from '../shared/lib/auth-client.js'
 import { mountAnnouncements } from '../shared/ui/announcements.js'
 import { mountDayTabs, gapsFrom, timeRange12 } from '../shared/ui/day-tabs.js'
 import { loadSchoolYearSettings } from '../shared/lib/school-settings.js'
-import { loadFacultyContext, escapeHtml, lastFirst, dayNames } from './faculty-common.js'
+import { loadFacultyContext, escapeHtml, rosterFor } from './faculty-common.js'
 import { errorRow } from '../shared/lib/html.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
@@ -29,14 +29,16 @@ if (context) {
       ],
       emptyText: 'No classes'
     })
-  $('student-table').innerHTML = context.enrollmentError
-    ? errorRow(4, context.enrollmentError, 'Load students')
-    : context.enrollments
-        .map(
-          item =>
-            `<tr><td>${escapeHtml(item.students?.lrn_number || item.student_id)}</td><td>${escapeHtml(lastFirst(item.students))}</td><td>${escapeHtml(item.students?.grade_level)}</td><td>Active</td></tr>`
-        )
-        .join('') || '<tr><td colspan="4">No students assigned.</td></tr>'
+  // One row per class with its head count; the roster itself lives on Class List.
+  const sex = (item, letter) => String(item.students?.gender || '').trim().toLowerCase().startsWith(letter)
+  $('class-counts').innerHTML = context.enrollmentError
+    ? errorRow(5, context.enrollmentError, 'Load students')
+    : context.classes
+        .map(item => {
+          const { roster } = rosterFor(context, item.key)
+          return `<tr><td data-label="Class">${escapeHtml(item.label)}</td><td data-label="Students"><b>${roster.length}</b></td><td data-label="Male">${roster.filter(row => sex(row, 'm')).length}</td><td data-label="Female">${roster.filter(row => sex(row, 'f')).length}</td><td data-label="Actions"><a class="admin-view" href="/role-faculty/faculty-class-list.html?class=${encodeURIComponent(item.key)}">View list</a></td></tr>`
+        })
+        .join('') || '<tr><td colspan="5">No classes assigned yet.</td></tr>'
   // Teaching-load notices need no approval; the teacher just acknowledges them.
   const showNotices = async () => {
     const { data } = await supabase

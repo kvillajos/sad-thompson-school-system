@@ -161,7 +161,7 @@ ordering bugs. Keep it that way.
 | Stage | What | Where |
 | --- | --- | --- |
 | Before the year | Year Setup wizard: create year, copy sections/timetables, lunch times and grading scale, calendar and school days, advisers, open enrollment | `role-admin/admin-year-setup*`, `copy-year.js` |
-| | School calendar: quarter dates, grade deadlines, holidays, "Compute from calendar" school days | `role-admin/admin-calendar*`, `shared/lib/calendar.js` (v56) |
+| | School calendar: quarter dates, grade deadlines, holidays, "Compute from calendar" school days | `role-admin/school-calendar.js` (Calendar tab on School Years), `shared/lib/calendar.js` (v56) |
 | Enrollment | Enrollment-open switch per year, enforced by triggers on `enrollments` / `student_school_years` | v57, `role-registrar/enrollment-window.js` |
 | | Admission requirements checklist (admin-editable list, uploads tick items, approval blocked unless an override is approved) | `shared/lib/requirements.js`, `shared/ui/requirements-checklist.js`, `role-admin/requirement-types.js` (v58) |
 | | Bulk import from CSV/Excel; admin "Provision pending logins" | `role-registrar/registrar-import.js`, `shared/lib/student-import.js` (v59) |

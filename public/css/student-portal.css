@@ -56,13 +56,18 @@ body[data-role='student'] .student-request-form {
   max-width: 760px;
 }
 
+/* Label on its own line, the field full width under it. */
 body[data-role='student'] .student-request-form label {
+  display: grid;
+  gap: 6px;
   margin-top: 6px;
   font-weight: 700;
 }
 
 body[data-role='student'] .student-request-form select,
+body[data-role='student'] .student-request-form input:not([type='checkbox']):not([type='radio']):not([type='file']),
 body[data-role='student'] .student-request-form textarea {
+  min-height: 44px;
   width: 100%;
   box-sizing: border-box;
   padding: 10px 12px;
@@ -71,6 +76,20 @@ body[data-role='student'] .student-request-form textarea {
   background: #fff;
   color: #17345f;
   font: inherit;
+  font-weight: 400;
+}
+
+body[data-role='student'] .student-request-form input:focus,
+body[data-role='student'] .student-request-form select:focus,
+body[data-role='student'] .student-request-form textarea:focus {
+  outline: 2px solid #2161d1;
+  outline-offset: 1px;
+  border-color: #2161d1;
+}
+
+/* A copy count needs a small box, not a full-width one. */
+body[data-role='student'] .student-request-form input[type='number'] {
+  max-width: 140px;
 }
 
 body[data-role='student'] .student-request-form textarea {

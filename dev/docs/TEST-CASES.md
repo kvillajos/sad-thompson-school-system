@@ -50,13 +50,17 @@ Each case uses this shape:
 
 **Steps**
 1. **→ John:** submit a TEST application through **New Admission**.
-2. Open **Admissions**. Under **Reject an Application**, select the TEST application.
-3. Press **Reject Application** with no reason.
-4. Enter a reason, then press **Reject Application** again.
+2. Open the **Dashboard**. Under **Pending Approvals**, find the **Admission** row and press **Open Admissions**.
+3. On **Admissions**, press **Review** on the TEST application.
+4. Without ticking the three **Before you decide** checks, try **Decline**.
+5. Tick all three checks. Leave **Remarks** empty and press **Decline**.
+6. Enter a reason in **Remarks**, then press **Decline** and confirm.
 
 **Expected**
-- Step 3 is refused because a reason is required.
-- After step 4, the application leaves **Applications Awaiting Review**, and its status shows Rejected for the registrar.
+- After step 2, the Dashboard shows one Admission row with the number waiting, not one row per application.
+- In step 4, **Approve** and **Decline** stay greyed out until all three checks are ticked.
+- Step 5 is refused because a reason is required.
+- After step 6, the application leaves **Applications Awaiting Review**, and its status shows Rejected for the registrar.
 
 `[ ] Pass  [ ] Fail` · **Notes:**
 
@@ -114,9 +118,9 @@ Each case uses this shape:
 
 **Steps**
 1. Open every link in the admin navigation, one by one:
-   - Dashboard, Accounts, Sections, Schedules, Faculty, Subjects
-   - Year Setup, School Calendar, Grade Tracker, Discipline, Admissions, Reports
-   - Audit Trail, Restore Changes
+   - Dashboard, then **Manage** (click it to open): Accounts, Faculty, Sections, Subjects, Schedules
+   - School Years (both tabs: Setup & closing, Calendar), Grade Tracker, Discipline, Admissions, Reports & Audit (both tabs)
+   - On **Reports & Audit** → **Audit Trail** tab, also scroll to **Restore Changes**
 2. Open the browser console (F12) on each page.
 
 **Expected**
@@ -134,7 +138,7 @@ Each case uses this shape:
 **You are** a teacher uploading a class's quarter grades from a spreadsheet.
 
 **Steps**
-1. Open **Bulk Upload** and download the template for one of your classes.
+1. Open **Grades**, pick one of your classes, press **Upload spreadsheet**, and download the template.
 2. Fill it in, and make one row wrong (a score of 120, or a blank name).
 3. Upload it.
 4. Fix the bad cell in the grid on screen.
@@ -337,7 +341,7 @@ Use one TEST student login (ask Sam or John for one, or use a student from 4.c),
 **You are** the registrar looking up a student.
 
 **Steps**
-1. Open **Active Directory**. Switch between the current, **Not re-enrolled** and historical or all views.
+1. Open **Students** → **Directory**. Switch between the current, **Not re-enrolled** and historical or all views.
 2. Click a student to open the Quick View.
 
 **Expected**
@@ -483,11 +487,11 @@ Promotion runs on a whole grade level. **Exclude everyone except the 2 students 
 
 ## 5. Jash: School-year setup and closing
 
-### 5.a Year Setup wizard
+### 5.a School Years setup
 **You are** the admin preparing the next school year.
 
 **Steps**
-1. **Year Setup** → **+ Create** → 2027-2028 (June 1, 2027 to May 31, 2028).
+1. **School Years** → **+ Add school year**. It is prefilled with 2027-2028 (June 1, 2027 to May 31, 2028). Press **Add school year**.
 2. Step 1: copy sections and timetables from 2026-2027.
 3. Step 2: carry over lunch times and the grading scale.
 4. Steps 3-4: set the school days (after 5.b) and assign advisers.
@@ -504,7 +508,7 @@ Promotion runs on a whole grade level. **Exclude everyone except the 2 students 
 **You are** the admin entering 2027-2028's calendar.
 
 **Steps**
-1. **School Calendar** → 2027-2028.
+1. **School Years** → click the **2027-2028** card → **Calendar** tab.
 2. Enter all four quarters' start, end and grade deadline, then **Save quarters**.
 3. Try saving a quarter that ends before it starts, or one that overlaps another.
 4. Add two holidays on weekdays.
@@ -522,7 +526,7 @@ Promotion runs on a whole grade level. **Exclude everyone except the 2 students 
 **You are** the admin controlling when enrollment for a year is allowed.
 
 **Steps**
-1. **Year Setup** → 2027-2028 → step 5. Leave enrollment **closed**.
+1. **School Years** → click the **2027-2028** card → step 5. Leave enrollment **closed**.
 2. **→ John:** open **Manage Enrollment** for 2027-2028, then try to enroll or re-enroll a TEST student.
 3. **Open enrollment**, and John tries again.
 4. **Close enrollment** again.
@@ -538,7 +542,7 @@ Promotion runs on a whole grade level. **Exclude everyone except the 2 students 
 **You are** the admin closing 2027-2028. **Never use 2026-2027 here.**
 
 **Steps**
-1. **Year Setup** → 2027-2028 → **End of the year**.
+1. **School Years** → click the **2027-2028** card → **End of 2027-2028**.
 2. Read the checklist: grades submitted, promotion done, open requests.
 3. Try **Close**.
 4. **Close anyway…**: first without a reason, then with "TEST close".
@@ -574,7 +578,7 @@ Promotion runs on a whole grade level. **Exclude everyone except the 2 students 
 **You are** the admin making sure the live year is still normal after all the tests.
 
 **Steps**
-1. **Year Setup** → 2026-2027.
+1. **School Years** → click the **2026-2027** card.
 2. **→ John:** open **Manage Enrollment** for 2026-2027.
 
 **Expected**

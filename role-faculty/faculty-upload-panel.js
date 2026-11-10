@@ -1,22 +1,20 @@
 import { supabase } from '../shared/lib/auth-client.js'
-import { loadFacultyContext, escapeHtml, lastFirst, classSelect, rosterFor } from './faculty-common.js'
-import { currentSchoolYear, derivedGrade, parseGradeCsv } from '../shared/lib/grades.js'
+import { escapeHtml, lastFirst, rosterFor } from './faculty-common.js'
+import { derivedGrade, parseGradeCsv } from '../shared/lib/grades.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
-import { loadGradingScales } from '../shared/lib/grading-scale.js'
 import { mountEditableGrid } from './faculty-grades-upload.js'
 
 // Q1 to Q4 and an optional Final Grade override. Midterm and the letter grade are no longer entered by hand.
 const TEMPLATE_SCORES = ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2', 'final']
 
-const context = await loadFacultyContext('upload')
-await loadGradingScales()
-if (context) {
+// Grades > Upload spreadsheet: the CSV upload modal (markup in faculty-grades.html). It uses the class and
+// school year picked on the Grades page; onSaved reloads the grades table after a save.
+export function mountGradeUpload({ context, classInput, yearInput, onSaved, beforeOpen }) {
   const $ = id => document.getElementById(id)
-  classSelect($('upload-class'), context.classes)
-  $('upload-year').value = context.schoolYear || currentSchoolYear()
+  const modal = $('upload-modal')
   let rows = []
   const warnedNames = new Set()
   const nameKey = text =>
@@ -37,18 +35,18 @@ if (context) {
       .join('')
     const bad = rows.filter(row => row.errors.length).length
     $('save-upload').disabled = !rows.length || bad > 0
-    if (bad) toast(`${bad} row(s) have problems (shown in red). Fix them in the file and choose it again.`, 'error')
+    if (bad) toast(`${bad} row(s) have problems (shown in red). Fix them in the grid, or fix the file and choose it again.`, 'error')
   }
   mountEditableGrid({
     body: $('upload-preview'),
     getRows: () => rows,
-    getSchoolYear: () => $('upload-year').value.trim(),
+    getSchoolYear: () => yearInput.value.trim(),
     saveButton: $('save-upload')
   })
   // The CSV is keyed by the internal student_id, which faculty never see, so the template fills it in.
   // The name goes last (commas stripped) because parseGradeCsv splits on every comma.
   $('download-template').onclick = () => {
-    const { chosen, roster } = rosterFor(context, $('upload-class').value)
+    const { chosen, roster } = rosterFor(context, classInput.value)
     if (!chosen) return toast('Choose a class first.', 'error')
     const header = ['student_id', ...TEMPLATE_SCORES, 'remarks', 'student_name']
     const lines = roster.map(item =>
@@ -69,8 +67,8 @@ if (context) {
       render()
       return toast('Choose a .csv file (in Excel: File > Save As > CSV).', 'error')
     }
-    rows = parseGradeCsv(await file.text(), $('upload-year').value.trim())
-    const { roster } = rosterFor(context, $('upload-class').value)
+    rows = parseGradeCsv(await file.text(), yearInput.value.trim())
+    const { roster } = rosterFor(context, classInput.value)
     const onRoster = new Map(roster.map(item => [String(item.student_id), item.students]))
     const seen = new Map()
     const mismatched = []
@@ -120,8 +118,8 @@ if (context) {
   }
   $('save-upload').onclick = () =>
     withBusy($('save-upload'), 'Saving...', async () => {
-      const chosen = context.classes.find(item => item.key === $('upload-class').value)
-      const year = $('upload-year').value.trim()
+      const chosen = context.classes.find(item => item.key === classInput.value)
+      const year = yearInput.value.trim()
       const records = rows.filter(row => !row.errors.length).map(row => row.record)
       if (!chosen || !year || !records.length) return toast('Choose a class, school year, and a CSV file with no errors first.', 'error')
       const { error } = await supabase.rpc('save_faculty_grades', {
@@ -131,8 +129,29 @@ if (context) {
       })
       if (error) return toast(describeError(error, 'Save grades'), 'error')
       toast(`Saved ${records.length} grade record(s).`)
-      rows = []
-      $('upload-file').value = ''
-      render()
+      close()
+      await onSaved?.()
     })
+
+  // Name warnings are per file session, so reopening starts fresh.
+  const reset = () => {
+    rows = []
+    warnedNames.clear()
+    $('upload-file').value = ''
+    render()
+  }
+  const close = () => {
+    modal.classList.add('hidden')
+    reset()
+  }
+  $('close-upload').onclick = close
+  $('cancel-upload').onclick = close
+  $('open-upload').onclick = async () => {
+    const chosen = context.classes.find(item => item.key === classInput.value)
+    if (!chosen) return toast('Choose a class first.', 'error')
+    if (beforeOpen && !(await beforeOpen())) return
+    reset()
+    $('upload-title').textContent = `Upload spreadsheet: ${chosen.label} (${yearInput.value.trim()})`
+    modal.classList.remove('hidden')
+  }
 }

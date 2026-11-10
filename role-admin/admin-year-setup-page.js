@@ -3,19 +3,21 @@ import { toast } from '../shared/ui/ui-theme.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
 import { escapeHtml, gradeLabel, longDate } from '../shared/lib/html.js'
 import { describeError } from '../shared/lib/errors.js'
-import { confirmDialog } from '../shared/ui/dialog.js'
+import { confirmDialog, formDialog } from '../shared/ui/dialog.js'
 import { withBusy } from '../shared/ui/shell.js'
-import { fillYearSelect, loadSchoolYears, yearStatus } from '../shared/lib/school-years.js'
+import { loadSchoolYears, yearStatus } from '../shared/lib/school-years.js'
 import { nextSchoolYear, previousSchoolYear } from '../shared/lib/year-copy.js'
 import { mountCopyYear } from './copy-year.js'
 import { mountYearEnd } from './year-end-checklist.js'
+import { mountCalendar } from './school-calendar.js'
 import { mountAdminShell } from './admin-page.js'
 
 await mountAdminShell('year-setup')
 
 const $ = id => document.getElementById(id)
 let years = []
-const selected = () => years.find(year => year.label === $('setup-year').value)
+let selectedLabel = ''
+const selected = () => years.find(year => year.label === selectedLabel)
 const count = result => (result.error ? null : (result.count ?? result.data?.length ?? 0))
 
 // One checklist row. actions is HTML (buttons/links); host ids inside it are filled after render.
@@ -30,40 +32,114 @@ const step = (n, { title, done, blocked = false, text, detail = [], actions = ''
     <div class="step-actions">${actions}</div>
   </li>`
 
-function renderNextYearButton() {
-  const newest = years[0]
-  const button = $('create-next-year')
-  if (!newest) return (button.hidden = true)
-  const next = nextSchoolYear(newest.label)
-  button.hidden = false
-  button.textContent = `+ Create ${next}`
-  button.onclick = () =>
-    withBusy(button, 'Creating…', async () => {
-      const start = new Date(`${newest.end_date}T00:00:00Z`)
-      start.setUTCDate(start.getUTCDate() + 1)
-      const end = new Date(start)
-      end.setUTCFullYear(end.getUTCFullYear() + 1)
-      end.setUTCDate(end.getUTCDate() - 1)
-      const row = { label: next, start_date: start.toISOString().slice(0, 10), end_date: end.toISOString().slice(0, 10) }
-      const ok = await confirmDialog(
-        `Create ${next} from ${longDate(row.start_date)} to ${longDate(row.end_date)}? You can change the dates on School Years.`,
-        { title: 'Create school year', confirmText: 'Create' }
-      )
-      if (!ok) return
-      const { error } = await supabase.from('school_years').insert(row)
-      if (error) return toast(describeError(error, 'Create school year'), 'error')
-      toast(`${next} created.`)
-      await load(next)
-    })
+// Closed early counts as its own state on the cards; otherwise the date rule (Active shows as "Current").
+const cardStatus = year => (year.closed_at ? 'Closed' : yearStatus(year))
+const statusText = { Active: 'Current', Upcoming: 'Upcoming', Past: 'Past', Closed: 'Closed' }
+
+function renderCards() {
+  $('year-cards').innerHTML =
+    years
+      .map(year => {
+        const status = cardStatus(year)
+        const enrollment = year.enrollment_open && !year.closed_at ? ' · Enrollment open' : ''
+        return `<button type="button" class="year-card" role="radio" data-year="${escapeHtml(year.label)}" data-status="${status}" aria-checked="${year.label === selectedLabel}">
+          <span class="year-card-top"><strong>${escapeHtml(year.label)}</strong><span class="year-tag">${statusText[status]}</span></span>
+          <small>${escapeHtml(longDate(year.start_date))} to ${escapeHtml(longDate(year.end_date))}</small>
+          <small>${status === 'Closed' ? 'Read-only' : status === 'Upcoming' ? 'Being prepared' : status === 'Active' ? 'In progress' : 'Ended'}${enrollment}</small>
+        </button>`
+      })
+      .join('') || '<p class="admin-note">No school years yet. Add the first one.</p>'
+  $('year-cards')
+    .querySelectorAll('[data-year]')
+    .forEach(card => (card.onclick = () => selectYear(card.dataset.year)))
+}
+
+// Two tabs for the selected year. The URL keeps ?year= and ?tab= so a link or reload lands on the same view.
+const showCalendarYear = mountCalendar()
+let activeTab = new URLSearchParams(location.search).get('tab') === 'calendar' ? 'calendar' : 'setup'
+const syncUrl = () =>
+  history.replaceState(null, '', `?year=${encodeURIComponent(selectedLabel)}${activeTab === 'calendar' ? '&tab=calendar' : ''}`)
+function showTab(tab) {
+  activeTab = tab
+  document.querySelectorAll('[data-year-tab]').forEach(button => {
+    const on = button.dataset.yearTab === tab
+    button.classList.toggle('active', on)
+    button.setAttribute('aria-selected', String(on))
+  })
+  $('panel-setup').hidden = tab !== 'setup'
+  $('panel-calendar').hidden = tab !== 'calendar'
+  syncUrl()
+  const year = selected()
+  if (!year) return
+  $('setup-summary').innerHTML =
+    `<span>Showing <strong>${escapeHtml(year.label)}</strong> (${statusText[cardStatus(year)].toLowerCase()})</span> <span>Enrollment: <strong>${year.enrollment_open && !year.closed_at ? 'Open' : 'Closed'}</strong></span>`
+  // Each tab reloads on show, so calendar edits are reflected in the setup steps and back.
+  return tab === 'calendar' ? showCalendarYear(selected()) : renderSteps()
+}
+document.querySelectorAll('[data-year-tab]').forEach(button => (button.onclick = () => showTab(button.dataset.yearTab)))
+
+function selectYear(label) {
+  selectedLabel = label
+  renderCards()
+  return showTab(activeTab)
+}
+
+// Add (prefilled with the year after the newest one) or edit a year's name and dates.
+async function yearForm(year) {
+  let suggestion = { label: '', start_date: '', end_date: '' }
+  if (!year && years[0]) {
+    const start = new Date(`${years[0].end_date}T00:00:00Z`)
+    start.setUTCDate(start.getUTCDate() + 1)
+    const end = new Date(start)
+    end.setUTCFullYear(end.getUTCFullYear() + 1)
+    end.setUTCDate(end.getUTCDate() - 1)
+    suggestion = { label: nextSchoolYear(years[0].label), start_date: start.toISOString().slice(0, 10), end_date: end.toISOString().slice(0, 10) }
+  }
+  const current = year || suggestion
+  const values = await formDialog({
+    title: year ? `Edit ${year.label}` : 'Add school year',
+    message: year
+      ? 'Renaming a school year updates every section, grade and log that uses it.'
+      : 'Format is YYYY-YYYY. Dates may not overlap another school year.',
+    confirmText: year ? 'Save' : 'Add school year',
+    fields: [
+      { name: 'label', label: 'School year', value: current.label, required: true, maxlength: 9, placeholder: 'e.g. 2027-2028' },
+      { name: 'start_date', label: 'Start date', type: 'date', value: current.start_date, required: true },
+      { name: 'end_date', label: 'End date', type: 'date', value: current.end_date, required: true }
+    ]
+  })
+  if (!values) return
+  const original = year?.label
+  const payload = { label: values.label, start_date: values.start_date, end_date: values.end_date }
+  if (!/^\d{4}-\d{4}$/.test(payload.label)) return toast('Use the format YYYY-YYYY, for example 2026-2027.', 'error')
+  if (payload.end_date <= payload.start_date) return toast('The end date must come after the start date.', 'error')
+  if (years.some(row => row.label === payload.label && row.label !== original))
+    return toast(`${payload.label} already exists. Each school year can only exist once.`, 'error')
+  const clash = years.find(row => row.label !== original && payload.start_date <= row.end_date && payload.end_date >= row.start_date)
+  if (clash) return toast(`These dates overlap ${clash.label}. School year dates may not overlap.`, 'error')
+  if (
+    original &&
+    original !== payload.label &&
+    !(await confirmDialog(
+      `Rename ${original} to ${payload.label}? Every section, grade and log that uses ${original} will change to ${payload.label}.`,
+      { title: 'Rename school year', confirmText: 'Rename' }
+    ))
+  )
+    return
+  const result = original
+    ? await supabase.from('school_years').update(payload).eq('label', original)
+    : await supabase.from('school_years').insert(payload)
+  if (result.error) return toast(describeError(result.error, 'Save school year'), 'error')
+  toast(original ? 'School year saved.' : `${payload.label} added.`)
+  await load(payload.label)
 }
 
 async function renderSteps() {
   const year = selected()
   if (!year) return
   const prev = previousSchoolYear(year.label)
-  const status = yearStatus(year)
-  $('setup-summary').innerHTML =
-    `<strong>${escapeHtml(year.label)}</strong> <span class="badge ${status === 'Active' ? 'active' : status === 'Upcoming' ? 'pending' : ''}">${status}</span> <span>${escapeHtml(longDate(year.start_date))} to ${escapeHtml(longDate(year.end_date))}</span> <span>Enrollment: <strong>${year.enrollment_open && !year.closed_at ? 'Open' : 'Closed'}</strong></span>`
+  $('start-title').textContent = `Start of ${year.label}`
+  $('end-title').textContent = `End of ${year.label}`
 
   const [sections, settings, scale, quarters, days, prevSettings, prevScale] = await Promise.all([
     supabase
@@ -99,7 +175,7 @@ async function renderSteps() {
       title: 'Create the school year',
       done: true,
       text: `${escapeHtml(year.label)} runs from ${escapeHtml(longDate(year.start_date))} to ${escapeHtml(longDate(year.end_date))}.`,
-      actions: '<a class="admin-secondary" href="/role-admin/admin-school-years.html">Edit dates</a>'
+      actions: '<button type="button" class="admin-secondary" id="edit-year">Edit name or dates</button>'
     }),
     step(2, {
       title: `Copy the setup from ${prev}`,
@@ -121,7 +197,7 @@ async function renderSteps() {
       done: calendarDone,
       text: 'Quarter dates and grade deadlines, holidays, then school days per month (computed from the calendar).',
       detail: [`Quarters set: ${quarterCount} of 4`, `School days entered for ${dayMonths} month(s)`],
-      actions: `<a class="admin-secondary" href="/role-admin/admin-calendar.html?year=${encodeURIComponent(year.label)}">Open School Calendar</a>`
+      actions: '<button type="button" class="admin-secondary" data-open-calendar>Open the Calendar tab</button>'
     }),
     step(4, {
       title: 'Assign advisers',
@@ -149,6 +225,8 @@ async function renderSteps() {
     })
   ].join('')
 
+  $('edit-year').onclick = event => withBusy(event.currentTarget, 'Opening…', () => yearForm(year))
+  document.querySelector('[data-open-calendar]').onclick = () => showTab('calendar')
   mountCopyYear($('copy-sections-host'), renderSteps, { sourceYear: prev, targetYear: year.label })
   mountYearEnd($('year-end-host'), year, () => load(year.label))
 
@@ -197,14 +275,15 @@ async function renderSteps() {
 
 async function load(pick) {
   years = await loadSchoolYears()
-  // Default: the next upcoming year being prepared, else the current one.
-  const upcoming = [...years].reverse().find(year => yearStatus(year) === 'Upcoming')
-  await fillYearSelect($('setup-year'), { years, selected: pick || upcoming?.label })
-  renderNextYearButton()
-  await renderSteps()
+  // Default: the next upcoming year being prepared, else the current one, else the newest.
+  const upcoming = [...years].reverse().find(year => cardStatus(year) === 'Upcoming')
+  const active = years.find(year => cardStatus(year) === 'Active')
+  const label = [pick, upcoming?.label, active?.label, years[0]?.label].find(value => years.some(year => year.label === value))
+  if (!label) return renderCards()
+  await selectYear(label)
 }
 
-$('setup-year').onchange = () => renderSteps()
+$('add-year').onclick = event => withBusy(event.currentTarget, 'Opening…', () => yearForm())
 try {
   await load(new URLSearchParams(location.search).get('year'))
 } catch (error) {

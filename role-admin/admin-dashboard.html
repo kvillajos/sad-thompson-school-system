@@ -372,43 +372,6 @@
         </form>
       </div>
     </div>
-    <div id="review-modal" class="admin-modal hidden">
-      <div class="admin-modal-box review-box">
-        <div class="admin-modal-head">
-          <h3>Review Admission Application</h3>
-          <button type="button" id="close-review">x</button>
-        </div>
-        <div id="review-details" class="admin-full review-summary"></div>
-        <div class="admin-actions admin-full">
-          <button type="button" id="view-enrollee-details" class="admin-secondary">View Documents &amp; Details</button>
-        </div>
-        <label class="admin-full"
-          >Remarks<textarea
-            id="review-remarks"
-            rows="3"
-            maxlength="500"
-            placeholder="Optional notes for the registrar or guardian"
-          ></textarea>
-        </label>
-        <p id="review-lock" class="admin-full review-countdown hidden"><span id="review-lock-text"></span></p>
-        <p id="review-countdown" class="admin-full review-countdown">
-          Please review the details above - decisions unlock in <span id="review-countdown-seconds">3</span>s...
-        </p>
-        <div class="admin-actions">
-          <button type="button" id="decline-application" class="admin-remove" disabled>Decline</button>
-          <button type="button" id="approve-application" class="admin-approve" disabled>Approve</button>
-        </div>
-      </div>
-    </div>
-    <div id="enrollee-details-modal" class="admin-modal hidden">
-      <div class="admin-modal-box enrollee-details-box">
-        <div class="admin-modal-head">
-          <h3>Application Details</h3>
-          <button type="button" id="close-enrollee-details">x</button>
-        </div>
-        <div id="enrollee-details-body"></div>
-      </div>
-    </div>
     <script type="module" src="/role-admin/admin-dashboard-page.js"></script>
   </body>
 </html>

@@ -98,7 +98,7 @@ records who by username only, with no IP address.
    Rows are written only by database functions and triggers (users have a select policy only, line ~342), so
    no policy changes are needed. `archive_audit_logs()` stores `to_jsonb(row)`, so archives pick up the
    new columns automatically; confirm by reading it (~line 1311).
-2. UI: `role-admin/admin-audit-page.js:20` builds each row (`auditRow`). **Ask the user** whether the IP
+2. UI: `role-admin/audit-trail.js` builds each row (`auditRow`). **Ask the user** whether the IP
    should be a new table column or only appear in the row's details; the table is already wide on mobile.
    `dev/scripts/checks/check-audit-trail.mjs` matches `const auditRow = row =>.*data-label="When"...data-label="Details"`,
    so keep those labels in that order.

@@ -26,19 +26,44 @@ mountProfile(user, 'Registrar', signOut)
 
 mountSidebar(
   [
-    { label: 'Manage Enrollment', tab: 'enrollment', active: true, icon: '▣' },
-    { label: 'New Admission', tab: 'admission', icon: '▣' },
-    { label: 'Applications', tab: 'applications', icon: '♙' },
-    { label: 'Bulk Import', tab: 'import', icon: '⇧' },
-    { label: 'Section Students', tab: 'sectioning', icon: '▤' },
-    { label: 'Active Directory', tab: 'directory', icon: '▤' },
-    { label: 'Academic History', tab: 'academic', icon: '♧' },
-    { label: 'Section Reports', tab: 'section-reports', icon: '▧' },
-    { label: 'Promotion & Transfers', tab: 'promotion', icon: '↗' },
-    { label: 'Graduation', tab: 'graduation', icon: '★' },
-    { label: 'Discipline', tab: 'discipline', icon: '⚑' },
-    { label: 'Document Requests', tab: 'documents', icon: '▱' },
-    { label: 'Requests & Feedback', tab: 'requests', icon: '✉' },
+    // Grouped by the registrar's workflow; each group opens by itself when one of its tabs is shown.
+    { label: 'Manage Enrollment', tab: 'enrollment', active: true, icon: '⌂' },
+    {
+      group: 'Admissions',
+      icon: '♙',
+      items: [
+        { label: 'New Admission', tab: 'admission', icon: '✚' },
+        { label: 'Applications', tab: 'applications', icon: '▤' },
+        { label: 'Bulk Import', tab: 'import', icon: '⇧' }
+      ]
+    },
+    {
+      group: 'Students',
+      icon: '☷',
+      items: [
+        { label: 'Section Students', tab: 'sectioning', icon: '▣' },
+        { label: 'Directory', tab: 'directory', icon: '☰' },
+        { label: 'Academic History', tab: 'academic', icon: '♧' }
+      ]
+    },
+    {
+      group: 'Year-End',
+      icon: '▦',
+      items: [
+        { label: 'Promotion & Transfers', tab: 'promotion', icon: '↗' },
+        { label: 'Graduation', tab: 'graduation', icon: '★' },
+        { label: 'Section Reports', tab: 'section-reports', icon: '▧' }
+      ]
+    },
+    {
+      group: 'Requests',
+      icon: '⚐',
+      items: [
+        { label: 'Document Requests', tab: 'documents', icon: '▱' },
+        { label: 'Requests & Feedback', tab: 'requests', icon: '✉' },
+        { label: 'Discipline', tab: 'discipline', icon: '⚑' }
+      ]
+    },
     { label: 'Restore Changes', tab: 'restore', icon: '↺' }
   ],
   'Registry and<br>Student Records',

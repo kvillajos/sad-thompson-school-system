@@ -24,25 +24,23 @@
         <div id="schedule-days"><p>Loading schedule...</p></div>
       </section>
       <section class="admin-table-wrap" style="margin-top:18px">
-        <div class="admin-section-title"><h3>My Students</h3></div>
-        <table style="min-width:0; width:100%; table-layout:fixed;">
-          <colgroup>
-            <col style="width:30%" />
-            <col style="width:40%" />
-            <col style="width:25%" />
-            <col style="width:15%" />
-          </colgroup>
+        <div class="admin-section-title">
+          <h3>My Classes</h3>
+          <a class="admin-secondary" href="/role-faculty/faculty-class-list.html">Open Class List</a>
+        </div>
+        <table style="min-width:0; width:100%">
           <thead>
             <tr>
-              <th>Student ID</th>
-              <th>Name</th>
-              <th>Grade</th>
-              <th>Status</th>
+              <th>Class</th>
+              <th>Students</th>
+              <th>Male</th>
+              <th>Female</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody id="student-table">
+          <tbody id="class-counts">
             <tr>
-              <td colspan="4">Loading students...</td>
+              <td colspan="5">Loading classes...</td>
             </tr>
           </tbody>
         </table>

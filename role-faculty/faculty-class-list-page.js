@@ -6,6 +6,9 @@ if (context) {
   const select = document.getElementById('roster-class')
   const table = document.getElementById('roster-table')
   classSelect(select, context.classes)
+  // ?class=<section:subject> (from the Dashboard or another page) opens that class.
+  const linked = new URLSearchParams(location.search).get('class')
+  if (context.classes.some(item => item.key === linked)) select.value = linked
   const filters = mountFilterBar(document.getElementById('roster-filters'), {
     filters: [{ key: 'gender', all: 'All genders', get: item => item.students?.gender }],
     onChange: () => render(),

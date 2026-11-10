@@ -69,7 +69,7 @@ function render() {
   const complete = withStudents.filter(row => row.status === 'Complete').length
   const late = withStudents.filter(row => row.late).length
   $('tracker-summary').innerHTML = `<span>Q${quarter} deadline: <strong>${deadline ? escapeHtml(longDate(deadline)) : 'not set'}</strong>${
-    deadline ? '' : ' (set it on <a href="/role-admin/admin-calendar.html">School Calendar</a>)'
+    deadline ? '' : ' (set it on <a href="/role-admin/admin-year-setup.html?tab=calendar">School Years → Calendar</a>)'
   }</span><span><strong>${complete}</strong> of ${withStudents.length} classes complete</span>${late ? `<span class="badge rejected">${late} late</span>` : ''}`
 
   $('tracker-faculty').innerHTML =

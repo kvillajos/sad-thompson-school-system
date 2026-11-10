@@ -58,7 +58,7 @@ parseGradeCsv(csv).forEach(row => {
 
 // --- the upload page wiring ------------------------------------------------
 const root = resolve(import.meta.dirname, '../../..')
-const page = readFileSync(join(root, 'role-faculty', 'faculty-upload-page.js'), 'utf8')
+const page = readFileSync(join(root, 'role-faculty', 'faculty-upload-panel.js'), 'utf8')
 const grid = readFileSync(join(root, 'role-faculty', 'faculty-grades-upload.js'), 'utf8')
 assert.ok(page.includes("from './faculty-grades-upload.js'") && page.includes('mountEditableGrid('), 'the page mounts the grid')
 assert.equal(page.split('mountEditableGrid(').length - 1, 1, 'the page makes a single mount call')
@@ -67,7 +67,7 @@ assert.ok(grid.includes('validateGridRow') && grid.includes('data-field'), 'the 
 
 const folder = mkdtempSync(join(tmpdir(), 'grade-grid-'))
 try {
-  for (const name of ['faculty-grades-upload', 'faculty-upload-page']) {
+  for (const name of ['faculty-grades-upload', 'faculty-upload-panel']) {
     const file = join(folder, `${name}.mjs`)
     writeFileSync(file, name === 'faculty-grades-upload' ? grid : page)
     const result = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' })

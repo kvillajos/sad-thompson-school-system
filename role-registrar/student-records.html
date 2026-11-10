@@ -158,25 +158,18 @@
       }
     </style>
     <style>
-      .promotion-candidate {
-        padding: 12px 0;
-        border-bottom: 1px solid var(--line);
+      /* Promotion Candidates is a table (.exclude-table); the reason pass status is unavailable shows once, above it. */
+      .promotion-notice {
+        margin: 0 0 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: #fef3c7;
+        color: #854d0e;
+        font-size: 13px;
+        font-weight: 600;
       }
-      .promotion-candidate-heading {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-      .promotion-candidate-heading label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-width: 0;
-      }
-      .promotion-candidate-heading input {
-        width: auto;
-        margin: 0;
+      .exclude-table .promotion-candidate td {
+        vertical-align: top;
       }
       .promotion-status {
         flex: 0 0 auto;
@@ -198,7 +191,7 @@
         background: #fef3c7;
       }
       .promotion-breakdown {
-        margin: 8px 0 0 26px;
+        margin: 0;
         color: var(--muted);
         font-size: 12px;
       }
@@ -216,12 +209,6 @@
       .promotion-breakdown p {
         margin: 8px 0 0;
         color: var(--ink);
-      }
-      @media (max-width: 600px) {
-        .promotion-candidate-heading {
-          align-items: flex-start;
-          flex-direction: column;
-        }
       }
     </style>
   </head>
@@ -422,10 +409,9 @@
           </div>
         </section>
         <section id="directory" data-panel class="hidden">
-          <div class="toolbar"><h2>Active Directory</h2></div>
           <div class="card student-directory">
             <div class="toolbar">
-              <h2>Student Directory</h2>
+              <h2>Directory</h2>
               <input maxlength="100" id="student-directory-search" placeholder="Search student name or ID..." />
               <button type="button" id="export-student-directory" class="btn secondary">Export CSV</button>
             </div>
@@ -510,9 +496,35 @@
             </div>
             <div class="card">
               <h2>Promotion Candidates</h2>
-              <p>Pass status uses the previous school year's grades. Check students to exclude them from this request.</p>
-              <input maxlength="100" id="promotion-exclude-search" placeholder="Search student name or ID..." />
-              <div id="promotion-exclude-list" class="exclude-list"></div>
+              <div class="exclude-head">
+                <p class="note exclude-note" style="margin:0">Pass status uses the previous school year's grades. Tick students to leave them out of this request.</p>
+                <span id="promotion-excluded-count" class="grade-picker-count" aria-live="polite">None excluded</span>
+              </div>
+              <p id="promotion-unavailable" class="promotion-notice" role="status" hidden></p>
+              <div class="exclude-toolbar">
+                <input maxlength="100" id="promotion-exclude-search" type="search" placeholder="Search student name or ID..." /><select
+                  id="promotion-result-filter"
+                  aria-label="Result"
+                >
+                  <option value="">All results</option>
+                  <option value="pass">Passes all subjects</option>
+                  <option value="review">Needs review</option></select
+                ><button type="button" id="promotion-exclude-clear" class="btn secondary">Clear exclusions</button>
+              </div>
+              <div class="exclude-table-wrap" style="max-height:min(60vh,560px)">
+                <table class="exclude-table" data-no-sort data-no-pages>
+                  <thead>
+                    <tr>
+                      <th><input type="checkbox" id="promotion-exclude-all" aria-label="Exclude every student listed" /></th>
+                      <th>Student ID</th>
+                      <th>Name</th>
+                      <th>Passes all subjects</th>
+                      <th>Subjects</th>
+                    </tr>
+                  </thead>
+                  <tbody id="promotion-exclude-list"></tbody>
+                </table>
+              </div>
             </div>
           </div>
           <div class="hidden" data-subpanel="shift">
@@ -683,10 +695,32 @@
               <span id="auto-assign-grade-count" class="grade-picker-count" aria-live="polite">0 grades selected</span
               ><button id="auto-assign-all-grades" class="admin-view" type="button">Select all / none</button>
             </div>
-            <label
-              >Exclude Students<input maxlength="100" id="auto-assign-exclude-search" placeholder="Search student name or ID..."
-            /></label>
-            <div id="auto-assign-exclude-list" class="exclude-list"></div>
+            <div class="exclude-head">
+              <label for="auto-assign-exclude-search">Exclude Students</label>
+              <span id="auto-assign-excluded-count" class="grade-picker-count" aria-live="polite">None excluded</span>
+            </div>
+            <p class="note exclude-note">Only students without a section are listed: they are the ones auto-assign would place. Tick a student to leave them out.</p>
+            <div class="exclude-toolbar">
+              <input maxlength="100" id="auto-assign-exclude-search" type="search" placeholder="Search student name or ID..." /><span
+                id="auto-assign-exclude-filters"
+                class="filter-bar-host"
+              ></span
+              ><button type="button" id="auto-assign-exclude-clear" class="btn secondary">Clear exclusions</button>
+            </div>
+            <div class="exclude-table-wrap">
+              <table class="exclude-table" data-no-sort data-no-pages>
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" id="auto-assign-exclude-page-all" aria-label="Exclude everyone on this page" /></th>
+                    <th>Student ID</th>
+                    <th>Name</th>
+                    <th>Grade</th>
+                    <th>Sex</th>
+                  </tr>
+                </thead>
+                <tbody id="auto-assign-exclude-list"></tbody>
+              </table>
+            </div>
             <div class="grade-picker-bar">
               <span id="auto-assign-exclude-page" class="grade-picker-count" aria-live="polite"></span
               ><span

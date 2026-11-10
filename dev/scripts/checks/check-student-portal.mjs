@@ -28,8 +28,8 @@ const gradeRows = [
 
 assert.deepEqual(
   historicalSchoolYears(enrollments, gradeRows, '2025-2026'),
-  ['2024-2025', '2023-2024', '2022-2023'],
-  'historical years combine placement and grade records, remove the current year, and sort newest first'
+  ['2025-2026', '2024-2025', '2023-2024', '2022-2023'],
+  'historical years combine placement and grade records, include the current year, and sort newest first'
 )
 
 const records = renderHistoricalRecords({ schoolYear: '2024-2025', enrollments, gradeRows })

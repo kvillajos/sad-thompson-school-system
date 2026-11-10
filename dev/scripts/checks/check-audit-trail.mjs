@@ -4,8 +4,8 @@ import { join, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '../../..')
 const sql = readFileSync(join(root, 'dev', 'database', 'backupsqlmigration.sql'), 'utf8')
-const auditPage = readFileSync(join(root, 'role-admin', 'admin-audit-page.js'), 'utf8')
-const auditHtml = readFileSync(join(root, 'role-admin', 'admin-audit.html'), 'utf8')
+const auditPage = readFileSync(join(root, 'role-admin', 'audit-trail.js'), 'utf8')
+const auditHtml = readFileSync(join(root, 'role-admin', 'admin-reports.html'), 'utf8')
 const uiTheme = readFileSync(join(root, 'shared', 'ui', 'ui-theme.js'), 'utf8')
 const mobileCss = readFileSync(join(root, 'public', 'css', 'responsive-mobile.css'), 'utf8')
 for (const action of [

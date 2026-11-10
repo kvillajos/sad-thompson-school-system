@@ -2,11 +2,11 @@ import { escapeHtml } from '../shared/lib/html.js'
 import { GRID_SCORE_FIELDS, scaleLetters, validateGridRow } from '../shared/lib/grade-grid.js'
 import { ACADEMIC_LABELS } from '../shared/lib/grades.js'
 
-// Editable grid for the Bulk Upload preview. After a CSV is read, every row becomes a row of inputs so the teacher
+// Editable grid for the Upload spreadsheet preview. After a CSV is read, every row becomes a row of inputs so the teacher
 // can double-check and fix scores on screen before anything reaches the database. Bad cells are outlined as they
 // are typed, and the page's Save button stays disabled until every row is clean.
 //
-// Mounted once from faculty-upload-page.js; it reads the page's own `rows` through getRows() and keeps each row's
+// Mounted once from faculty-upload-panel.js (Grades > Upload spreadsheet); it reads the page's own `rows` through getRows() and keeps each row's
 // `record` and `errors` current, so the page's existing save handler (which saves rows with no errors) is unchanged.
 
 const STYLE_ID = 'tcsms-grade-grid-style'

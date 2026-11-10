@@ -4,12 +4,12 @@ import { escapeHtml } from '../lib/html.js'
 // Escape and the header close button resolve like Cancel (see the global handler in ui-theme.js).
 let dialogCount = 0
 
-function openDialog({ title, bodyHtml, actionsHtml, tag = 'div' }) {
+function openDialog({ title, bodyHtml, actionsHtml, tag = 'div', wide = false }) {
   const id = `tcsms-dialog-${++dialogCount}`
   const returnFocus = document.activeElement
   const modal = document.createElement('div')
   modal.className = 'admin-modal stack-above'
-  modal.innerHTML = `<${tag} class="admin-modal-box dialog-box" role="dialog" aria-modal="true" aria-labelledby="${id}-title"><div class="admin-modal-head"><h3 id="${id}-title">${escapeHtml(title)}</h3><button type="button" data-dialog-cancel aria-label="Close">×</button></div>${bodyHtml}<div class="admin-actions">${actionsHtml}</div></${tag}>`
+  modal.innerHTML = `<${tag} class="admin-modal-box dialog-box${wide ? ' dialog-wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="${id}-title"><div class="admin-modal-head"><h3 id="${id}-title">${escapeHtml(title)}</h3><button type="button" data-dialog-cancel aria-label="Close">×</button></div>${bodyHtml}<div class="admin-actions">${actionsHtml}</div></${tag}>`
   document.body.appendChild(modal)
   const close = () => {
     modal.remove()
@@ -26,14 +26,16 @@ const paragraphs = text =>
     .join('')
 
 // danger: red confirm button and Cancel focused first, for deletes and other hard-to-undo actions.
+// html: trusted, already-escaped markup shown after the message; wide: a wider box for previews.
 export function confirmDialog(
   message,
-  { title = 'Please confirm', confirmText = 'Confirm', cancelText = 'Cancel', danger = false, warning = '' } = {}
+  { title = 'Please confirm', confirmText = 'Confirm', cancelText = 'Cancel', danger = false, warning = '', html = '', wide = false } = {}
 ) {
   return new Promise(resolve => {
     const { modal, close } = openDialog({
       title,
-      bodyHtml: paragraphs(message) + (warning ? `<p class="dialog-warning" role="alert">${escapeHtml(warning)}</p>` : ''),
+      wide,
+      bodyHtml: paragraphs(message) + html + (warning ? `<p class="dialog-warning" role="alert">${escapeHtml(warning)}</p>` : ''),
       actionsHtml: `<button type="button" class="admin-secondary" data-dialog-cancel>${escapeHtml(cancelText)}</button><button type="button" class="${danger ? 'admin-danger' : 'admin-primary'}" data-dialog-ok>${escapeHtml(confirmText)}</button>`
     })
     const finish = value => {

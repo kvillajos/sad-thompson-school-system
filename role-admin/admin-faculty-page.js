@@ -107,7 +107,7 @@ async function removeFaculty(profileId, button) {
   if (count) return toast(`${name} still teaches ${count} scheduled class session(s). Reassign them in Manage Schedules first.`, 'error')
   if (
     !(await confirmDialog(
-      `Remove ${name}? Their faculty profile and subject assignments are removed and their login (${item.users?.username || 'none'}) is deleted. An admin can restore them from the Audit Trail within 30 days.`,
+      `Remove ${name}? Their faculty profile and subject assignments are removed and their login (${item.users?.username || 'none'}) is deleted. An admin can restore them from Reports & Audit → Audit Trail within 30 days.`,
       { title: 'Remove faculty', confirmText: 'Remove', danger: true }
     ))
   )
