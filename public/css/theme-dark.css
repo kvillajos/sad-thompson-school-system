@@ -78,6 +78,41 @@
     color: var(--ui-blue-dark) !important;
   }
 
+  html[data-theme='dark'] #student-quickview-modal .modalhead h2 {
+    color: var(--ui-text) !important;
+  }
+
+  html[data-theme='dark'] #student-quickview-modal .quickview-identity,
+  html[data-theme='dark'] #student-quickview-modal .quickview-empty,
+  html[data-theme='dark'] #student-quickview-modal .quickview-flag-list small {
+    color: var(--ui-muted) !important;
+  }
+
+  html[data-theme='dark'] #student-quickview-modal .quickview-metrics > div {
+    background: #27364a !important;
+    color: var(--ui-text) !important;
+  }
+
+  html[data-theme='dark'] #student-quickview-modal .quickview-metrics p,
+  html[data-theme='dark'] #student-quickview-modal .quickview-flag-list li {
+    color: var(--ui-text) !important;
+  }
+
+  html[data-theme='dark'] #student-quickview-modal .quickview-status-active,
+  html[data-theme='dark'] #student-quickview-modal .quickview-status-enrolled {
+    color: #8be0b0 !important;
+  }
+
+  html[data-theme='dark'] #student-quickview-modal .quickview-status-not-currently-enrolled,
+  html[data-theme='dark'] #student-quickview-modal .quickview-status-inactive,
+  html[data-theme='dark'] #student-quickview-modal .quickview-error {
+    color: var(--ui-danger) !important;
+  }
+
+  html[data-theme='dark'] #student-quickview-modal .quickview-flag-list li {
+    border-color: var(--ui-border);
+  }
+
   html[data-theme='dark'] .admin-secondary,
   html[data-theme='dark'] .admin-view,
   html[data-theme='dark'] .admin-modal-head button,

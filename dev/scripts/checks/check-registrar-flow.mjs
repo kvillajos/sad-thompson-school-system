@@ -12,6 +12,7 @@ import assert from 'node:assert/strict'
 const root = resolve(import.meta.dirname, '../../..')
 const read = name => readFileSync(join(root, name), 'utf8')
 const html = read('role-registrar/student-records.html')
+const darkTheme = read('public/css/theme-dark.css')
 const folder = mkdtempSync(join(tmpdir(), 'registrar-flow-'))
 const testCurrentStartYear = new Date().getMonth() + 1 >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1
 const testCurrentSchoolYear = `${testCurrentStartYear}-${testCurrentStartYear + 1}`
@@ -138,6 +139,11 @@ try {
   out.quickviewEnrollmentStatus = document.querySelector('#quickview-status').textContent.trim()
   out.quickviewGpa = document.querySelector('#quickview-gpa').textContent.trim()
   out.quickviewFlagHistory = document.querySelector('#quickview-flags').textContent.trim()
+  out.quickviewStatusColor = getComputedStyle(document.querySelector('#quickview-status .quickview-status')).color
+  out.quickviewMetricBackground = getComputedStyle(document.querySelector('.quickview-metrics > div')).backgroundColor
+  document.querySelector('#close-student-quickview').click()
+  document.querySelector('#enrollment-table tr').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+  out.enrollmentDoubleClickOpensQuickview = !document.querySelector('#student-quickview-modal').classList.contains('hidden')
   document.querySelector('#close-student-quickview').click()
 const promotionGrade = document.querySelector('#promotion-grade')
 document.querySelector('[data-tab="promotion"]').click()
@@ -272,10 +278,11 @@ await loadPromotionCandidates()
 
 try {
   const fixtureHtml = html
+    .replace('<html lang="en">', '<html lang="en" data-theme="dark">')
     .replace(/<script type="module">[\s\S]*?<\/script>/, '')
     .replace(
       '</head>',
-      `<script>window.__errors=[];window.addEventListener('error',e=>window.__errors.push(e.message));window.addEventListener('unhandledrejection',e=>window.__errors.push(String(e.reason?.stack||e.reason)));</script><style>[data-panel].hidden,[hidden]{display:none!important}</style></head>`
+      `<script>window.__errors=[];window.addEventListener('error',e=>window.__errors.push(e.message));window.addEventListener('unhandledrejection',e=>window.__errors.push(String(e.reason?.stack||e.reason)));</script><style>[data-panel].hidden,[hidden]{display:none!important}html[data-theme='dark']{--ui-bg:#111821;--ui-surface:#1a2431;--ui-surface-strong:#202c3b;--ui-navy:#111a27;--ui-blue:#79a8ff;--ui-blue-dark:#d7e4f8;--ui-text:#e4eaf2;--ui-muted:#a5b1c1;--ui-border:#3a485b;--ui-success:#52c788;--ui-danger:#ff8989}</style><style>${darkTheme}</style></head>`
     )
     .replace(
       '</body>',
@@ -331,6 +338,9 @@ try {
   assert.equal(data.directoryDoubleClickOpensQuickviewImmediately, true, 'double-click should open the quick-view immediately')
   assert.equal(data.quickviewEnrollmentStatus, 'active')
   assert.equal(data.quickviewGpa, '75.00', 'GPA should use the current enrollment year')
+  assert.equal(data.quickviewStatusColor, 'rgb(139, 224, 176)', 'dark-mode enrollment status should be readable against its panel')
+  assert.equal(data.quickviewMetricBackground, 'rgb(39, 54, 74)', 'quick-view metric cards should use a dark surface')
+  assert.equal(data.enrollmentDoubleClickOpensQuickview, true, 'Manage Enrollment double-click should open the same readable quick-view')
   assert.match(data.quickviewFlagHistory, /retained/)
   assert.match(data.quickviewFlagHistory, /Prior subject requirements incomplete/)
   assert.equal(data.promotionDoubleClickOpensQuickview, true, 'promotion candidates should open the quick-view on double-click')
