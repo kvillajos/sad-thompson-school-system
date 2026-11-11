@@ -7,3 +7,5 @@ dist/
 .DS_Store
 dev/backups/
 .playwright-mcp/
+dev/docs/
+dev/scripts/
