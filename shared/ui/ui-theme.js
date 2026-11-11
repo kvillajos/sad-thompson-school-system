@@ -470,12 +470,16 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
   box-sizing: border-box;
   position: relative;
   overflow-x: hidden;
-  overflow-y: hidden;
+  /* Long tab lists (admin, registrar) scroll with wheel/touch/keyboard. The bar itself is hidden: a visible one
+     takes width when it appears, shifting every tab sideways, and Windows draws it as a grey bar with arrows. */
+  overflow-y: auto;
+  scrollbar-width: none;
   background: linear-gradient(180deg, var(--sidebar-bg) 0%, var(--sidebar-bg-end) 100%);
   color: #fff;
   padding: 18px 0;
   border-radius: 0 24px 24px 0;
 }
+.app-sidebar::-webkit-scrollbar { display: none; }
 .app-sidebar .sidebar-brand {
   position: relative;
   z-index: 1;
@@ -509,7 +513,6 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
   margin-top: 0;
   padding: 18px 0 16px 0;
   background: transparent;
-  min-height: calc(100vh - 120px);
 }
 .app-sidebar .sidebar-link {
   position: relative;
@@ -574,6 +577,24 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 
 /* Active tab: one highlight (placed by mountSidebar) slides between links. It is the page colour, so it merges with the main area. */
 .app-sidebar .sidebar-nav { position: relative; }
+/* Desktop: the logo and title stay put and only the tab list scrolls. 20px top/bottom padding leaves room for the
+   active tab's 20px curves, which would otherwise be clipped by the scrolling list's edge. */
+@media (min-width:701px) {
+  .app-sidebar { display: flex; flex-direction: column; overflow-y: hidden; }
+  .app-sidebar .sidebar-logo, .app-sidebar .sidebar-brand { flex: none; }
+  .app-sidebar .sidebar-nav { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; padding: 20px 0; }
+  .app-sidebar .sidebar-nav::-webkit-scrollbar { display: none; }
+}
+/* "End reached" shake, added by mountSidebar when the tab list is scrolled past its top or bottom. */
+@keyframes sidebar-end-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+.app-sidebar .sidebar-nav.shake-end .sidebar-label { animation: sidebar-end-shake .35s ease-in-out; }
+@media (prefers-reduced-motion: reduce) { .app-sidebar .sidebar-nav.shake-end .sidebar-label { animation: none; } }
 /* No background transition here: a hovered link's blue would otherwise fade out over the sliding highlight. */
 .app-sidebar .sidebar-link.active { color: var(--sidebar-active-text); background: transparent; transition: color .18s ease, transform .18s ease; }
 .app-sidebar .sidebar-indicator {
@@ -678,6 +699,12 @@ body.has-app-sidebar > .app-sidebar { position:fixed; inset:0 auto 0 0; z-index:
 .enrollee-details-photo-empty { display:grid; place-items:center; background:#eaf1ff; color:var(--ui-muted); font-size:11px; text-align:center; }
 .document-list { margin:8px 0 0; padding-left:20px; color:var(--ui-text); }
 .document-list a { color:var(--ui-blue); font-weight:700; }
+/* Requirements tick-list: the review window sits inside a form, whose "form label" rule would stack each checkbox
+   above its text and stretch it to full width. Keep box and text on one row. */
+.requirement-list { list-style:none; padding-left:0; display:grid; gap:8px; margin:12px 0; }
+.requirement-list label { flex-direction:row; align-items:center; gap:10px; font-size:14px; color:var(--ui-text); }
+.requirement-list input[type=checkbox] { flex:none; width:18px; height:18px; margin:0; }
+.requirement-list + .note, .requirement-list ~ [data-request-override] { margin-top:4px; }
 .audit-export-controls { display:flex; align-items:center; gap:8px; }
 .audit-export-controls input { margin:0; padding:8px; border:1px solid #b9c8dc; border-radius:5px; color:var(--ui-text); }
 .audit-export-note { color:var(--ui-muted); font-size:12px; }
@@ -810,7 +837,7 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 98px;
+  min-width: 98px; /* min, not fixed: "Open Admissions" is wider and would spill past the table, adding a scrollbar */
   min-height: 32px;
   padding: 7px 10px;
   margin: 2px 0 4px;
@@ -1055,7 +1082,7 @@ tr.average-row td { font-weight:700; border-top:2px solid var(--ui-border) !impo
 @media (max-width:600px) { .scale-actions { flex-direction:column-reverse; align-items:stretch; } }
 .lunch-card .admin-note { margin:12px 0 0; }
 @media (max-width:900px) { .lunch-form { grid-template-columns:1fr; } .lunch-save { width:100%; } }
-.schedule-gap td { background:#f3f7fd; color:#64748b; font-size:13px; font-style:italic; text-align:center; letter-spacing:.02em; }
+tr.schedule-gap td { background:#fff8db !important; color:#7a5c00; font-size:13px; font-style:italic; text-align:center; letter-spacing:.02em; }
 .schedule-head { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 14px; margin:0 0 14px; }
 .schedule-head h3 { margin:0; color:var(--ui-blue-dark); font-size:20px; }
 .schedule-head .admin-note { margin:0; }
@@ -1146,8 +1173,20 @@ body[data-role="student"] { --role-bar: #091c3c; } /* solid, no gradient: same n
 /* Admissions review: the checks to tick before Approve / Decline unlock. */
 .review-checks { display:grid; gap:8px; margin:4px 0 12px; padding:12px 14px; border:1px solid var(--ui-border); border-radius:10px; }
 .review-checks legend { padding:0 6px; font-weight:700; color:var(--ui-text); }
-.review-checks label { display:flex; gap:8px; align-items:flex-start; color:var(--ui-text); font-weight:400; line-height:1.4; }
-.review-checks input { margin-top:3px; }
+.review-checks label { display:flex; gap:8px; align-items:flex-start; justify-content:flex-start; text-align:left; color:var(--ui-text); font-weight:400; line-height:1.4; }
+.review-checks input { flex:none; margin-top:3px; }
+/* The modal's full-width field rule (.admin-modal-box input) is for text boxes; a stretched checkbox drifts away from its text. */
+.admin-modal-box input[type=checkbox], .admin-modal-box input[type=radio] { width:auto; padding:0; border-radius:0; }
+/* On/off switch (formDialog type 'switch'): label on the left, toggle on the right. */
+.dialog-switch { display:flex !important; flex-direction:row !important; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid #dbe3ef; border-radius:12px; background:#f8fafd; cursor:pointer; }
+.dialog-switch:has(.switch:checked) { border-color:#bcd3f5; background:#f1f6fe; }
+html[data-theme='dark'] .dialog-switch, html[data-theme='dark'] .dialog-switch:has(.switch:checked) { border-color:var(--ui-border); background:var(--ui-surface); }
+input[type=checkbox].switch { appearance:none; -webkit-appearance:none; position:relative; flex:none; width:52px; height:30px; margin:0; padding:0; border:0; border-radius:999px; background:#d4d7dd; cursor:pointer; transition:background-color .18s ease; }
+input[type=checkbox].switch::before { content:''; position:absolute; top:2px; left:2px; width:26px; height:26px; border-radius:50%; background:#fff; box-shadow:0 2px 4px rgba(7,27,58,.25); transition:transform .18s ease; }
+input[type=checkbox].switch:checked { background:#1f7fe5; }
+input[type=checkbox].switch:checked::before { transform:translateX(22px); }
+input[type=checkbox].switch:focus-visible { outline:2px solid #9dbcf4; outline-offset:2px; }
+@media (prefers-reduced-motion: reduce) { input[type=checkbox].switch, input[type=checkbox].switch::before { transition:none; } }
 .badge:empty { display:none; }
 .copy-preview-stats { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px; }
 .copy-preview-stats span { padding:6px 10px; border:1px solid var(--ui-border); border-radius:999px; color:var(--ui-text); font-size:13px; }

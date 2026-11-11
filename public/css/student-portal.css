@@ -9,6 +9,10 @@ body[data-role='student'] .student-history-controls {
   background: #fff;
 }
 
+body[data-role='student'] .student-history-placement ~ .admin-section-title {
+  margin: 32px 0 12px;
+}
+
 body[data-role='student'] .student-history-controls label {
   font-weight: 700;
 }
@@ -107,6 +111,39 @@ body[data-role='student'] .student-request-submit {
 
 body[data-role='student'] .student-request-submit small {
   max-width: 440px;
+}
+
+/* Wide screens: fields side by side with the button at the end, the note on its own line under them. */
+@media (min-width: 900px) {
+  body[data-role='student'] .student-request-form {
+    max-width: none;
+    grid-template-columns: minmax(180px, 2fr) 110px minmax(220px, 4fr) auto;
+    align-items: end;
+    column-gap: 12px;
+  }
+
+  body[data-role='student'] #student-request-form {
+    grid-template-columns: minmax(180px, 1fr) minmax(260px, 4fr) auto;
+  }
+
+  body[data-role='student'] .student-request-submit {
+    display: contents;
+  }
+
+  body[data-role='student'] .student-request-submit small {
+    grid-column: 1 / -1;
+    order: 1;
+    max-width: none;
+  }
+
+  body[data-role='student'] .student-request-submit button {
+    min-height: 44px;
+  }
+
+  body[data-role='student'] .student-request-form textarea {
+    min-height: 44px;
+    height: 44px;
+  }
 }
 
 body[data-role='student'] .student-request-table-wrap {

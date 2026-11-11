@@ -16,38 +16,38 @@
         <select id="advisory-section" aria-label="Advisory section"></select>
       </div>
       <p class="year-summary" id="advisory-summary"></p>
-      <div class="subtabs" role="tablist" id="advisory-tabs">
-        <button type="button" class="subtab active" data-advisory-tab="grades" role="tab">Grades</button
-        ><button type="button" class="subtab" data-advisory-tab="attendance" role="tab">Attendance</button
-        ><button type="button" class="subtab" data-advisory-tab="requests" role="tab">Requests</button
-        ><button type="button" class="subtab" data-advisory-tab="discipline" role="tab">Discipline</button>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div class="subtabs" role="tablist" id="advisory-tabs">
+          <button type="button" class="subtab active" data-advisory-tab="grades" role="tab">Grades</button
+          ><button type="button" class="subtab" data-advisory-tab="attendance" role="tab">Attendance</button
+          ><button type="button" class="subtab" data-advisory-tab="requests" role="tab">Requests</button
+          ><button type="button" class="subtab" data-advisory-tab="discipline" role="tab">Discipline</button>
+        </div>
+        <!-- data-advisory-panel: showTab hides it with the Grades card. -->
+        <label class="scale-year" data-advisory-panel="grades" style="margin-bottom:8px"
+          >Show<select id="advisory-grade-field">
+            <option value="first_sem_q1">Q1</option>
+            <option value="first_sem_q2">Q2</option>
+            <option value="second_sem_q1">Q3</option>
+            <option value="second_sem_q2">Q4</option>
+            <option value="final" selected>Final</option>
+          </select></label
+        >
       </div>
 
-      <section class="admin-table-wrap" data-advisory-panel="grades">
-        <div class="admin-section-title">
-          <h3>Grades, every subject</h3>
-          <label class="scale-year"
-            >Show<select id="advisory-grade-field">
-              <option value="first_sem_q1">Q1</option>
-              <option value="first_sem_q2">Q2</option>
-              <option value="second_sem_q1">Q3</option>
-              <option value="second_sem_q2">Q4</option>
-              <option value="final" selected>Final</option>
-            </select></label
-          >
-        </div>
+      <section class="admin-table-wrap" data-advisory-panel="grades" style="margin-top:0">
         <div style="overflow:auto"><table id="advisory-grades"></table></div>
       </section>
-      <section class="admin-table-wrap hidden" data-advisory-panel="attendance">
+      <section class="admin-table-wrap hidden" data-advisory-panel="attendance" style="margin-top:0">
         <div class="admin-section-title"><h3>Attendance this school year</h3></div>
         <p class="admin-note">Counts are per class meeting, the same way the student's own dashboard counts them.</p>
         <table id="advisory-attendance"></table>
       </section>
-      <section class="admin-table-wrap hidden" data-advisory-panel="requests">
+      <section class="admin-table-wrap hidden" data-advisory-panel="requests" style="margin-top:0">
         <div class="admin-section-title"><h3>Requests from my students</h3></div>
         <table id="advisory-requests"></table>
       </section>
-      <section class="admin-table-wrap hidden" data-advisory-panel="discipline">
+      <section class="admin-table-wrap hidden" data-advisory-panel="discipline" style="margin-top:0">
         <div class="admin-section-title"><h3>Discipline</h3></div>
         <div id="advisory-discipline"></div>
       </section>

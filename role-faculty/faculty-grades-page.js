@@ -6,7 +6,6 @@ import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog, formDialog } from '../shared/ui/dialog.js'
 import { guardUnsaved } from './unsaved.js'
-import { errorRow } from '../shared/lib/html.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
 import { mountGradeUpload } from './faculty-upload-panel.js'
 
@@ -122,86 +121,25 @@ if (context) {
     render()
     unsaved.clear()
   }
-  // Every student this faculty teaches, one row per class (section + subject), for the school year above.
-  let allGradeRows = []
-  const renderAllGrades = () => {
-    const words = $('all-grades-search').value.trim().toLowerCase().split(/\s+/).filter(Boolean)
-    const shown = allGradeRows.filter(row => words.every(word => row.search.includes(word)))
-    const cell = (label, value) => `<td data-label="${label}">${escapeHtml(value ?? '')}</td>`
-    $('all-grades-table').innerHTML =
-      shown
-        .map(
-          row =>
-            `<tr>${cell('Student No.', row.lrn)}${cell('Student', row.name)}${cell('Section', row.section)}${cell('Subject', row.subject)}${SCORE_FIELDS.slice(
-              0,
-              4
-            )
-              .map(field => cell(SCORE_LABELS[field], row.record?.[field]))
-              .join(
-                ''
-              )}<td data-label="Final Grade"><strong>${escapeHtml(row.record?.grade ?? '')}</strong></td>${cell('Letter Grade', row.record?.letter_grade)}</tr>`
-        )
-        .join('') || `<tr><td colspan="10">${allGradeRows.length ? 'No match.' : 'No students assigned.'}</td></tr>`
-  }
-  async function loadAllGrades() {
-    const year = $('grade-year').value.trim()
-    const ids = [...new Set(context.enrollments.map(item => item.student_id))]
-    const subjects = [...new Set(context.classes.map(item => item.subject_name))]
-    const records = []
-    // Chunked so a long student list never makes the request URL too long.
-    for (let start = 0; start < ids.length; start += 200) {
-      const { data, error } = await supabase
-        .from('academic_history')
-        .select('student_id,subject,first_sem_q1,first_sem_q2,second_sem_q1,second_sem_q2,grade,letter_grade')
-        .in('student_id', ids.slice(start, start + 200))
-        .in('subject', subjects)
-        .eq('school_year', year)
-      if (error) return ($('all-grades-table').innerHTML = errorRow(10, error, 'Load grades'))
-      records.push(...data)
-    }
-    const byKey = new Map(records.map(record => [`${record.student_id}:${record.subject}`, record]))
-    allGradeRows = context.classes
-      .flatMap(chosen => {
-        const section = chosen.label.slice(0, chosen.label.length - chosen.subject_name.length - 3)
-        return context.enrollments
-          .filter(item => Number(item.section_id) === chosen.section_id)
-          .map(item => {
-            const name = lastFirst(item.students)
-            const lrn = item.students?.lrn_number || String(item.student_id)
-            return {
-              lrn,
-              name,
-              section,
-              subject: chosen.subject_name,
-              record: byKey.get(`${item.student_id}:${chosen.subject_name}`),
-              search: `${lrn} ${name} ${section} ${chosen.subject_name}`.toLowerCase()
-            }
-          })
-      })
-      .sort((a, b) => a.section.localeCompare(b.section) || a.subject.localeCompare(b.subject) || a.name.localeCompare(b.name))
-    renderAllGrades()
-  }
-  $('all-grades-search').oninput = renderAllGrades
 
   // Picking a class loads it; Refresh reloads the current one. Unsaved scores ask before being discarded.
   let loadedClass = $('grade-class').value
   $('load-grades').onclick = async () => {
     if (!(await unsaved.confirmDiscard())) return
-    await withBusy($('load-grades'), 'Refreshing...', () => Promise.all([loadGrades(), loadAllGrades()]))
+    await withBusy($('load-grades'), 'Refreshing...', () => loadGrades())
   }
   $('grade-class').onchange = async () => {
     if (!(await unsaved.confirmDiscard())) return ($('grade-class').value = loadedClass)
     loadedClass = $('grade-class').value
     await loadGrades()
   }
-  if (loadedClass) await Promise.all([loadGrades(), loadAllGrades()])
-  else renderAllGrades()
+  if (loadedClass) await loadGrades()
   mountGradeUpload({
     context,
     classInput: $('grade-class'),
     yearInput: $('grade-year'),
     beforeOpen: () => unsaved.confirmDiscard(),
-    onSaved: () => Promise.all([loadGrades(), loadAllGrades()])
+    onSaved: () => loadGrades()
   })
 
   $('grade-table').onclick = async event => {
@@ -265,7 +203,7 @@ if (context) {
       })
       if (error) return toast(describeError(error, 'Save grades'), 'error')
       toast(`Saved ${records.length} grade record(s).`)
-      await Promise.all([loadGrades(), loadAllGrades()])
+      await loadGrades()
     })
 
   $('lock-grades').onclick = () =>
@@ -286,6 +224,6 @@ if (context) {
       const { error } = await supabase.rpc('lock_faculty_grades', { p_subject_id: chosen.subject_id, p_school_year: year })
       if (error) return toast(describeError(error, 'Submit grades'), 'error')
       toast('Grades submitted and locked.')
-      await Promise.all([loadGrades(), loadAllGrades()])
+      await loadGrades()
     })
 }

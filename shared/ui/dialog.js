@@ -51,7 +51,7 @@ export function confirmDialog(
 }
 
 // fields: [{ name, label, type, required, min, max, step, maxlength, multiline, placeholder, hint, value, accept, multiple }]
-// A type 'file' field resolves to an array of Files.
+// A type 'file' field resolves to an array of Files; a type 'switch' field (on/off toggle, value = boolean) to true/false.
 // Resolves with { name: value } or null on cancel. The browser's own form validation blocks bad input inline.
 export function formDialog({ title, message = '', fields, confirmText = 'Submit', danger = false }) {
   return new Promise(resolve => {
@@ -69,6 +69,8 @@ export function formDialog({ title, message = '', fields, confirmText = 'Submit'
       ]
         .filter(Boolean)
         .join(' ')
+      if (f.type === 'switch')
+        return `<label class="admin-full dialog-switch"><span>${escapeHtml(f.label)}</span><input type="checkbox" role="switch" class="switch" name="${f.name}"${f.value ? ' checked' : ''}></label>`
       const control = f.options
         ? `<select name="${f.name}" ${attrs}>${f.options.map(([value, label]) => `<option value="${escapeHtml(value)}"${String(value) === String(f.value ?? '') ? ' selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>`
         : f.multiline
@@ -95,6 +97,7 @@ export function formDialog({ title, message = '', fields, confirmText = 'Submit'
       const values = Object.fromEntries(new FormData(form).entries())
       for (const f of fields) if (typeof values[f.name] === 'string' && f.type !== 'password') values[f.name] = values[f.name].trim()
       for (const f of fields) if (f.type === 'file') values[f.name] = [...form.elements[f.name].files]
+      for (const f of fields) if (f.type === 'switch') values[f.name] = form.elements[f.name].checked
       const bad = fields.find(f => f.required && !values[f.name])
       if (bad) return form.elements[bad.name].reportValidity()
       finish(values)

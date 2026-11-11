@@ -27,7 +27,7 @@ export async function mountStudentDocumentRequests(host) {
       <label>Document<select name="document_type" required>${DOCUMENT_TYPES.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join('')}</select></label>
       <label>Copies<input name="copies" type="number" min="1" max="5" step="1" value="1" required></label>
       <label>Purpose<input name="purpose" maxlength="300" required placeholder="e.g. Transfer to another school, scholarship application"></label>
-      <div class="student-request-submit"><small class="admin-note">The Registrar's Office tells you here (and in your notifications) when it is ready for pickup.</small><button class="admin-primary" type="submit">Request document</button></div>
+      <div class="student-request-submit"><button class="admin-primary" type="submit">Request document</button></div>
     </form>
     <table><thead><tr><th>Document</th><th>Purpose</th><th>Requested</th><th>Status</th><th>Note</th></tr></thead><tbody data-doc-rows><tr><td colspan="5">Loading…</td></tr></tbody></table>`
   const body = host.querySelector('[data-doc-rows]')

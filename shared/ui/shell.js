@@ -140,6 +140,22 @@ export function mountSidebar(items, brand, role) {
   new MutationObserver(moveIndicator).observe(nav, { subtree: true, attributes: true, attributeFilter: ['class'] })
   window.addEventListener('resize', moveIndicator)
 
+  // Desktop: pushing past either end of the scrolling tab list gives the tab labels a short shake ("end reached").
+  // Only the labels move, so the active tab stays joined to the page edge.
+  const shake = () => {
+    if (nav.classList.contains('shake-end')) return
+    nav.classList.add('shake-end')
+    nav.addEventListener('animationend', () => nav.classList.remove('shake-end'), { once: true })
+  }
+  const pushPastEnd = down => {
+    if (!matchMedia('(min-width: 701px)').matches || nav.scrollHeight <= nav.clientHeight) return
+    if (down ? nav.scrollTop + nav.clientHeight >= nav.scrollHeight - 1 : nav.scrollTop <= 0) shake()
+  }
+  nav.addEventListener('wheel', event => event.deltaY && pushPastEnd(event.deltaY > 0), { passive: true })
+  let touchY = 0
+  nav.addEventListener('touchstart', event => (touchY = event.touches[0].clientY), { passive: true })
+  nav.addEventListener('touchmove', event => pushPastEnd(event.touches[0].clientY < touchY), { passive: true })
+
   /* =========================================
    SHARED MOBILE / TABLET SIDEBAR CONTROLS
 ========================================= */
@@ -251,7 +267,7 @@ export function mountProfile(user, roleLabel, onSignOut) {
     /[&<>"']/g,
     character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]
   )
-  profile.innerHTML = `<button class="theme-toggle" type="button" aria-pressed="false"></button><button class="profile-toggle" aria-expanded="false"><span class="profile-avatar">${safeName.charAt(0).toUpperCase()}</span><span><strong>${safeName}</strong><small>${safeRole}</small></span><span class="profile-chevron">⌄</span></button><div class="profile-dropdown hidden"><button class="profile-help"><span aria-hidden="true">?</span> How do I…</button><button class="profile-edit"><span aria-hidden="true">✎</span> Edit Profile</button><button class="profile-change-password"><span aria-hidden="true">⚿</span> Change Password</button><button class="profile-signout"><span aria-hidden="true">↪</span> Sign Out</button></div>`
+  profile.innerHTML = `<button class="theme-toggle" type="button" aria-pressed="false"></button><button class="profile-toggle" aria-expanded="false"><span class="profile-avatar">${safeName.charAt(0).toUpperCase()}</span><span><strong>${safeName}</strong><small>${safeRole}</small></span><span class="profile-chevron">⌄</span></button><div class="profile-dropdown hidden"><button class="profile-edit"><span aria-hidden="true">✎</span> Edit Profile</button><button class="profile-change-password"><span aria-hidden="true">⚿</span> Change Password</button><button class="profile-help"><span aria-hidden="true">ⓘ</span> Information</button><button class="profile-signout"><span aria-hidden="true">↪</span> Sign Out</button></div>`
   document.body.appendChild(profile)
   const toggle = profile.querySelector('.profile-toggle')
   const dropdown = profile.querySelector('.profile-dropdown')

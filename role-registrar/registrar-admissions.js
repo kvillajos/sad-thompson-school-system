@@ -38,15 +38,19 @@ if ($('application-photo')) {
   $('application-photo-hint')?.replaceChildren('PNG/JPG/WEBP up to 3MB - choose a file or use the device camera')
 }
 
+// One camera window for the profile picture and the supporting documents. The captured JPG is put into the
+// target file input, so saving and uploading treat it like a chosen file.
 let cameraStream = null
 let cameraModal = null
+let cameraTarget = null
 function stopCamera() {
   cameraStream?.getTracks().forEach(track => track.stop())
   cameraStream = null
   cameraModal?.classList.add('hidden')
 }
-function openCamera() {
+function openCamera({ input, title, name, video, onCaptured }) {
   if (!navigator.mediaDevices?.getUserMedia) return toast('Camera capture is not supported by this browser.', 'error')
+  cameraTarget = { input, name, onCaptured }
   if (!cameraModal) {
     cameraModal = document.createElement('div')
     cameraModal.id = 'profile-camera-modal'
@@ -65,12 +69,11 @@ function openCamera() {
       canvas.toBlob(
         blob => {
           if (!blob) return toast('Could not capture the camera image.', 'error')
-          const file = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' })
+          const file = new File([blob], `${cameraTarget.name}-${Date.now()}.jpg`, { type: 'image/jpeg' })
           const transfer = new DataTransfer()
           transfer.items.add(file)
-          $('application-photo').files = transfer.files
-          removeSavedPhoto = false
-          setApplicationPhoto(URL.createObjectURL(file))
+          cameraTarget.input.files = transfer.files
+          cameraTarget.onCaptured?.(file)
           stopCamera()
         },
         'image/jpeg',
@@ -78,8 +81,9 @@ function openCamera() {
       )
     }
   }
+  cameraModal.querySelector('h3').textContent = title
   navigator.mediaDevices
-    .getUserMedia({ video: { facingMode: 'user' }, audio: false })
+    .getUserMedia({ video, audio: false })
     .then(stream => {
       cameraStream = stream
       cameraModal.querySelector('#profile-camera-video').srcObject = stream
@@ -92,9 +96,31 @@ if ($('application-photo')) {
   cameraButton.type = 'button'
   cameraButton.className = 'btn secondary'
   cameraButton.textContent = 'Use Camera'
-  cameraButton.onclick = openCamera
+  cameraButton.onclick = () =>
+    openCamera({
+      input: $('application-photo'),
+      title: 'Capture Profile Picture',
+      name: 'camera',
+      video: { facingMode: 'user' },
+      onCaptured: file => {
+        removeSavedPhoto = false
+        setApplicationPhoto(URL.createObjectURL(file))
+      }
+    })
   $('application-photo').after(cameraButton)
 }
+// Documents: the back camera on phones, at a higher resolution so the text stays readable (a laptop uses its webcam).
+document.querySelectorAll('#application-documents input[type=file]').forEach(input => {
+  const button = Object.assign(document.createElement('button'), { type: 'button', className: 'btn secondary', textContent: 'Use Camera' })
+  button.onclick = () =>
+    openCamera({
+      input,
+      title: `Capture ${input.dataset.label}`,
+      name: input.dataset.type,
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+    })
+  input.after(button)
+})
 let photoObjectUrl = null
 let removeSavedPhoto = false
 function setApplicationPhoto(url) {
@@ -461,7 +487,7 @@ async function openView(id) {
   $('view-fields').innerHTML =
     `<div class="review-grid">${APPLICATION_FIELDS.map(([label, key]) => `<div><b>${label}</b><p>${escapeHtml(show(key, a[key]))}</p></div>`).join('')}<div><b>Status</b><p>${statusBadge(a.status)}</p></div><div><b>Submitted</b><p>${formatDate(a.created_at, true)}</p></div></div>`
   $('view-actions').innerHTML =
-    '<div class="actions"><button type="button" class="btn-approve" id="edit-application">Edit Application</button></div>'
+    '<div class="actions"><button type="button" class="btn" id="edit-application">Edit Application</button></div>'
   if (!editable) $('view-actions').innerHTML = '<p class="note">Approved and declined applications are view-only.</p>'
   $('review-modal').classList.remove('hidden')
   $('edit-application')?.addEventListener('click', async () => {

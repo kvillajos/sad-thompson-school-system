@@ -5,7 +5,7 @@ import { escapeHtml, gradeLabel, longDate } from '../shared/lib/html.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog, formDialog } from '../shared/ui/dialog.js'
 import { withBusy } from '../shared/ui/shell.js'
-import { loadSchoolYears, yearStatus } from '../shared/lib/school-years.js'
+import { loadSchoolYears, todayManila, yearStatus } from '../shared/lib/school-years.js'
 import { nextSchoolYear, previousSchoolYear } from '../shared/lib/year-copy.js'
 import { mountCopyYear } from './copy-year.js'
 import { mountYearEnd } from './year-end-checklist.js'
@@ -139,7 +139,12 @@ async function renderSteps() {
   if (!year) return
   const prev = previousSchoolYear(year.label)
   $('start-title').textContent = `Start of ${year.label}`
-  $('end-title').textContent = `End of ${year.label}`
+  // "End of" is about the year being wrapped up, so an upcoming year (the default card) shows the one in progress
+  // instead. Picked by dates, not yearStatus(), so a year closed early still shows here with its Reopen button.
+  const today = todayManila()
+  const inProgress = years.find(row => row.start_date <= today && today <= row.end_date)
+  const endYear = cardStatus(year) === 'Upcoming' && inProgress ? inProgress : year
+  $('end-title').textContent = `End of ${endYear.label}`
 
   const [sections, settings, scale, quarters, days, prevSettings, prevScale] = await Promise.all([
     supabase
@@ -228,7 +233,7 @@ async function renderSteps() {
   $('edit-year').onclick = event => withBusy(event.currentTarget, 'Opening…', () => yearForm(year))
   document.querySelector('[data-open-calendar]').onclick = () => showTab('calendar')
   mountCopyYear($('copy-sections-host'), renderSteps, { sourceYear: prev, targetYear: year.label })
-  mountYearEnd($('year-end-host'), year, () => load(year.label))
+  mountYearEnd($('year-end-host'), endYear, () => load(year.label))
 
   const carry = $('carry-settings')
   if (carry)

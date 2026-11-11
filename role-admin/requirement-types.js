@@ -2,13 +2,9 @@
 import { supabase } from '../shared/lib/auth-client.js'
 import { escapeHtml, errorRow, gradeLabel } from '../shared/lib/html.js'
 import { describeError } from '../shared/lib/errors.js'
-import { formDialog } from '../shared/ui/dialog.js'
+import { confirmDialog, formDialog } from '../shared/ui/dialog.js'
 import { toast } from '../shared/ui/ui-theme.js'
 
-const yesNo = [
-  ['false', 'No'],
-  ['true', 'Yes']
-]
 const slug = text =>
   text
     .toLowerCase()
@@ -45,9 +41,9 @@ export async function mountRequirementTypes(host) {
           maxlength: 40,
           value: row?.grade_levels?.join(', ')
         },
-        { name: 'transferee_only', label: 'Transferees only', options: yesNo, value: String(Boolean(row?.transferee_only)) },
-        { name: 'required', label: 'Required', options: yesNo, value: String(row ? row.required : true) },
-        { name: 'is_active', label: 'In use', options: yesNo, value: String(row ? row.is_active : true) },
+        { name: 'transferee_only', label: 'Transferees only', type: 'switch', value: Boolean(row?.transferee_only) },
+        { name: 'required', label: 'Required', type: 'switch', value: row ? row.required : true },
+        { name: 'is_active', label: 'In use', type: 'switch', value: row ? row.is_active : true },
         { name: 'sort_order', label: 'Order', type: 'number', min: 0, max: 99, step: 1, value: row?.sort_order ?? rows.length + 1 }
       ],
       confirmText: 'Save'
@@ -59,13 +55,20 @@ export async function mountRequirementTypes(host) {
     const payload = {
       label: values.label,
       grade_levels: grades.length ? grades : null,
-      transferee_only: values.transferee_only === 'true',
-      required: values.required === 'true',
-      is_active: values.is_active === 'true',
+      transferee_only: values.transferee_only,
+      required: values.required,
+      is_active: values.is_active,
       sort_order: Number(values.sort_order) || 0
     }
     const code = row?.code || slug(values.label)
     if (!row && rows.some(item => item.code === code)) return toast('A document with that name already exists.', 'error')
+    const ok = await confirmDialog(
+      row
+        ? `Save the changes to ${values.label}? Applications are checked against the updated list right away.`
+        : `Add ${values.label} to the required documents? Applications are checked against it right away.`,
+      { title: 'Are you sure?', confirmText: row ? 'Save' : 'Add' }
+    )
+    if (!ok) return
     const { error } = row
       ? await supabase.from('requirement_types').update(payload).eq('code', row.code)
       : await supabase.from('requirement_types').insert({ ...payload, code })

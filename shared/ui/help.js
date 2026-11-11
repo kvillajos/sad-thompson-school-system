@@ -202,22 +202,43 @@ export function openHelp(roleLabel) {
       )
       .join('')}</div>
     <p class="admin-note" data-help-empty hidden>No matching guide.</p>
+    <div class="table-pager" data-help-pager></div>
   </div>`
   document.body.appendChild(modal)
   const close = () => modal.remove()
   modal.querySelector('[data-help-close]').onclick = close
   modal.addEventListener('click', event => event.target === modal && close())
   const search = modal.querySelector('[data-help-search]')
-  search.oninput = () => {
+  const guides = [...modal.querySelectorAll('[data-help-item]')]
+  const pager = modal.querySelector('[data-help-pager]')
+  const PER_PAGE = 5
+  let page = 1
+  // Search filters every guide; the matches are then shown 5 per page.
+  const render = () => {
     const query = search.value.trim().toLowerCase()
-    let shown = 0
-    modal.querySelectorAll('[data-help-item]').forEach(item => {
-      const match = !query || item.textContent.toLowerCase().includes(query)
-      item.hidden = !match
-      if (match) shown++
-      item.open = Boolean(query) && match
+    const matches = guides.filter(item => !query || item.textContent.toLowerCase().includes(query))
+    const pages = Math.max(1, Math.ceil(matches.length / PER_PAGE))
+    page = Math.min(page, pages)
+    const onPage = matches.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+    guides.forEach(item => {
+      item.hidden = !onPage.includes(item)
+      if (query) item.open = !item.hidden
     })
-    modal.querySelector('[data-help-empty]').hidden = shown > 0
+    modal.querySelector('[data-help-empty]').hidden = matches.length > 0
+    pager.hidden = pages === 1
+    pager.innerHTML = `<span>Showing ${matches.length ? (page - 1) * PER_PAGE + 1 : 0}&ndash;${(page - 1) * PER_PAGE + onPage.length} of ${matches.length}</span><span class="pager-nav"><button type="button" class="pager-btn" data-pg="prev"${page === 1 ? ' disabled' : ''}>&lsaquo; Prev</button><span>Page ${page} of ${pages}</span><button type="button" class="pager-btn" data-pg="next"${page === pages ? ' disabled' : ''}>Next &rsaquo;</button></span>`
   }
+  pager.addEventListener('click', event => {
+    const button = event.target.closest('[data-pg]')
+    if (!button || button.disabled) return
+    page += button.dataset.pg === 'next' ? 1 : -1
+    render()
+  })
+  search.oninput = () => {
+    page = 1
+    if (!search.value.trim()) guides.forEach(item => (item.open = false))
+    render()
+  }
+  render()
   search.focus()
 }

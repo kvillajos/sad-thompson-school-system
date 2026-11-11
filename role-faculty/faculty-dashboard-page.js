@@ -51,7 +51,7 @@ if (context) {
     $('notice-table').innerHTML = (data || [])
       .map(
         item =>
-          `<tr><td><b>${escapeHtml(item.title)}</b><br>${escapeHtml(item.message)}</td><td style="width:1%"><button class="admin-view" data-ack="${item.id}">I see</button></td></tr>`
+          `<tr><td><b>${escapeHtml(item.title)}</b><br>${escapeHtml(item.message)}</td><td style="width:1%"><button class="admin-view" data-ack="${item.id}" aria-label="Mark as seen" title="Mark as seen" style="color:#94a3b8;background:transparent;border-color:#e2e8f0;font-size:16px">✓</button></td></tr>`
       )
       .join('')
     $('notice-table')

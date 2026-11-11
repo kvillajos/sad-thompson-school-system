@@ -11,7 +11,8 @@ import { changedFields } from '../shared/lib/edit-request.js'
 import { generalAverage, letterGrade } from '../shared/lib/grades.js'
 import { generalAverageRow } from '../shared/lib/semester-grades.js'
 import { buildTranscript } from '../shared/documents/transcript.js'
-import { previewPdf, pdfName } from '../shared/documents/pdf-preview.js'
+import { downloadPdf, pdfName } from '../shared/documents/pdf-preview.js'
+import { printElement } from '../shared/documents/print.js'
 import { mountAnnouncements } from '../shared/ui/announcements.js'
 import { mountNotificationBell } from './notifications.js'
 import { mountStudentDashboardLayout } from './student-dashboard-layout.js'
@@ -376,11 +377,9 @@ async function loadAttendance() {
 
 document.getElementById('transcript-year-filter').onchange = renderTranscript
 document.getElementById('print-unofficial-transcript').onclick = () =>
-  previewPdf(document.getElementById('student-transcript-print'), {
-    title: 'Unofficial Transcript',
-    filename: pdfName('Unofficial Transcript', student),
-    printClass: 'printing-transcript'
-  })
+  printElement(document.getElementById('student-transcript-print'), 'printing-transcript')
+document.getElementById('download-unofficial-transcript').onclick = e =>
+  downloadPdf(e.currentTarget, document.getElementById('student-transcript-print'), pdfName('Unofficial Transcript', student))
 
 await Promise.all([loadGradingScales(), loadStudent()])
 applyGraduateAccess(student)

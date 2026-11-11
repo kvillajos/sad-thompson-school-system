@@ -6575,3 +6575,215 @@ end $$;
 notify pgrst, 'reload schema';
 commit;
 -- END v63-year-end-checklist.sql
+
+-- BEGIN v64-year-end-scope.sql  (applied live 2026-11-11; branch SchoolYearLifecycle)
+-- v64-year-end-scope.sql  (branch SchoolYearLifecycle)
+-- Year-end checklist follow-up to v63:
+--   1. Section shift requests count only shifts out of the year's own sections.
+--      Approvals, admissions and document requests have no school year column, so they stay system-wide;
+--      their detail text now says so instead of reading as if they belonged to the year.
+--   2. close_school_year refuses a year that has not started yet.
+-- Safe to run twice.
+begin;
+
+create or replace function public.year_end_checklist(p_label text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  next_label text := (split_part(p_label, '-', 1)::int + 1) || '-' || (split_part(p_label, '-', 2)::int + 1);
+  grades_missing integer; classes_missing integer; not_promoted integer;
+  approvals integer; admissions integer; documents integer; shifts integer;
+begin
+  if coalesce(current_app_role(), 0) not in (1, 2) then raise exception 'Not authorized'; end if;
+
+  -- Every enrolled student of every class (section + subject) needs a submitted (locked) final grade.
+  with classes as (
+    select distinct ss.section_id, sub.subject_name
+    from subject_schedules ss
+    join sections s on s.section_id = ss.section_id and s.academic_year = p_label
+    join subjects sub on sub.subject_id = ss.subject_id
+  ), missing as (
+    select c.section_id, c.subject_name
+    from classes c
+    join enrollments e on e.section_id = c.section_id and e.school_year = p_label and e.status in ('active', 'completed')
+    where not exists (
+      select 1 from academic_history ah
+      where ah.student_id = e.student_id and ah.school_year = p_label and ah.subject = c.subject_name
+        and ah.locked and coalesce(ah.final, ah.grade) is not null
+    )
+  )
+  select count(*), count(distinct (section_id, subject_name)) into grades_missing, classes_missing from missing;
+
+  -- Promotion is logged under the next school year (batch_promote_students); a promoted student's enrollment
+  -- turns 'completed', so anyone still 'active' without a log has not been through promotion.
+  select count(*) into not_promoted from enrollments e
+  where e.school_year = p_label and e.status = 'active'
+    and not exists (select 1 from promotion_logs pl where pl.student_id = e.student_id and pl.school_year = next_label);
+
+  select count(*) into approvals from approval_requests where status = 'pending';
+  select count(*) into admissions from admission_applications where status in ('submitted', 'under_review');
+  select count(*) into documents from document_requests where status in ('pending', 'approved', 'ready');
+  select count(*) into shifts from shift_requests sr
+    join sections s on s.section_id = sr.from_section_id and s.academic_year = p_label
+    where sr.status = 'pending';
+
+  return jsonb_build_array(
+    jsonb_build_object('key', 'grades', 'label', 'All grades submitted', 'count', grades_missing,
+      'detail', format('%s student grade(s) in %s class(es) not submitted', grades_missing, classes_missing)),
+    jsonb_build_object('key', 'promotion', 'label', 'Promotion done', 'count', not_promoted,
+      'detail', format('%s enrolled student(s) not yet promoted, retained or graduated', not_promoted)),
+    jsonb_build_object('key', 'approvals', 'label', 'Pending approvals handled', 'count', approvals,
+      'detail', format('%s request(s) waiting in Pending Approvals (all school years)', approvals)),
+    jsonb_build_object('key', 'admissions', 'label', 'Applications decided', 'count', admissions,
+      'detail', format('%s admission application(s) not yet approved or declined (all school years)', admissions)),
+    jsonb_build_object('key', 'documents', 'label', 'Document requests finished', 'count', documents,
+      'detail', format('%s document request(s) not yet released or rejected (all school years)', documents)),
+    jsonb_build_object('key', 'shifts', 'label', 'Section shift requests handled', 'count', shifts,
+      'detail', format('%s shift request(s) pending', shifts))
+  );
+end $$;
+
+create or replace function public.close_school_year(p_label text, p_override_reason text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare actor text; open_items text; starts date;
+begin
+  select username into actor from users where lower(email) = lower(auth.jwt() ->> 'email') and is_active and role_id = 1 limit 1;
+  if actor is null then raise exception 'Only the admin can close a school year'; end if;
+  select start_date into starts from school_years where label = p_label;
+  if not found then raise exception 'School year % does not exist', p_label; end if;
+  if starts > (now() at time zone 'Asia/Manila')::date then
+    raise exception '% has not started yet (it starts %). Only a year that has started can be closed.', p_label, starts;
+  end if;
+  if exists (select 1 from school_years where label = p_label and closed_at is not null) then raise exception '% is already closed', p_label; end if;
+  select string_agg(item ->> 'detail', '; ') into open_items
+    from jsonb_array_elements(year_end_checklist(p_label)) item where (item ->> 'count')::int > 0;
+  if open_items is not null and nullif(trim(p_override_reason), '') is null then
+    raise exception 'The year-end checklist is not complete: %. Finish it, or close anyway with a reason.', open_items;
+  end if;
+  if length(coalesce(p_override_reason, '')) > 500 then raise exception 'The reason must be 500 characters or fewer'; end if;
+
+  perform set_config('app.closing_year', 'on', true);
+  update school_years
+     set closed_at = now(), closed_by = actor, enrollment_open = false,
+         close_reason = case when open_items is null then null else trim(p_override_reason) end
+   where label = p_label;
+  insert into audit_logs (action, entity_type, entity_id, details)
+  values ('CLOSE_SCHOOL_YEAR', 'school_year', null,
+    jsonb_build_object('school_year', p_label, 'override_reason', p_override_reason, 'open_items', open_items, 'actor', actor));
+  return jsonb_build_object('closed', p_label, 'overridden', open_items is not null);
+end $$;
+
+grant execute on function public.year_end_checklist(text) to authenticated;
+grant execute on function public.close_school_year(text, text) to authenticated;
+
+notify pgrst, 'reload schema';
+commit;
+-- END v64-year-end-scope.sql
+
+-- BEGIN v65-calendar-seed.sql  (applied live 2026-11-11; branch SchoolYearLifecycle)
+-- v65-calendar-seed.sql  (branch SchoolYearLifecycle)
+-- Calendar data for 2024-2025, 2025-2026 and 2026-2027 (Year Setup > Calendar tab), all empty before this.
+--   Quarters: June to March, matching the school_days months already stored. Q1-Q2 = 1st semester, Q3-Q4 = 2nd.
+--   Grade deadline: about a week after each quarter ends.
+--   Holidays: Philippine regular and special non-working days, plus Araw ng Dabaw (Davao City, March 16).
+--   Islamic holidays are fixed each year by proclamation; dates marked "est." are estimates to correct on the page.
+-- school_days is left as it is. Run as the database owner: no auth.uid(), so the Past-year lock lets it through.
+-- Inserts only, never overwrites: safe to run twice, and edits made on the page survive a re-run.
+begin;
+
+insert into public.school_quarters (school_year, quarter, start_date, end_date, grade_deadline) values
+  ('2024-2025', 1, '2024-06-03', '2024-08-09', '2024-08-16'),
+  ('2024-2025', 2, '2024-08-12', '2024-10-25', '2024-10-31'),
+  ('2024-2025', 3, '2024-11-04', '2025-01-24', '2025-01-31'),
+  ('2024-2025', 4, '2025-01-27', '2025-03-28', '2025-04-04'),
+  ('2025-2026', 1, '2025-06-02', '2025-08-08', '2025-08-15'),
+  ('2025-2026', 2, '2025-08-11', '2025-10-24', '2025-10-30'),
+  ('2025-2026', 3, '2025-11-03', '2026-01-23', '2026-01-30'),
+  ('2025-2026', 4, '2026-01-26', '2026-03-27', '2026-03-31'),
+  ('2026-2027', 1, '2026-06-01', '2026-08-07', '2026-08-14'),
+  ('2026-2027', 2, '2026-08-10', '2026-10-23', '2026-10-30'),
+  ('2026-2027', 3, '2026-11-03', '2027-01-22', '2027-01-29'),
+  ('2026-2027', 4, '2027-01-25', '2027-03-24', '2027-03-31')
+on conflict (school_year, quarter) do nothing;
+
+insert into public.school_holidays (school_year, holiday_date, name) values
+  -- 2024-2025
+  ('2024-2025', '2024-06-12', 'Independence Day'),
+  ('2024-2025', '2024-06-17', 'Eid''l Adha'),
+  ('2024-2025', '2024-08-21', 'Ninoy Aquino Day'),
+  ('2024-2025', '2024-08-26', 'National Heroes Day'),
+  ('2024-2025', '2024-11-01', 'All Saints'' Day'),
+  ('2024-2025', '2024-11-02', 'All Souls'' Day'),
+  ('2024-2025', '2024-11-30', 'Bonifacio Day'),
+  ('2024-2025', '2024-12-08', 'Feast of the Immaculate Conception'),
+  ('2024-2025', '2024-12-24', 'Christmas Eve'),
+  ('2024-2025', '2024-12-25', 'Christmas Day'),
+  ('2024-2025', '2024-12-30', 'Rizal Day'),
+  ('2024-2025', '2024-12-31', 'Last Day of the Year'),
+  ('2024-2025', '2025-01-01', 'New Year''s Day'),
+  ('2024-2025', '2025-01-29', 'Chinese New Year'),
+  ('2024-2025', '2025-03-16', 'Araw ng Dabaw'),
+  ('2024-2025', '2025-04-01', 'Eid''l Fitr'),
+  ('2024-2025', '2025-04-09', 'Araw ng Kagitingan'),
+  ('2024-2025', '2025-04-17', 'Maundy Thursday'),
+  ('2024-2025', '2025-04-18', 'Good Friday'),
+  ('2024-2025', '2025-04-19', 'Black Saturday'),
+  ('2024-2025', '2025-05-01', 'Labor Day'),
+  ('2024-2025', '2025-05-12', 'National and Local Elections'),
+  -- 2025-2026
+  ('2025-2026', '2025-06-06', 'Eid''l Adha'),
+  ('2025-2026', '2025-06-12', 'Independence Day'),
+  ('2025-2026', '2025-08-21', 'Ninoy Aquino Day'),
+  ('2025-2026', '2025-08-25', 'National Heroes Day'),
+  ('2025-2026', '2025-10-31', 'All Saints'' Day Eve'),
+  ('2025-2026', '2025-11-01', 'All Saints'' Day'),
+  ('2025-2026', '2025-11-30', 'Bonifacio Day'),
+  ('2025-2026', '2025-12-08', 'Feast of the Immaculate Conception'),
+  ('2025-2026', '2025-12-24', 'Christmas Eve'),
+  ('2025-2026', '2025-12-25', 'Christmas Day'),
+  ('2025-2026', '2025-12-30', 'Rizal Day'),
+  ('2025-2026', '2025-12-31', 'Last Day of the Year'),
+  ('2025-2026', '2026-01-01', 'New Year''s Day'),
+  ('2025-2026', '2026-02-17', 'Chinese New Year'),
+  ('2025-2026', '2026-03-16', 'Araw ng Dabaw'),
+  ('2025-2026', '2026-03-20', 'Eid''l Fitr (est.)'),
+  ('2025-2026', '2026-04-02', 'Maundy Thursday'),
+  ('2025-2026', '2026-04-03', 'Good Friday'),
+  ('2025-2026', '2026-04-04', 'Black Saturday'),
+  ('2025-2026', '2026-04-09', 'Araw ng Kagitingan'),
+  ('2025-2026', '2026-05-01', 'Labor Day'),
+  ('2025-2026', '2026-05-27', 'Eid''l Adha (est.)'),
+  -- 2026-2027
+  ('2026-2027', '2026-06-12', 'Independence Day'),
+  ('2026-2027', '2026-08-21', 'Ninoy Aquino Day'),
+  ('2026-2027', '2026-08-31', 'National Heroes Day'),
+  ('2026-2027', '2026-11-01', 'All Saints'' Day'),
+  ('2026-2027', '2026-11-02', 'All Souls'' Day'),
+  ('2026-2027', '2026-11-30', 'Bonifacio Day'),
+  ('2026-2027', '2026-12-08', 'Feast of the Immaculate Conception'),
+  ('2026-2027', '2026-12-24', 'Christmas Eve'),
+  ('2026-2027', '2026-12-25', 'Christmas Day'),
+  ('2026-2027', '2026-12-30', 'Rizal Day'),
+  ('2026-2027', '2026-12-31', 'Last Day of the Year'),
+  ('2026-2027', '2027-01-01', 'New Year''s Day'),
+  ('2026-2027', '2027-02-06', 'Chinese New Year'),
+  ('2026-2027', '2027-03-10', 'Eid''l Fitr (est.)'),
+  ('2026-2027', '2027-03-16', 'Araw ng Dabaw'),
+  ('2026-2027', '2027-03-25', 'Maundy Thursday'),
+  ('2026-2027', '2027-03-26', 'Good Friday'),
+  ('2026-2027', '2027-03-27', 'Black Saturday'),
+  ('2026-2027', '2027-04-09', 'Araw ng Kagitingan'),
+  ('2026-2027', '2027-05-01', 'Labor Day'),
+  ('2026-2027', '2027-05-17', 'Eid''l Adha (est.)')
+on conflict (school_year, holiday_date) do nothing;
+
+commit;
+-- END v65-calendar-seed.sql

@@ -5,6 +5,7 @@ import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog, formDialog } from '../shared/ui/dialog.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { withBusy } from '../shared/ui/shell.js'
+import { todayManila } from '../shared/lib/school-years.js'
 
 // Where each open item is dealt with.
 const WHERE = {
@@ -48,6 +49,8 @@ export async function mountYearEnd(host, year, onChange) {
   if (error) return (host.innerHTML = `<p class="admin-note">${escapeHtml(describeError(error, 'Load the year-end checklist'))}</p>`)
   const items = data || []
   const open = items.filter(item => item.count > 0)
+  // close_school_year (v64) refuses this too.
+  const notStarted = todayManila() < year.start_date
   host.innerHTML = `<ol class="checklist">${items
     .map((item, i) => {
       const [place, href] = WHERE[item.key] || []
@@ -57,9 +60,14 @@ export async function mountYearEnd(host, year, onChange) {
         <div class="step-actions">${item.count && place ? (href ? `<a class="admin-secondary" href="${href}">${escapeHtml(place)}</a>` : `<span class="admin-note">${escapeHtml(place)}</span>`) : ''}</div></li>`
     })
     .join('')}</ol>
-    <div class="admin-actions" style="margin-top:16px"><button type="button" class="${open.length ? 'admin-remove' : 'admin-primary'}" data-close-year>${
-      open.length ? 'Close anyway…' : `Close ${escapeHtml(year.label)}`
-    }</button></div>`
+    ${
+      notStarted
+        ? `<p class="admin-note" style="margin-top:16px">${escapeHtml(year.label)} starts on ${escapeHtml(longDate(year.start_date))}. It can be closed once it has started.</p>`
+        : `<div class="admin-actions" style="margin-top:16px"><button type="button" class="${open.length ? 'admin-remove' : 'admin-primary'}" data-close-year>${
+            open.length ? 'Close anyway…' : `Close ${escapeHtml(year.label)}`
+          }</button></div>`
+    }`
+  if (notStarted) return
 
   host.querySelector('[data-close-year]').onclick = event =>
     withBusy(event.currentTarget, 'Closing…', async () => {
