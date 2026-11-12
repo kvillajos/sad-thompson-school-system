@@ -1,5 +1,5 @@
 import { escapeHtml, gradeLabel } from '../shared/lib/html.js'
-import { buildSemesterTable, semesterRows } from '../shared/lib/semester-grades.js'
+import { buildSemesterTable } from '../shared/lib/semester-grades.js'
 import { generalAverage } from '../shared/lib/grades.js'
 
 // Every year the student has a placement or grade in, plus the current year (even before its first grade). Newest first.
@@ -16,7 +16,6 @@ export function renderHistoricalRecords({ schoolYear, enrollments = [], gradeRow
   const year = String(schoolYear || '')
   const placements = enrollments.filter(row => (row.school_year || row.sections?.academic_year) === year)
   const rows = gradeRows.filter(row => row.school_year === year)
-  const hasSecondSemester = semesterRows(rows).some(row => row.semester === 'second' && row.semesterGrade != null)
   const average = generalAverage(rows)
 
   const placementHtml = placements.length
@@ -29,19 +28,6 @@ export function renderHistoricalRecords({ schoolYear, enrollments = [], gradeRow
         .join('')}</ul>`
     : '<p class="admin-note">No section placement is recorded for this school year.</p>'
 
-  return {
-    placementHtml,
-    firstSemesterHtml: buildSemesterTable(rows, {
-      semester: 'first',
-      semesterAverage: true,
-      schoolYear: year,
-      ...(hasSecondSemester ? {} : { average })
-    }),
-    secondSemesterHtml: buildSemesterTable(rows, {
-      semester: 'second',
-      semesterAverage: true,
-      schoolYear: year,
-      ...(hasSecondSemester ? { average } : {})
-    })
-  }
+  // One table for the year: Q1-Q2 under "1st Semester", Q3-Q4 under "2nd Semester", General Average at the bottom.
+  return { placementHtml, gradesHtml: buildSemesterTable(rows, { schoolYear: year, average, polished: true }) }
 }

@@ -112,6 +112,40 @@ export function mountCalendar() {
     })
   }
 
+  // Copy last school year's holidays one year forward (same month and day). Dates outside this year or already
+  // listed are skipped; Feb 29 has no match in a common year. Movable feasts must be checked by hand.
+  const previousLabel = label => {
+    const start = Number(String(label).slice(0, 4))
+    return Number.isInteger(start) ? `${start - 1}-${start}` : null
+  }
+  const nextYearDate = date => {
+    const [year, month, day] = date.split('-').map(Number)
+    const shifted = new Date(Date.UTC(year + 1, month - 1, day))
+    return shifted.getUTCDate() === day ? shifted.toISOString().slice(0, 10) : null
+  }
+  $('copy-holidays').onclick = event =>
+    withBusy(event.currentTarget, 'Copying…', async () => {
+      const source = previousLabel(y?.label)
+      if (!source) return
+      const { data, error } = await supabase.from('school_holidays').select('holiday_date,name').eq('school_year', source).order('holiday_date')
+      if (error) return toast(describeError(error, 'Load holidays'), 'error')
+      const taken = new Set(holidays.map(h => h.holiday_date))
+      const rows = (data || [])
+        .map(h => ({ school_year: y.label, holiday_date: nextYearDate(h.holiday_date), name: h.name }))
+        .filter(h => h.holiday_date && h.holiday_date >= y.start_date && h.holiday_date <= y.end_date && !taken.has(h.holiday_date))
+      if (!data?.length) return toast(`${source} has no holidays to copy.`, 'error')
+      if (!rows.length) return toast(`Every holiday from ${source} is already in ${y.label}.`)
+      const ok = await confirmDialog(
+        `Copy ${rows.length} holiday(s) from ${source} to ${y.label}, on the same month and day? Movable holidays (Holy Week, Eid, Chinese New Year, Bonifacio/National Heroes Day weekdays) fall on different dates each year: check and fix them after copying.`,
+        { title: 'Copy holidays', confirmText: 'Copy holidays' }
+      )
+      if (!ok) return
+      const { error: insertError } = await supabase.from('school_holidays').insert(rows)
+      if (insertError) return toast(describeError(insertError, 'Copy holidays'), 'error')
+      toast(`Copied ${rows.length} holiday(s) from ${source}.`)
+      await load()
+    })
+
   async function removeHoliday(holiday) {
     if (!holiday) return
     const ok = await confirmDialog(`Remove ${holiday.name} (${longDate(holiday.holiday_date)})?`, {

@@ -35,8 +35,12 @@ export const toHtml = rows =>
   `<table>${rows.map(row => `<tr>${row.map(value => `<td${isTextNumber(value) ? ' style="mso-number-format:\'\@\'"' : ''}>${esc(value)}</td>`).join('')}</tr>`).join('')}</table>`
 
 const isActionHeader = text => /^actions?$/i.test(cleanText(text))
+// Form fields count as their current value (a grade sheet is all inputs); a clone does not keep typed values.
+const FIELDS = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]), select, textarea'
 export const cellText = cell => {
+  const values = [...cell.querySelectorAll(FIELDS)].map(field => (field.tagName === 'SELECT' ? field.selectedOptions[0]?.textContent || '' : field.value))
   const clone = cell.cloneNode(true)
+  clone.querySelectorAll(FIELDS).forEach((field, index) => field.replaceWith(` ${values[index]} `))
   clone.querySelectorAll('button, svg, script, style, [data-no-copy]').forEach(node => node.remove())
   return cleanText(clone.textContent)
 }

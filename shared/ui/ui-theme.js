@@ -1159,6 +1159,46 @@ body[data-role="registrar"] { --role-bar: linear-gradient(90deg, #091c3c 0%, #09
 body[data-role="faculty"] { --role-bar: linear-gradient(90deg, #091c3c 0%, #091c3c 18%, #143d33 39%, #1e5a3a 60%); }
 body[data-role="student"] { --role-bar: #091c3c; } /* solid, no gradient: same navy as the sidebar */
 
+/* Registrar Academic History: compact school-year picker above the grades (label, dropdown, record count). */
+.academic-year-picker { display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px; margin:20px 0 12px; }
+.academic-year-picker label { margin:0; font-weight:700; color:var(--ui-text); }
+.academic-year-picker select { width:auto; min-width:190px; margin:0; padding:9px 36px 9px 12px; border:1px solid #c9d5e5; border-radius:10px; background-color:var(--ui-surface-strong); color:var(--ui-text); font-weight:600; cursor:pointer; }
+.academic-year-picker select:hover { border-color:var(--ui-blue); }
+.academic-year-picker select:focus-visible { outline:none; border-color:var(--ui-blue); box-shadow:0 0 0 3px color-mix(in srgb, var(--ui-blue) 18%, transparent); }
+
+/* Polished grade tables (semester-grades.js, polished: student Grades and History, registrar Academic History):
+   centred numbers, letter grade as a coloured pill, a faint dash for quarters not graded yet. Centring is desktop
+   only; on phones the student tables become cards. */
+@media (min-width:701px) {
+  /* Q1-Q4, Grade and Letter: columns 3 to 8. */
+  .grade-history-table :is(th, td):nth-child(n + 3):nth-child(-n + 8) { text-align:center; }
+  /* The average row merges its two lead cells, so column positions differ there: centre every other cell. */
+  .grade-history-table tr.average-row td { text-align:center; }
+  .grade-history-table tr.average-row td[colspan] { text-align:left; }
+}
+.grade-history-table .grade-empty { color:var(--ui-muted); opacity:.45; }
+.grade-history-table .grade-letter { min-width:30px; padding:3px 9px; text-align:center; text-transform:none; }
+.badge.grade-c { background:#dbeafe; color:#1e40af; }
+html[data-theme='dark'] .badge.grade-c { background:#1e2f4f; color:#a9c4f5; }
+
+/* Grade tables (semester-grades.js): dashed lines, the same colour as the row dividers, before Q1, between Q2 and Q3, after Q4.
+   Drawn as a gradient so the dash and gap lengths are ours (border:dashed is too tight); 1.5px wide, 6px dash, 4px gap.
+   They run through the body rows only; the navy header has none.
+   !important: striped rows set the cell background with the "background" shorthand, which would wipe the line. */
+td.q-line-start, td.q-line-end { --q-line:#d3dce8; background-image:linear-gradient(var(--q-line) 60%, transparent 0) !important; background-size:1.5px 10px !important; background-repeat:repeat-y !important; }
+td.q-line-start { background-position:left top !important; }
+td.q-line-end { background-position:right top !important; }
+html[data-theme='dark'] td.q-line-start, html[data-theme='dark'] td.q-line-end { --q-line:var(--ui-border); }
+
+/* Faculty school-year picker (faculty-common.js). A past year is read-only: every write control is hidden. */
+.faculty-year-bar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; margin:0 0 14px; }
+.faculty-year-bar label { display:flex; align-items:center; gap:8px; margin:0; font-weight:700; }
+.faculty-year-bar select { width:auto; }
+.faculty-year-note { margin:0; padding:8px 12px; border-radius:10px; background:#fef3c7; color:#854d0e; font-size:13px; }
+body.faculty-past-year #save-grades, body.faculty-past-year #lock-grades, body.faculty-past-year #open-upload,
+body.faculty-past-year #save-attendance, body.faculty-past-year #attendance-date, body.faculty-past-year [data-correct],
+body.faculty-past-year [data-past-hide] { display:none !important; }
+
 /* Joins the bar to the sidebar: square the sidebar's top-right corner and draw a navy
    concave corner so the page area curves into the bar (desktop only; students unaffected). */
 @media (min-width:701px) {

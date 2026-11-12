@@ -44,8 +44,10 @@ export function pickDefaultColumn(headers) {
 
 const sortState = new WeakMap()
 
+// The bottom header row has one cell per column; rows above it are bands (e.g. "1st Semester" over Q1-Q2).
 function headerCells(table) {
-  return [...(table.tHead?.rows?.[0]?.cells || [])]
+  const rows = table.tHead?.rows
+  return [...(rows?.[rows.length - 1]?.cells || [])]
 }
 
 function cellValue(row, column) {

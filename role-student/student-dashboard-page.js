@@ -8,8 +8,8 @@ import { mountProfile, mountSidebar, confirmPassword, withBusy } from '../shared
 import { describeError } from '../shared/lib/errors.js'
 import { attendanceSummaryLine } from '../shared/lib/attendance.js'
 import { changedFields } from '../shared/lib/edit-request.js'
-import { generalAverage, letterGrade } from '../shared/lib/grades.js'
-import { generalAverageRow } from '../shared/lib/semester-grades.js'
+import { generalAverage } from '../shared/lib/grades.js'
+import { buildSemesterTable } from '../shared/lib/semester-grades.js'
 import { buildTranscript } from '../shared/documents/transcript.js'
 import { downloadPdf, pdfName } from '../shared/documents/pdf-preview.js'
 import { printElement } from '../shared/documents/print.js'
@@ -269,8 +269,7 @@ function renderHistory() {
     const message = error || 'No historical academic records are available yet.'
     const state = error ? `<p class="note" role="alert">${escape(message)}</p>` : `<p class="admin-note">${escape(message)}</p>`
     document.getElementById('history-placement').innerHTML = state
-    document.getElementById('history-grades-first').innerHTML = state
-    document.getElementById('history-grades-second').innerHTML = ''
+    document.getElementById('history-grades').innerHTML = state
     return
   }
 
@@ -283,10 +282,9 @@ function renderHistory() {
     document.getElementById('history-placement').innerHTML = historyError
       ? `<p class="note" role="alert">${escape(historyError)}</p>`
       : records.placementHtml
-    document.getElementById('history-grades-first').innerHTML = gradesError
+    document.getElementById('history-grades').innerHTML = gradesError
       ? `<p class="note" role="alert">${escape(gradesError)}</p>`
-      : records.firstSemesterHtml
-    document.getElementById('history-grades-second').innerHTML = gradesError ? '' : records.secondSemesterHtml
+      : records.gradesHtml
   }
   filter.onchange = render
   render()
@@ -300,21 +298,10 @@ async function renderCurrentGrades() {
   }
   // The whole school year, as faculty grade it: Q1 to Q4 (stored as the two semesters' quarters), then the Final Grade.
   document.getElementById('current-grades-title').textContent = `Current Term - ${schoolYear}`
-  const quarterFields = ['first_sem_q1', 'first_sem_q2', 'second_sem_q1', 'second_sem_q2']
-  const teacherFor = subject => scheduleRows.find(item => item.subjects?.subject_name === subject)?.faculty_name || '-'
+  // Same table as History (centred numbers, letter badges, dashed quarter lines, quarter averages), with the teacher.
+  const teacherOf = row => scheduleRows.find(item => item.subjects?.subject_name === row.subject)?.faculty_name
   const rows = gradeRows.filter(row => row.school_year === schoolYear)
-  const body = rows
-    .map(
-      row =>
-        `<tr><td data-label="Subject">${escape(row.subject)}</td><td data-label="Teacher">${escape(teacherFor(row.subject))}</td>${quarterFields
-          .map((field, index) => `<td data-label="Q${index + 1}">${row[field] ?? ''}</td>`)
-          .join(
-            ''
-          )}<td data-label="Final Grade"><strong>${row.grade ?? ''}</strong></td><td data-label="Letter Grade">${escape(row.letter_grade || letterGrade(row.grade, schoolYear)?.letter || '')}</td><td data-label="Remarks">${escape(row.remarks || '')}</td></tr>`
-    )
-    .join('')
-  const footer = body ? generalAverageRow(6, generalAverage(rows), schoolYear) : ''
-  host.innerHTML = `<table><thead><tr><th>Subject</th><th>Teacher</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Final Grade</th><th>Letter Grade</th><th>Remarks</th></tr></thead><tbody>${body ? body + footer : '<tr><td colspan="9" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`
+  host.innerHTML = buildSemesterTable(rows, { polished: true, teacherOf, gradeLabel: 'Final Grade', schoolYear, average: generalAverage(rows) })
 }
 
 function renderTranscript() {

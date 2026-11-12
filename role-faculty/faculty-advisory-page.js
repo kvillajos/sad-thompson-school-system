@@ -114,7 +114,6 @@ async function loadSection() {
     .map(row => row.students)
     .filter(Boolean)
     .sort(byLastName)
-  const subjects = [...new Set((schedules.data || []).map(row => row.subjects?.subject_name).filter(Boolean))].sort()
   const grades = students.length
     ? await fetchAll(() =>
         supabase
@@ -129,6 +128,10 @@ async function loadSection() {
       )
     : { data: [] }
   if (grades.error) toast(describeError(grades.error, 'Load grades'), 'error')
+  // Timetable subjects plus every subject graded that year: a past year (or a finished semester) has no timetable rows.
+  const subjects = [
+    ...new Set([...(schedules.data || []).map(row => row.subjects?.subject_name), ...(grades.data || []).map(row => row.subject)].filter(Boolean))
+  ].sort()
   current = { section, students, subjects, grades: grades.data || [] }
   $('advisory-summary').innerHTML =
     `<span><strong>${escapeHtml(section.section_name)}</strong> · ${escapeHtml(gradeLabel(section.grade_level))}${

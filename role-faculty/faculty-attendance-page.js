@@ -6,9 +6,45 @@ import { toast } from '../shared/ui/ui-theme.js'
 import { describeError } from '../shared/lib/errors.js'
 import { guardUnsaved } from './unsaved.js'
 import { mountAttendanceDraft } from './faculty-attendance-entry.js'
+import { downloadTableCsv } from '../shared/ui/table-copy.js'
 
 const context = await loadFacultyContext('attendance')
-if (context) {
+// A past year: no daily log to take, just each student's totals for the chosen class, exportable as CSV.
+if (context?.past) {
+  const $ = id => document.getElementById(id)
+  classSelect($('attendance-class'), context.classes)
+  $('load-attendance').textContent = 'Export CSV'
+  const table = $('attendance-table-body').closest('table')
+  table.tHead.innerHTML = '<tr><th>Student ID</th><th>Student Name</th><th>Absences</th><th>Lates</th><th>Excused</th></tr>'
+  const renderSummary = async () => {
+    const { chosen, roster } = rosterFor(context, $('attendance-class').value)
+    if (!chosen) return ($('attendance-table-body').innerHTML = '<tr><td colspan="5">No classes that year.</td></tr>')
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('student_id,status')
+      .eq('section_id', chosen.section_id)
+      .eq('subject_id', chosen.subject_id)
+      .neq('status', 'Present')
+    if (error) return toast(describeError(error, 'Load attendance'), 'error')
+    const counts = new Map()
+    ;(data || []).forEach(row => {
+      const item = counts.get(String(row.student_id)) || { Absent: 0, Late: 0, Excused: 0 }
+      item[row.status] = (item[row.status] || 0) + 1
+      counts.set(String(row.student_id), item)
+    })
+    $('attendance-table-body').innerHTML =
+      roster
+        .map(item => {
+          const c = counts.get(String(item.student_id)) || { Absent: 0, Late: 0, Excused: 0 }
+          return `<tr><td data-label="Student ID">${escapeHtml(item.students?.lrn_number || item.student_id)}</td><td data-label="Student Name">${escapeHtml(lastFirst(item.students))}</td><td data-label="Absences">${c.Absent}</td><td data-label="Lates">${c.Late}</td><td data-label="Excused">${c.Excused}</td></tr>`
+        })
+        .join('') || '<tr><td colspan="5">No students in this class.</td></tr>'
+    if (!data?.length && roster.length) toast('No absences or lates were recorded for this class that year.')
+  }
+  $('attendance-class').onchange = renderSummary
+  $('load-attendance').onclick = () => downloadTableCsv(table, `attendance-${context.schoolYear}-${$('attendance-class').selectedOptions[0]?.textContent || 'class'}`.replace(/[^\w-]+/g, '-'))
+  await renderSummary()
+} else if (context) {
   const $ = id => document.getElementById(id)
   classSelect($('attendance-class'), context.classes)
   $('attendance-date').value = todayDateValue()

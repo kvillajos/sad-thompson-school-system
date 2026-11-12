@@ -73,7 +73,7 @@
             </thead>
             <tbody id="quarters-rows"></tbody>
           </table>
-          <div class="scale-actions">
+          <div class="scale-actions" style="margin-top:16px">
             <button class="admin-primary lunch-save" type="submit">Save quarters</button>
           </div>
         </form>
@@ -88,6 +88,7 @@
           <input name="holiday_date" type="date" required aria-label="Holiday date" />
           <input name="name" maxlength="120" required placeholder="Name, e.g. Independence Day" aria-label="Holiday name" />
           <button class="admin-primary" type="submit">+ Add holiday</button>
+          <button class="admin-secondary" type="button" id="copy-holidays">Copy from previous year</button>
         </form>
         <table>
           <thead>

@@ -29,25 +29,39 @@ export async function loadFacultyContext(activePage = 'dashboard') {
   const profileResult = await supabase.from('staff_profiles').select('first_name,last_name').eq('user_id', user.user_id).single()
   const profile = profileResult.data
   const facultyName = profile ? `${profile.first_name} ${profile.last_name}` : user.username
-  const scheduleResult = await supabase
-    .from('subject_schedules')
-    .select(
-      'subject_id,section_id,room,day_of_week,start_time,end_time,subjects(subject_name,semester),sections!inner(section_name,academic_year)'
-    )
-    .ilike('faculty_name', facultyName)
-    // Only this school year's classes: copied or past years' timetables are not this year's load.
-    .eq('sections.academic_year', currentSchoolYear())
-    .order('day_of_week')
-    .order('start_time')
+  // School year picker in the page header. A past year is read-only: its classes come from teaching_records
+  // (v67), not the timetable, and pages hide their save/upload/lock controls (body.faculty-past-year).
+  const thisYear = currentSchoolYear()
+  const schoolYear = pickedYear() || thisYear
+  const past = schoolYear !== thisYear
+  const scheduleResult = past
+    ? await supabase
+        .from('teaching_records')
+        .select('subject_id,section_id,subjects(subject_name,semester),sections!inner(section_name,academic_year)')
+        .eq('school_year', schoolYear)
+        .order('section_id')
+    : await supabase
+        .from('subject_schedules')
+        .select(
+          'subject_id,section_id,room,day_of_week,start_time,end_time,subjects(subject_name,semester),sections!inner(section_name,academic_year)'
+        )
+        .ilike('faculty_name', facultyName)
+        // Only this school year's classes: copied or past years' timetables are not this year's load.
+        .eq('sections.academic_year', thisYear)
+        .order('day_of_week')
+        .order('start_time')
   const schedules = scheduleResult.data || []
   const sectionIds = [...new Set(schedules.map(item => item.section_id))]
   const enrollmentResult = sectionIds.length
     ? await supabase
         .from('enrollments')
-        .select('student_id,section_id,students(lrn_number,first_name,last_name,grade_level,gender)')
+        .select('student_id,section_id,status,students(lrn_number,first_name,last_name,grade_level,gender)')
         .in('section_id', sectionIds)
-        .eq('status', 'active')
+        // A past year's roster as it ended: promoted/graduated students' enrollments are 'completed'.
+        .in('status', past ? ['active', 'completed'] : ['active'])
     : { data: [], error: null }
+  await mountYearPicker(schoolYear, thisYear)
+  document.body.classList.toggle('faculty-past-year', past)
   hideLoadingScreen()
   return {
     user,
@@ -57,7 +71,42 @@ export async function loadFacultyContext(activePage = 'dashboard') {
     scheduleError: scheduleResult.error,
     enrollmentError: enrollmentResult.error,
     classes: classOptions(schedules),
-    schoolYear: currentSchoolYear()
+    schoolYear,
+    past
+  }
+}
+
+// The picked year lives in the URL (?sy=2025-2026) and in this tab's session, so it carries across pages.
+function pickedYear() {
+  const fromUrl = new URLSearchParams(location.search).get('sy')
+  try {
+    if (fromUrl) sessionStorage.setItem('faculty-sy', fromUrl)
+    return fromUrl || sessionStorage.getItem('faculty-sy')
+  } catch {
+    return fromUrl
+  }
+}
+
+async function mountYearPicker(schoolYear, thisYear) {
+  const main = document.querySelector('main')
+  if (!main || document.getElementById('faculty-year-bar')) return
+  const { data } = await supabase.from('teaching_records').select('school_year').order('school_year', { ascending: false })
+  const years = [...new Set([thisYear, ...(data || []).map(row => row.school_year)])].filter(year => year <= thisYear).sort().reverse()
+  const bar = document.createElement('div')
+  bar.id = 'faculty-year-bar'
+  bar.className = 'faculty-year-bar'
+  bar.innerHTML = `<label>School year <select id="faculty-year">${years
+    .map(year => `<option value="${escapeHtml(year)}"${year === schoolYear ? ' selected' : ''}>${escapeHtml(year)}${year === thisYear ? ' (current)' : ''}</option>`)
+    .join('')}</select></label>${
+    schoolYear !== thisYear
+      ? `<p class="faculty-year-note" role="status">Viewing <b>${escapeHtml(schoolYear)}</b>, read only. Only the classes you taught that year are shown.</p>`
+      : ''
+  }`
+  main.prepend(bar)
+  bar.querySelector('select').onchange = event => {
+    const url = new URL(location.href)
+    url.searchParams.set('sy', event.target.value)
+    location.href = url.toString()
   }
 }
 

@@ -144,7 +144,7 @@ async function openAcademicHistory(studentId) {
     : '<div class="academic-profile-photo photo-preview-empty" aria-hidden="true">No photo</div>'
 
   $('academic-history-body').innerHTML =
-    `<div class="academic-profile-summary">${photo}<div class="review-grid"><div><small>Student No.</small><p>${escapeHtml(student.lrn_number || student.student_id || '')}</p></div><div><small>Grade Level</small><p>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</p></div><div><small>Section</small><p>${escapeHtml(enrollment?.sections?.section_name || 'No Section')}</p></div><div><small>School Year</small><p>${escapeHtml(enrollment?.school_year || '-')}</p></div><div><small>Academic Records</small><p>${rows.length}</p></div></div></div><label>School Year<select id="academic-term-filter"><option value="">All school years</option>${years.map(year => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join('')}</select></label><div id="academic-history-table" class="academic-scroll">${buildSemesterTable(rows)}</div>${lockedYears.map(year => `<p class="note">&#128274; ${escapeHtml(year)} grades are locked by faculty. <button type="button" class="admin-view" data-unlock-year="${escapeHtml(year)}">Unlock</button></p>`).join('')}`
+    `<div class="academic-profile-summary">${photo}<div class="review-grid"><div><small>Student No.</small><p>${escapeHtml(student.lrn_number || student.student_id || '')}</p></div><div><small>Grade Level</small><p>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</p></div><div><small>Section</small><p>${escapeHtml(enrollment?.sections?.section_name || 'No Section')}</p></div><div><small>School Year</small><p>${escapeHtml(enrollment?.school_year || '-')}</p></div><div><small>Academic Records</small><p>${rows.length}</p></div></div></div><div class="academic-year-picker"><label for="academic-term-filter">School year</label><select id="academic-term-filter"><option value="">All school years</option>${years.map(year => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join('')}</select><span class="grade-picker-count" id="academic-term-count">${rows.length} record${rows.length === 1 ? '' : 's'}</span></div><div id="academic-history-table" class="academic-scroll">${buildSemesterTable(rows, { polished: true })}</div>${lockedYears.map(year => `<p class="note">&#128274; ${escapeHtml(year)} grades are locked by faculty. <button type="button" class="admin-view" data-unlock-year="${escapeHtml(year)}">Unlock</button></p>`).join('')}`
 
   document.querySelectorAll('[data-unlock-year]').forEach(
     button =>
@@ -182,7 +182,9 @@ async function openAcademicHistory(studentId) {
 
   $('academic-term-filter').onchange = event => {
     const selected = event.target.value
-    $('academic-history-table').innerHTML = buildSemesterTable(selected ? rows.filter(row => row.school_year === selected) : rows)
+    const shown = selected ? rows.filter(row => row.school_year === selected) : rows
+    $('academic-history-table').innerHTML = buildSemesterTable(shown, { polished: true })
+    $('academic-term-count').textContent = `${shown.length} record${shown.length === 1 ? '' : 's'}`
   }
 
   $('academic-history-modal').classList.remove('hidden')

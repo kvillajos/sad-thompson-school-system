@@ -25,14 +25,14 @@ async function loadYear() {
   const year = $('tracker-year').value
   $('tracker-classes').innerHTML = '<tr><td colspan="6">Loading…</td></tr>'
   const [schedules, enrollments, grades, quarterRows] = await Promise.all([
+    // teaching_records (v67), not the timetable: the timetable only holds the running semester, so 1st-semester
+    // Senior High classes and past years' classes would vanish from the tracker.
     fetchAll(() =>
       supabase
-        .from('subject_schedules')
-        .select(
-          'schedule_id,section_id,subject_id,faculty_name,sections!inner(section_name,grade_level,academic_year),subjects(subject_name,semester)'
-        )
-        .eq('sections.academic_year', year)
-        .order('schedule_id')
+        .from('teaching_records')
+        .select('id,section_id,subject_id,faculty_name,sections!inner(section_name,grade_level,academic_year),subjects(subject_name,semester)')
+        .eq('school_year', year)
+        .order('id')
     ),
     fetchAll(() =>
       supabase

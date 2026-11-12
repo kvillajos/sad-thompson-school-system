@@ -8,6 +8,7 @@ import { confirmDialog, formDialog } from '../shared/ui/dialog.js'
 import { guardUnsaved } from './unsaved.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
 import { mountGradeUpload } from './faculty-upload-panel.js'
+import { downloadTableCsv } from '../shared/ui/table-copy.js'
 
 const SCORE_LABELS = {
   first_sem_q1: 'Q1',
@@ -24,6 +25,12 @@ if (context) {
   const $ = id => document.getElementById(id)
   classSelect($('grade-class'), context.classes)
   $('grade-year').value = context.schoolYear
+  // A past year is read-only (the year comes from the header picker; the database refuses edits anyway).
+  $('grade-year').readOnly = context.past
+  $('export-grades').onclick = () => {
+    const name = `grades-${context.schoolYear}-${selected().chosen?.label || 'class'}`.replace(/[^\w-]+/g, '-')
+    if (!downloadTableCsv($('grade-table').closest('table'), name)) toast('Load a class first.', 'error')
+  }
   const selected = () => rosterFor(context, $('grade-class').value)
   const unsaved = guardUnsaved()
   let gradeRows = []
@@ -64,6 +71,7 @@ if (context) {
           return `<tr data-student-id="${row.student_id}"><td data-label="Student ID">${record.locked ? '<span title="Submitted and locked">&#128274;</span> ' : ''}${escapeHtml(student.lrn_number || row.student_id)}</td><td data-label="Student Name">${escapeHtml(name)}</td>${cells}<td data-label="Final Grade"><input type="number" min="0" max="100" step="0.01" data-field="final" aria-label="Final grade for ${escapeHtml(name)}" value="${record.final ?? ''}"${edited(record) ? ' data-user-edited="true"' : ''}${record.locked ? ' disabled' : ''}></td><td data-label="Letter Grade"><input type="text" maxlength="3" readonly tabindex="-1" data-field="letter_grade" aria-label="Letter grade for ${escapeHtml(name)}" value="${escapeHtml(record.letter_grade || '')}"${record.locked ? ' disabled' : ''}></td><td data-label="Remarks"><input type="text" maxlength="100" data-field="remarks" aria-label="Remarks for ${escapeHtml(name)}" value="${escapeHtml(record.remarks || '')}"${record.locked ? ' disabled' : ''}>${record.locked ? ' <button type="button" class="admin-view" data-correct>Request correction</button>' : ''}</td></tr>`
         })
         .join('') || '<tr><td colspan="9">No active students in this section.</td></tr>'
+    if (context.past) $('grade-table').querySelectorAll('input').forEach(input => (input.disabled = true))
     refresh()
   }
   const refresh = () =>
