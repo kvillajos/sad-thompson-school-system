@@ -31,6 +31,9 @@ export function describeError(error, context = 'Request') {
     return `${context} failed: that record already exists.`
   }
   if (code === '23503' || /foreign key constraint/i.test(message)) return `${context} failed: other records still depend on this one.`
+  // Our own functions raise readable reasons with errcode check_violation (e.g. "Enrollment for 2027-2028 is
+  // closed..."); show those as written. Only Postgres's raw constraint/syntax wording gets the generic text.
+  if (code === '23514' && message && !/violates check constraint/i.test(message)) return `${context} failed: ${message}`
   if (code === '23514' || code === '22P02' || /violates check constraint|invalid input syntax/i.test(message))
     return `${context} failed: check the entered values.`
   return `${context} failed: ${message || 'an unexpected error occurred.'}`

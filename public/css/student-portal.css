@@ -58,6 +58,7 @@ body[data-role='student'] .student-request-form {
   display: grid;
   gap: 8px;
   max-width: 760px;
+  margin-bottom: 24px;
 }
 
 /* Label on its own line, the field full width under it. */

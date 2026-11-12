@@ -17,10 +17,10 @@ const NAV = [
       ['Schedules', '/role-admin/admin-schedules.html', '◷', 'schedules']
     ]
   },
-  ['Grade Tracker', '/role-admin/admin-grade-tracker.html', '✎', 'grade-tracker'],
-  ['School Years', '/role-admin/admin-year-setup.html', '☑', 'year-setup'],
   ['Admissions', '/role-admin/admin-admissions.html', '▤', 'admissions'],
+  ['Grade Tracker', '/role-admin/admin-grade-tracker.html', '✎', 'grade-tracker'],
   ['Discipline', '/role-admin/admin-discipline.html', '⚑', 'discipline'],
+  ['School Years', '/role-admin/admin-year-setup.html', '☑', 'year-setup'],
   ['Reports & Audit', '/role-admin/admin-reports.html', '▤', 'reports']
 ]
 

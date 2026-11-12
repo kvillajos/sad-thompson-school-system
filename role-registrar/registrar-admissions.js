@@ -8,8 +8,8 @@ import { attendanceSummaryLine } from '../shared/lib/attendance.js'
 import { generalAverage, letterGrade } from '../shared/lib/grades.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { describeError } from '../shared/lib/errors.js'
-import { confirmDialog } from '../shared/ui/dialog.js'
-import { isSeniorHigh, strandOptions } from '../shared/lib/strands.js'
+import { confirmDialog, formDialog } from '../shared/ui/dialog.js'
+import { isSeniorHigh, strandOptions, STRANDS } from '../shared/lib/strands.js'
 import { loadRequirementData, mountRequirementChecklist, requirementBadge } from '../shared/ui/requirements-checklist.js'
 
 // Label values ("Grade 7"), so an application's stored grade still selects through gradeSelectLabel().
@@ -412,7 +412,7 @@ export async function openStudentDetails(studentId) {
   const [enrollments, academics] = await Promise.all([
     supabase
       .from('enrollments')
-      .select('school_year,status,enrolled_at,sections(section_name)')
+      .select('school_year,status,enrolled_at,section_id,sections(section_name)')
       .eq('student_id', studentId)
       .order('enrolled_at', { ascending: false }),
     supabase
@@ -444,11 +444,48 @@ export async function openStudentDetails(studentId) {
       <div><b>Address</b><p>${escapeHtml(student.address || '-')}</p></div>
       <div><b>Attendance</b><p>${escapeHtml(attendanceLine)}</p></div>
       <div><b>General Average (${escapeHtml(active?.school_year || 'current year')})</b><p>${currentYearAverage == null ? '-' : `${currentYearAverage} (${escapeHtml(letterGrade(currentYearAverage)?.letter || '-')})`}</p></div>
+      ${isSeniorHigh(student.grade_level) ? `<div><b>Strand</b><p>${escapeHtml(student.strand || 'Not set')} <button type="button" class="admin-view" id="change-strand">Change strand</button></p></div>` : ''}
     </div></div>
     <h3>Enrollment History</h3>
     <table><thead><tr><th>School Year</th><th>Section</th><th>Status</th><th>Enrolled On</th></tr></thead><tbody>${enrollmentRows.map(row => `<tr><td>${escapeHtml(row.school_year || '-')}</td><td>${escapeHtml(row.sections?.section_name || 'No Section')}</td><td>${statusBadge(row.status || 'active')}</td><td>${formatDate(row.enrolled_at)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty-state">No enrollment records.</td></tr>'}</tbody></table>
     <h3>Academic History</h3>
     <table><thead><tr><th>School Year</th><th>Subject</th><th>Grade</th><th>Letter Grade</th><th>Remarks</th></tr></thead><tbody>${academicRows.map(row => `<tr><td>${escapeHtml(row.school_year || '')}</td><td>${escapeHtml(row.subject || '')}</td><td>${row.grade ?? ''}</td><td>${escapeHtml(row.letter_grade || letterGrade(row.grade)?.letter || '')}</td><td>${escapeHtml(row.remarks || '')}</td></tr>`).join('') || '<tr><td colspan="5" class="empty-state">No academic records.</td></tr>'}</tbody></table>`
+  $('change-strand')?.addEventListener('click', () => changeStrand(student, active?.section_id ? active : null))
+}
+
+// Correct a Senior High student's strand (change_student_strand, v66). A student in a section must move to a
+// section of the new strand in the same step; the server checks the strand, grade and seats.
+async function changeStrand(student, placed) {
+  const sections = (state.sections || []).filter(s => Number(s.grade_level) === Number(student.grade_level) && s.strand)
+  const values = await formDialog({
+    title: 'Change strand',
+    message: placed
+      ? `${student.first_name} is in ${placed.sections?.section_name || 'a section'}. Pick the new strand and a section of that strand to move them to. Their grades so far stay on record.`
+      : `${student.first_name} has no section yet. Pick the new strand; you can choose a section now or place them later.`,
+    fields: [
+      { name: 'strand', label: 'New strand', required: true, value: '', options: [['', 'Choose strand'], ...STRANDS.filter(s => s.code !== student.strand).map(s => [s.code, `${s.code} - ${s.name}`])] },
+      {
+        name: 'section_id',
+        label: 'Move to section',
+        required: Boolean(placed),
+        hint: 'Must be a section of the new strand.',
+        options: [['', placed ? 'Choose section' : 'Place later'], ...sections.map(s => [s.section_id, `${s.strand} · ${s.section_name}`])]
+      },
+      { name: 'reason', label: 'Reason', required: true, multiline: true, maxlength: 300, placeholder: 'e.g. Wrong strand entered at promotion' }
+    ],
+    confirmText: 'Change strand'
+  })
+  if (!values) return
+  const { error } = await supabase.rpc('change_student_strand', {
+    p_student_id: student.student_id,
+    p_strand: values.strand,
+    p_section_id: values.section_id ? Number(values.section_id) : null,
+    p_reason: values.reason
+  })
+  if (error) return toast(describeError(error, 'Change strand'), 'error')
+  student.strand = values.strand
+  toast(`Strand changed to ${values.strand}.`)
+  openStudentDetails(student.student_id)
 }
 
 const APPLICATION_FIELDS = [

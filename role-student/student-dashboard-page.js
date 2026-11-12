@@ -328,13 +328,13 @@ async function loadAttendance() {
   const table = document.getElementById('attendance-table')
 
   if (!user.student_id) {
-    table.innerHTML = '<tr><td colspan="2">No student record linked.</td></tr>'
+    table.innerHTML = '<tr><td colspan="3">No student record linked.</td></tr>'
     return
   }
 
   let historyQuery = supabase
     .from('attendance')
-    .select('attendance_date,status,sections!inner(academic_year)')
+    .select('attendance_date,status,subject_id,subjects(subject_name),sections!inner(academic_year)')
     .eq('student_id', user.student_id)
     .neq('status', 'Present')
 
@@ -348,7 +348,8 @@ async function loadAttendance() {
       p_school_year: schoolYear || null
     }),
 
-    historyQuery.order('attendance_date', { ascending: false }).limit(20),
+    // One row per subject per day now, so fetch more and group by day below.
+    historyQuery.order('attendance_date', { ascending: false }).limit(300),
 
     schoolYear ? supabase.from('school_days').select('days').eq('school_year', schoolYear) : Promise.resolve({ data: null, error: null })
   ])
@@ -366,13 +367,34 @@ async function loadAttendance() {
   }
 
   if (history.error) {
-    table.innerHTML = errorRow(2, history.error, 'Load attendance')
+    table.innerHTML = errorRow(3, history.error, 'Load attendance')
     return
   }
 
+  // Group by day + status. A daily advisory row (no subject) or every subject scheduled that weekday = ALL.
+  const subjectsByDay = new Map()
+  scheduleRows.forEach(row => {
+    if (!subjectsByDay.has(row.day_of_week)) subjectsByDay.set(row.day_of_week, new Set())
+    subjectsByDay.get(row.day_of_week).add(row.subject_id)
+  })
+  const groups = new Map()
+  ;(history.data || []).forEach(a => {
+    const key = `${a.attendance_date}|${a.status}`
+    if (!groups.has(key)) groups.set(key, { date: a.attendance_date, status: a.status, whole: false, subjects: new Map() })
+    const group = groups.get(key)
+    if (a.subject_id == null) group.whole = true
+    else group.subjects.set(a.subject_id, a.subjects?.subject_name || 'Subject')
+  })
+  const subjectCell = group => {
+    const scheduled = subjectsByDay.get(new Date(`${group.date}T00:00`).getDay() || 7)
+    const all = group.whole || (scheduled?.size && [...scheduled].every(id => group.subjects.has(id)))
+    return all ? '<b>ALL</b>' : escape([...group.subjects.values()].sort().join(', '))
+  }
   table.innerHTML =
-    (history.data || []).map(a => `<tr><td>${formatDate(a.attendance_date)}</td><td>${escape(a.status)}</td></tr>`).join('') ||
-    '<tr><td colspan="2">No absences, lates or excused days recorded.</td></tr>'
+    [...groups.values()]
+      .slice(0, 20)
+      .map(g => `<tr><td>${formatDate(g.date)}</td><td>${escape(g.status)}</td><td>${subjectCell(g)}</td></tr>`)
+      .join('') || '<tr><td colspan="3">No absences, lates or excused days recorded.</td></tr>'
 }
 
 document.getElementById('transcript-year-filter').onchange = renderTranscript
@@ -384,11 +406,10 @@ document.getElementById('download-unofficial-transcript').onclick = e =>
 await Promise.all([loadGradingScales(), loadStudent()])
 applyGraduateAccess(student)
 await Promise.all([
-  loadSchedule(),
   loadGrades(),
   loadEnrollmentHistory(),
   mountAnnouncements(document.getElementById('announcements-host'), 'student'),
-  loadAttendance()
+  loadSchedule().then(loadAttendance)
 ])
 renderHistory()
 await renderCurrentGrades()

@@ -33,11 +33,15 @@ export function renderHistoricalRecords({ schoolYear, enrollments = [], gradeRow
     placementHtml,
     firstSemesterHtml: buildSemesterTable(rows, {
       semester: 'first',
-      ...(hasSecondSemester ? {} : { average, schoolYear: year })
+      semesterAverage: true,
+      schoolYear: year,
+      ...(hasSecondSemester ? {} : { average })
     }),
     secondSemesterHtml: buildSemesterTable(rows, {
       semester: 'second',
-      ...(hasSecondSemester ? { average, schoolYear: year } : {})
+      semesterAverage: true,
+      schoolYear: year,
+      ...(hasSecondSemester ? { average } : {})
     })
   }
 }

@@ -39,12 +39,13 @@ export function semesterGroups(rows = []) {
 // official record card); the default 'semester' mode splits each subject-year into two rows,
 // one per semester, showing that semester's own general average.
 // Last table row with the year's general average and its letter; `before` columns are merged under the label.
-export function generalAverageRow(before, average, schoolYear) {
-  return `<tr class="average-row" data-pin-bottom><td colspan="${before}" data-label="General Average"><strong>General Average</strong></td><td data-label="Grade"><strong>${average ?? '-'}</strong></td><td data-label="Letter Grade">${escapeHtml(letterGrade(average, schoolYear)?.letter || '-')}</td><td></td></tr>`
+export function generalAverageRow(before, average, schoolYear, label = 'General Average') {
+  return `<tr class="average-row" data-pin-bottom><td colspan="${before}" data-label="${label}"><strong>${label}</strong></td><td data-label="Grade"><strong>${average ?? '-'}</strong></td><td data-label="Letter Grade">${escapeHtml(letterGrade(average, schoolYear)?.letter || '-')}</td><td></td></tr>`
 }
 
 // average: when given (even null), a General Average row is added under the semester rows.
-export function buildSemesterTable(rows = [], { flat = false, semester = '', average, schoolYear = '' } = {}) {
+// semesterAverage: adds an "<semester> Average" row (mean of that semester's grades) above it.
+export function buildSemesterTable(rows = [], { flat = false, semester = '', average, schoolYear = '', semesterAverage = false } = {}) {
   if (flat) {
     const labels = ['School Year', 'Subject', ...SCORE_FIELDS.map(key => ACADEMIC_LABELS[key]), 'Grade', 'Letter Grade', 'Remarks']
     const head = `<tr>${labels.map(label => `<th>${label}</th>`).join('')}</tr>`
@@ -57,13 +58,18 @@ export function buildSemesterTable(rows = [], { flat = false, semester = '', ave
     return `<table><thead>${head}</thead><tbody>${body || `<tr><td colspan="${SCORE_FIELDS.length + 5}" class="empty-state">No academic records yet.</td></tr>`}</tbody></table>`
   }
   const labels = ['School Year', 'Semester', 'Subject', 'Q1', 'Q2', 'Q3', 'Q4', 'Grade', 'Letter Grade', 'Remarks']
-  const body = semesterRows(rows)
-    .filter(row => !semester || row.semester === semester)
+  const items = semesterRows(rows).filter(row => !semester || row.semester === semester)
+  const body = items
     .map(
       row =>
         `<tr><td data-label="${labels[0]}">${escapeHtml(row.school_year)}</td><td data-label="${labels[1]}">${row.semesterLabel}</td><td data-label="${labels[2]}">${escapeHtml(row.subject)}</td><td data-label="Q1">${row.first_sem_q1 ?? ''}</td><td data-label="Q2">${row.first_sem_q2 ?? ''}</td><td data-label="Q3">${row.second_sem_q1 ?? ''}</td><td data-label="Q4">${row.second_sem_q2 ?? ''}</td><td data-label="Grade">${row.semesterGrade ?? row.grade ?? ''}</td><td data-label="Letter Grade">${escapeHtml(row.letter_grade || letterGrade(row.semesterGrade ?? row.grade, row.school_year)?.letter || '')}</td><td data-label="Remarks">${escapeHtml(row.remarks || '')}</td></tr>`
     )
     .join('')
-  const footer = body && average !== undefined ? generalAverageRow(7, average, schoolYear) : ''
+  const semesterLabel = SEMESTERS.find(item => item.key === semester)?.label
+  const semesterFooter =
+    semesterAverage && semesterLabel
+      ? generalAverageRow(7, generalAverage(items.map(row => ({ grade: row.semesterGrade }))), schoolYear, `${semesterLabel} Average`)
+      : ''
+  const footer = body ? semesterFooter + (average !== undefined ? generalAverageRow(7, average, schoolYear) : '') : ''
   return `<table><thead><tr>${labels.map(label => `<th>${label}</th>`).join('')}</tr></thead><tbody>${body ? body + footer : '<tr><td colspan="10" class="empty-state">No academic records yet.</td></tr>'}</tbody></table>`
 }

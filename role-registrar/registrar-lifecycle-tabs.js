@@ -13,7 +13,11 @@ const TABS = {
   graduation: mountGraduationTab,
   documents: mountRegistrarDocumentRequests,
   import: mountImportTab,
-  'section-reports': async host => mountDepedForms(host.querySelector('#deped-forms-host'), await mountSectionReportsTab(host)),
+  // Mount the reports first: it draws #deped-forms-host, so look it up only afterwards.
+  'section-reports': async host => {
+    const reports = await mountSectionReportsTab(host)
+    mountDepedForms(host.querySelector('#deped-forms-host'), reports)
+  },
   discipline: host => mountStaffSanctions(host)
 }
 const mounted = new Set()

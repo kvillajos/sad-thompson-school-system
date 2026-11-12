@@ -31,14 +31,16 @@ export async function mountStudentDocumentRequests(host) {
     </form>
     <table><thead><tr><th>Document</th><th>Purpose</th><th>Requested</th><th>Status</th><th>Note</th></tr></thead><tbody data-doc-rows><tr><td colspan="5">Loading…</td></tr></tbody></table>`
   const body = host.querySelector('[data-doc-rows]')
+  let rows = []
   const load = async () => {
     const { data, error } = await supabase
       .from('document_requests')
       .select('id,document_type,purpose,copies,status,remarks,created_at')
       .order('created_at', { ascending: false })
     if (error) return (body.innerHTML = errorRow(5, error, 'Load document requests'))
+    rows = data || []
     body.innerHTML =
-      (data || [])
+      rows
         .map(
           row =>
             `<tr><td data-label="Document">${escapeHtml(typeLabel[row.document_type])}${row.copies > 1 ? ` ×${row.copies}` : ''}</td><td data-label="Purpose">${escapeHtml(row.purpose)}</td><td data-label="Requested">${escapeHtml(formatDate(row.created_at))}</td><td data-label="Status">${statusBadge(row.status)}</td><td data-label="Note">${escapeHtml(row.remarks || '-')}</td></tr>`
@@ -50,6 +52,13 @@ export async function mountStudentDocumentRequests(host) {
     event.preventDefault()
     return withBusy(form.querySelector('[type="submit"]'), 'Sending…', async () => {
       const values = Object.fromEntries(new FormData(form).entries())
+      // One open request per document (submit_document_request enforces it); say why before the server refuses.
+      const open = rows.find(row => row.document_type === values.document_type && ['pending', 'approved', 'ready'].includes(row.status))
+      if (open)
+        return toast(
+          `Your ${typeLabel[open.document_type]} request from ${formatDate(open.created_at)} is still ${STATUS_LABEL[open.status]}. You can request another once it is released or rejected.`,
+          'error'
+        )
       const { error } = await supabase.rpc('submit_document_request', {
         p_document_type: values.document_type,
         p_purpose: values.purpose.trim(),

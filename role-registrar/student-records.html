@@ -159,8 +159,23 @@
     </style>
     <style>
       /* Promotion Candidates is a table (.exclude-table); the reason pass status is unavailable shows once, above it. */
+      /* Directory year picker: highlighted like the active view button while a year is shown. */
+      #student-directory-year { width: auto; font-weight: 700; }
+      #student-directory-year.is-active { border-color: var(--ui-blue); background: var(--ui-blue); color: #fff; }
+      .placement-pickers {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .placement-pickers label {
+        margin: 0;
+      }
+      .promotion-candidates-head {
+        margin: 12px 0 14px;
+      }
       .promotion-notice {
-        margin: 0 0 10px;
+        margin: 0 0 16px;
         padding: 10px 12px;
         border-radius: 10px;
         background: #fef3c7;
@@ -390,7 +405,8 @@
                 <option value="">All Grades</option>
               </select>
               <div style="margin-left:auto;display:flex;gap:10px">
-                <button id="auto-assign-sections" class="btn secondary" type="button">Auto-Assign Students</button
+                <button id="open-set-strand" class="btn secondary" type="button">Set Strands</button
+                ><button id="auto-assign-sections" class="btn secondary" type="button">Auto-Assign Students</button
                 ><button id="open-placement" class="btn" type="button">Placement Tool</button>
               </div>
             </div>
@@ -416,7 +432,7 @@
               <button type="button" id="export-student-directory" class="btn secondary">Export CSV</button>
             </div>
             <div class="filterbar" id="student-school-year-filters">
-              <button type="button" data-student-view="current" class="btn">Current SY</button
+              <select id="student-directory-year" class="is-active" aria-label="School year"></select
               ><button type="button" data-student-view="not-reenrolled" class="btn secondary">Not re-enrolled</button
               ><button type="button" data-student-view="all" class="btn secondary">All Students</button
               ><span id="student-directory-filters" class="filter-bar-host"></span>
@@ -496,7 +512,7 @@
             </div>
             <div class="card">
               <h2>Promotion Candidates</h2>
-              <div class="exclude-head">
+              <div class="exclude-head promotion-candidates-head">
                 <p class="note exclude-note" style="margin:0">Pass status uses the previous school year's grades. Tick students to leave them out of this request.</p>
                 <span id="promotion-excluded-count" class="grade-picker-count" aria-live="polite">None excluded</span>
               </div>
@@ -754,19 +770,19 @@
           <h2>Section Placement</h2>
           <button id="close-placement">×</button>
         </div>
-        <label>Grade Level<select id="placement-grade"></select></label><label>Section<select id="placement-section"></select></label>
-        <div class="filterbar">
-          <input
-            maxlength="100"
-            id="placement-search"
-            type="search"
-            placeholder="Search student name or ID..."
-            style="flex:1;max-width:none"
-          />
+        <div class="placement-pickers">
+          <label>Grade Level<select id="placement-grade"></select></label><label>Section<select id="placement-section"></select></label>
         </div>
-        <p id="placement-list-title" class="note">Students</p>
-        <div style="max-height:340px;overflow:auto">
-          <table>
+        <div class="exclude-head">
+          <label for="placement-search">Students to place</label>
+          <span id="placement-list-title" class="grade-picker-count" aria-live="polite">0 students</span>
+        </div>
+        <p class="note exclude-note">Students of this grade (and strand) not already in the chosen section. Tick the ones to place.</p>
+        <div class="exclude-toolbar">
+          <input maxlength="100" id="placement-search" type="search" placeholder="Search student name or ID..." />
+        </div>
+        <div class="exclude-table-wrap">
+          <table class="exclude-table" data-no-sort data-no-pages>
             <thead>
               <tr>
                 <th>Select</th>
@@ -779,10 +795,47 @@
             <tbody id="placement-students"></tbody>
           </table>
         </div>
-        <div class="actions" style="margin-top:15px">
+        <div class="actions" style="margin-top:16px">
           <button id="placement-select-all" class="btn secondary" type="button">Select all</button
           ><button id="close-placement-2" class="btn secondary" type="button">Cancel</button
           ><button id="place-selected" class="btn" type="button">Place Selected Students</button>
+        </div>
+      </div>
+    </div>
+    <div id="set-strand-modal" class="modal hidden">
+      <div class="modalbox">
+        <div class="modalhead">
+          <h2>Set Senior High Strands</h2>
+          <button id="close-set-strand" data-close="set-strand-modal">×</button>
+        </div>
+        <p class="note">
+          Grade 11-12 students without a section and without a strand. A student's strand decides which sections
+          they can be placed in. To correct a strand, tick "Also show students with a strand". To change the strand
+          of a student who already has a section, remove the enrollment first.
+        </p>
+        <div class="filterbar">
+          <input maxlength="100" id="set-strand-search" type="search" placeholder="Search student name or ID..." style="flex:1;max-width:none" />
+          <select id="set-strand-value" aria-label="Strand to set"></select>
+          <label><input type="checkbox" id="set-strand-show-set" /> Also show students with a strand</label>
+        </div>
+        <div style="max-height:340px;overflow:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Select</th>
+                <th>Student No.</th>
+                <th>Name</th>
+                <th>Grade</th>
+                <th>Strand</th>
+              </tr>
+            </thead>
+            <tbody id="set-strand-students"></tbody>
+          </table>
+        </div>
+        <div class="actions" style="margin-top:15px">
+          <button id="set-strand-select-all" class="btn secondary" type="button">Select all</button
+          ><button class="btn secondary" type="button" data-close="set-strand-modal">Cancel</button
+          ><button id="apply-set-strand" class="btn" type="button">Set Strand for Selected</button>
         </div>
       </div>
     </div>

@@ -5,7 +5,9 @@ import { $, state } from './registrar-state.js'
 import { escapeHtml, lastFirst, byLastName, formatDate, gradeLabel, errorRow } from '../shared/lib/html.js'
 import { describeError } from '../shared/lib/errors.js'
 import { currentSchoolYear } from '../shared/lib/grades.js'
-import { planBalancedAssignments, studentsForSection } from '../shared/lib/sectioning.js'
+import { fillYearSelect } from '../shared/lib/school-years.js'
+import { planBalancedAssignments, studentsForSection, isPlaceable } from '../shared/lib/sectioning.js'
+import { isSeniorHigh, strandOptions } from '../shared/lib/strands.js'
 import { statusBadge, bindViewStudentButtons } from './registrar-admissions.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { downloadTableCsv } from '../shared/ui/table-copy.js'
@@ -26,7 +28,7 @@ export async function loadSections() {
   // Past-year sections are history (report cards, attendance); only current and upcoming ones can take students.
   const { data, error } = await supabase
     .from('sections')
-    .select('section_id,section_name,grade_level,strand,capacity,faculty_assigned')
+    .select('section_id,section_name,grade_level,strand,capacity,faculty_assigned,academic_year')
     .gte('academic_year', currentSchoolYear())
     .order('grade_level')
     .order('section_name')
@@ -355,10 +357,11 @@ function placementRows() {
     .filter(section => Number(section.grade_level) === Number(grade))
     .sort((a, b) => (a.section_name || '').localeCompare(b.section_name || ''))
   const currentSection = $('placement-section').value
+  const manyYears = new Set(sections.map(s => s.academic_year)).size > 1
   $('placement-section').innerHTML = sections
     .map(
       s =>
-        `<option value="${s.section_id}">${escapeHtml(s.section_name)}${s.strand ? ` · ${escapeHtml(s.strand)}` : ''} (${Math.max(0, s.capacity - (sectionCounts[s.section_id] || 0))} of ${s.capacity} seats left)</option>`
+        `<option value="${s.section_id}">${escapeHtml(s.section_name)}${s.strand ? ` · ${escapeHtml(s.strand)}` : ''}${manyYears ? ` · ${escapeHtml(s.academic_year)}` : ''} (${Math.max(0, s.capacity - (sectionCounts[s.section_id] || 0))} of ${s.capacity} seats left)</option>`
     )
     .join('')
   if (sections.some(section => String(section.section_id) === currentSection)) $('placement-section').value = currentSection
@@ -381,7 +384,7 @@ function renderPlacementStudents() {
   const rows = placementRows()
   const section = state.sections.find(item => String(item.section_id) === $('placement-section').value)
   $('placement-list-title').textContent =
-    `${gradeLabel($('placement-grade').value)} students${section ? ` - ${section.section_name}` : ''} (${rows.length})`
+    `${rows.length} student${rows.length === 1 ? '' : 's'}${section ? ` · ${section.section_name}` : ''}`
   $('placement-students').innerHTML =
     rows
       .map(
@@ -398,6 +401,63 @@ $('placement-select-all').onclick = () => {
   const select = boxes.some(box => !box.checked)
   boxes.forEach(box => {
     box.checked = select
+  })
+}
+// Set Strands: Grade 10 students promoted to Grade 11 arrive with no strand (only admissions and import set one),
+// so the registrar sets it here before placement. Sectioned students are left out: their strand must match
+// their section (placement_guard), so the enrollment is removed first.
+function setStrandRows() {
+  const search = $('set-strand-search').value.trim().toLowerCase()
+  const showSet = $('set-strand-show-set').checked
+  return state.students
+    .filter(s => isSeniorHigh(s.grade_level) && isPlaceable(s) && !state.enrolledByStudent.get(s.student_id))
+    .filter(s => showSet || !s.strand)
+    .filter(s => !search || `${s.lrn_number || ''} ${s.student_id} ${s.first_name || ''} ${s.last_name || ''}`.toLowerCase().includes(search))
+    .sort((a, b) => Boolean(a.strand) - Boolean(b.strand) || byLastName(a, b))
+}
+function renderSetStrandStudents() {
+  $('set-strand-students').innerHTML =
+    setStrandRows()
+      .map(
+        s =>
+          `<tr><td><input type="checkbox" value="${s.student_id}" aria-label="Select ${escapeHtml(lastFirst(s))}"></td><td>${escapeHtml(s.lrn_number || s.student_id)}</td><td>${escapeHtml(lastFirst(s))}</td><td>${escapeHtml(gradeLabel(s.grade_level))}</td><td>${s.strand ? escapeHtml(s.strand) : '<span class="badge pending">Not set</span>'}</td></tr>`
+      )
+      .join('') ||
+    `<tr><td colspan="5" class="empty-state">${$('set-strand-show-set').checked ? 'No Grade 11-12 students without a section.' : 'Every unsectioned Grade 11-12 student has a strand.'}</td></tr>`
+}
+$('open-set-strand').onclick = async () => {
+  const [studentResult, enrollmentResult] = await Promise.all([
+    fetchAll(() => supabase.from('students').select('*').order('last_name').order('student_id')),
+    fetchAll(() => supabase.from('enrollments').select('student_id,section_id').eq('status', 'active').order('id'))
+  ])
+  const loadError = studentResult.error || enrollmentResult.error
+  if (loadError) return toast(describeError(loadError, 'Load students'), 'error')
+  state.students = (studentResult.data || []).sort(byLastName)
+  state.enrolledByStudent = new Map((enrollmentResult.data || []).map(row => [row.student_id, row.section_id]))
+  $('set-strand-value').innerHTML = strandOptions('', 'Choose strand')
+  $('set-strand-search').value = ''
+  $('set-strand-show-set').checked = false
+  renderSetStrandStudents()
+  $('set-strand-modal').classList.remove('hidden')
+}
+$('set-strand-search').addEventListener('input', renderSetStrandStudents)
+$('set-strand-show-set').addEventListener('change', renderSetStrandStudents)
+$('set-strand-select-all').onclick = () => {
+  const boxes = [...$('set-strand-students').querySelectorAll('input[type=checkbox]')]
+  const select = boxes.some(box => !box.checked)
+  boxes.forEach(box => (box.checked = select))
+}
+$('apply-set-strand').onclick = () => {
+  const strand = $('set-strand-value').value
+  const ids = [...$('set-strand-students').querySelectorAll('input:checked')].map(box => +box.value)
+  if (!strand || !ids.length) return toast('Choose a strand and at least one student.', 'error')
+  withBusy($('apply-set-strand'), 'Saving…', async () => {
+    const { error } = await supabase.from('students').update({ strand }).in('student_id', ids)
+    if (error) return toast(describeError(error, 'Set strand'), 'error')
+    state.students.forEach(s => ids.includes(s.student_id) && (s.strand = strand))
+    toast(`Strand set to ${strand} for ${ids.length} student(s).`)
+    renderSetStrandStudents()
+    renderStudentDirectory()
   })
 }
 $('open-placement').onclick = () => openPlacement()
@@ -484,12 +544,15 @@ function renderAutoAssignExclusions() {
   $('auto-assign-exclude-prev').disabled = excludePage <= 1
   $('auto-assign-exclude-next').disabled = excludePage >= pages
 }
+// One school year per run: the first one with enrollment open. Current and upcoming sections are both loaded,
+// and mixing them dealt students into next year's (closed) copies of the same sections.
+let autoAssignYear = null
 function planAutoAssign() {
   const grades = chosenGrades()
   if (!grades.length) return null
   return planBalancedAssignments({
     students: state.students,
-    sections: state.sections.map(section => ({
+    sections: state.sections.filter(section => section.academic_year === autoAssignYear).map(section => ({
       ...section,
       enrolled: [...state.enrolledByStudent.values()].filter(id => +id === Number(section.section_id)).length
     })),
@@ -517,18 +580,29 @@ function previewAutoAssign() {
     .filter(row => row.total)
     .map(row => `<small>${escapeHtml(row.section_name)} - ${row.boys} boy(s), ${row.girls} girl(s)</small>`)
     .join('<br>')
-  const unplaced = plan.unplaced.length
-    ? `<br><small class="empty-state">Unplaced: ${plan.unplaced.map(row => escapeHtml(row.student_id)).join(', ')}</small>`
-    : ''
+  // Group unplaced students by reason so the registrar sees what to fix, not internal ids.
+  const byReason = new Map()
+  plan.unplaced.forEach(row => {
+    const student = state.students.find(item => item.student_id === row.student_id) || {}
+    const reason = `${gradeLabel(row.grade_level)}: ${row.reason}`
+    if (!byReason.has(reason)) byReason.set(reason, [])
+    byReason.get(reason).push(`${student.lrn_number || row.student_id} ${lastFirst(student)}`.trim())
+  })
+  const unplaced = [...byReason]
+    .map(([reason, names]) => `<br><small class="empty-state"><b>${escapeHtml(reason)}</b> (${names.length}): ${names.map(escapeHtml).join(', ')}</small>`)
+    .join('')
   $('auto-assign-summary').innerHTML =
-    `<p><b id="auto-assign-count">${plan.assignments.length}</b> student(s) will be placed in ${escapeHtml(chosenGrades().map(gradeLabel).join(', '))}; <b>${plan.unplaced.length}</b> cannot be placed${excluded ? `; <b>${excluded}</b> excluded` : ''}.</p>${sections}${unplaced}`
+    `<p><b id="auto-assign-count">${plan.assignments.length}</b> student(s) will be placed in ${escapeHtml(chosenGrades().map(gradeLabel).join(', '))} for ${escapeHtml(autoAssignYear)}; <b>${plan.unplaced.length}</b> cannot be placed${excluded ? `; <b>${excluded}</b> excluded` : ''}.</p>${sections}${unplaced}`
 }
 $('auto-assign-sections').onclick = async () => {
   if (!state.students.length || !state.sections.length) return toast('Load students and sections first.', 'error')
-  const { data: enrollments, error } = await fetchAll(() =>
-    supabase.from('enrollments').select('student_id,section_id').eq('status', 'active').order('id')
-  )
-  if (error) return toast(describeError(error, 'Load enrollments'), 'error')
+  const [{ data: enrollments, error }, years] = await Promise.all([
+    fetchAll(() => supabase.from('enrollments').select('student_id,section_id').eq('status', 'active').order('id')),
+    supabase.from('school_years').select('label').eq('enrollment_open', true).is('closed_at', null).gte('label', currentSchoolYear()).order('label').limit(1)
+  ])
+  if (error || years.error) return toast(describeError(error || years.error, 'Load enrollments'), 'error')
+  autoAssignYear = years.data?.[0]?.label || null
+  if (!autoAssignYear) return toast('Enrollment is closed for every school year. The admin opens it on School Years.', 'error')
   state.enrolledByStudent = new Map((enrollments || []).map(row => [row.student_id, row.section_id]))
   $('auto-assign-exclude-search').value = ''
   excludedIds.clear()
@@ -609,7 +683,9 @@ $('confirm-auto-assign').onclick = () => {
 
 // Student Directory school-year filtering
 let studentSchoolYearRows = []
-let studentDirectoryView = 'current'
+let studentDirectoryView = 'year'
+let directoryYear = currentSchoolYear()
+let directorySectionNames = null // section_id -> name, every year; loaded the first time a past year is picked
 let historicalSchoolYearRecordsLoaded = false
 let historicalSchoolYearRecordsPromise = null
 let currentSchoolYearRecordsError = ''
@@ -678,6 +754,7 @@ function updateStudentDirectoryFilterButtons() {
 
       button.classList.toggle('secondary', !isActive)
     })
+  $('student-directory-year').classList.toggle('is-active', studentDirectoryView === 'year')
 }
 
 // Grade, section and strand on top of the Current SY / Not re-enrolled / All views (Export CSV stays John's button).
@@ -696,7 +773,7 @@ export function renderStudentDirectory() {
 
   const schoolYear = currentSchoolYear()
   updateStudentDirectoryFilterButtons()
-  if (studentDirectoryView === 'current' && currentSchoolYearRecordsError) {
+  if (studentDirectoryView === 'year' && directoryYear === schoolYear && currentSchoolYearRecordsError) {
     $('student-directory-table').innerHTML = errorRow(9, currentSchoolYearRecordsError, 'Load current school year records')
     return
   }
@@ -717,12 +794,15 @@ export function renderStudentDirectory() {
     return {
       student,
       currentRecord,
-      lastEnrolledRecord
+      lastEnrolledRecord,
+      yearRecord: directoryYear === schoolYear ? currentRecord : getStudentSchoolYearRecord(student.student_id, directoryYear)
     }
   })
+  // A past (or upcoming) year shows that year's grade and section, not today's.
+  const pastYear = studentDirectoryView === 'year' && directoryYear !== schoolYear
 
-  if (studentDirectoryView === 'current') {
-    rows = rows.filter(row => row.currentRecord)
+  if (studentDirectoryView === 'year') {
+    rows = rows.filter(row => row.yearRecord)
   } else if (studentDirectoryView === 'not-reenrolled') {
     rows = rows.filter(
       row => row.lastEnrolledRecord && !row.currentRecord
@@ -743,20 +823,24 @@ export function renderStudentDirectory() {
 
   $('student-directory-table').innerHTML =
     rows
-      .map(({ student, lastEnrolledRecord }) => {
+      .map(({ student, lastEnrolledRecord, yearRecord }) => {
         const isNotReenrolled =
           studentDirectoryView === 'not-reenrolled'
 
         // Show returnees' grade from their most recent enrolled year.
         const displayedGrade = isNotReenrolled
           ? lastEnrolledRecord?.grade_level ?? student.grade_level
-          : student.grade_level
+          : pastYear
+            ? yearRecord?.grade_level ?? student.grade_level
+            : student.grade_level
 
         const grade = displayedGrade == null
           ? '-'
           : gradeLabel(displayedGrade)
 
-        const section = state.studentSections.get(
+        const section = pastYear
+          ? directorySectionNames?.get(yearRecord?.section_id) || 'No Section'
+          : state.studentSections.get(
           String(student.student_id)
         ) || 'No Section'
 
@@ -868,12 +952,28 @@ function exportStudentDirectory() {
 
 $('export-student-directory').addEventListener('click', exportStudentDirectory)
 
+// School year dropdown (replaces the old "Current SY" button): any year's roster, as it was that year.
+fillYearSelect($('student-directory-year')).catch(error => toast(describeError(error, 'Load school years'), 'error'))
+$('student-directory-year').addEventListener('change', async event => {
+  directoryYear = event.target.value
+  studentDirectoryView = 'year'
+  if (directoryYear !== currentSchoolYear()) {
+    if (!(await loadHistoricalSchoolYearRecords())) return
+    if (!directorySectionNames) {
+      const { data, error } = await fetchAll(() => supabase.from('sections').select('section_id,section_name').order('section_id'))
+      if (error) return toast(describeError(error, 'Load sections'), 'error')
+      directorySectionNames = new Map((data || []).map(row => [row.section_id, row.section_name]))
+    }
+  }
+  renderStudentDirectory()
+})
+
 // Switch between the three school-year views.
 document.querySelectorAll('#student-school-year-filters [data-student-view]').forEach(button => {
   button.addEventListener('click', async () => {
     studentDirectoryView = button.dataset.studentView
     if (studentDirectoryView === 'not-reenrolled' && !(await loadHistoricalSchoolYearRecords())) {
-      studentDirectoryView = 'current'
+      studentDirectoryView = 'year'
     }
     renderStudentDirectory()
   })
