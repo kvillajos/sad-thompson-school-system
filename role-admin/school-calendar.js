@@ -146,6 +146,33 @@ export function mountCalendar() {
       await load()
     })
 
+  // Fill the quarter form from last school year, every date one year later. Nothing is saved: the admin checks
+  // the dates (a copied date can land on a weekend) and clicks Save quarters.
+  $('copy-quarters').onclick = event =>
+    withBusy(event.currentTarget, 'Copying…', async () => {
+      const source = previousLabel(y?.label)
+      if (!source) return
+      const { data, error } = await supabase
+        .from('school_quarters')
+        .select('quarter,start_date,end_date,grade_deadline')
+        .eq('school_year', source)
+        .order('quarter')
+      if (error) return toast(describeError(error, 'Load quarters'), 'error')
+      if (!data?.length) return toast(`${source} has no quarters to copy.`, 'error')
+      const form = $('quarters-form')
+      const filled = form.querySelectorAll('input[type="date"]')
+      if ([...filled].some(input => input.value) && !(await confirmDialog(`Replace the dates in the form with ${source}'s quarters, one year later?`, { title: 'Copy quarters', confirmText: 'Replace' })))
+        return
+      data.forEach(q =>
+        ['start_date', 'end_date', 'grade_deadline'].forEach(field => {
+          const input = form.elements[`${field}-${q.quarter}`]
+          if (input) input.value = (q[field] && nextYearDate(q[field])) || ''
+        })
+      )
+      $('quarters-note').textContent = `Copied from ${source}, one year later. Check the dates (weekends, holidays), then click Save quarters.`
+      toast(`Quarters copied from ${source}. Review them and click Save quarters.`)
+    })
+
   async function removeHoliday(holiday) {
     if (!holiday) return
     const ok = await confirmDialog(`Remove ${holiday.name} (${longDate(holiday.holiday_date)})?`, {

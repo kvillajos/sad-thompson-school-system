@@ -2,12 +2,12 @@
 // Preview first (every row checked the same way the database checks it), then one all-or-nothing import.
 import { supabase } from '../shared/lib/auth-client.js'
 import { escapeHtml, gradeLabel } from '../shared/lib/html.js'
-import { describeError } from '../shared/lib/errors.js'
+import { describeError, describeFunctionError } from '../shared/lib/errors.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { STRANDS } from '../shared/lib/strands.js'
 import { loadSchoolYears } from '../shared/lib/school-years.js'
-import { MAX_IMPORT_ROWS, importTemplateCsv, parseCsv, tableToRecords, validateImportRows } from '../shared/lib/student-import.js'
+import { MAX_IMPORT_ROWS, buildImportTemplate, parseCsv, tableToRecords, validateImportRows } from '../shared/lib/student-import.js'
 import { downloadFile, loadExcel, sheetToTable } from '../shared/ui/download.js'
 import { confirmDialog, noticeDialog } from '../shared/ui/dialog.js'
 import { toast } from '../shared/ui/ui-theme.js'
@@ -22,7 +22,7 @@ export async function mountImportTab(host) {
     auto-assign on Section Students. Returning students are not imported: re-enroll them instead.</p>
     <div class="filterbar">
       <select id="import-year" aria-label="School year"></select>
-      <button type="button" class="btn secondary" id="import-template">Download template (CSV)</button>
+      <button type="button" class="btn secondary" id="import-template">Download Excel template</button>
       <input type="file" id="import-file" accept=".csv,.xlsx" aria-label="Choose a CSV or Excel file" />
     </div>
     <p id="import-summary" class="note hidden" role="status"></p>
@@ -37,7 +37,17 @@ export async function mountImportTab(host) {
     : '<option value="">No school year has enrollment open</option>'
   $('import-file').disabled = !open.length
 
-  $('import-template').onclick = () => downloadFile('student-import-template.csv', `﻿${importTemplateCsv()}`, 'text/csv;charset=utf-8')
+  $('import-template').onclick = () =>
+    withBusy($('import-template'), 'Preparing…', async () => {
+      const workbook = buildImportTemplate(await loadExcel(), {
+        grades: OFFERED_GRADES,
+        strands: STRANDS.map(strand => strand.code ?? strand)
+      })
+      downloadFile(
+        'student-import-template.xlsx',
+        new Blob([await workbook.xlsx.writeBuffer()], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      )
+    })
   $('import-file').onchange = () => withBusy($('import-file'), 'Reading…', () => preview($, $('import-file').files[0]))
   $('import-run').onclick = () => withBusy($('import-run'), 'Importing…', () => runImport($))
 }
@@ -117,7 +127,7 @@ async function runImport($) {
   const year = $('import-year').value
   if (!year || !checked.length || checked.some(row => row.errors.length)) return
   const ok = await confirmDialog(
-    `Import ${checked.length} student(s) into ${year}? Each gets a student record, an enrollment for ${year} and a login waiting for the admin to activate.`,
+    `Import ${checked.length} student(s) into ${year}? Each gets a student record, an enrollment for ${year} and a login (username + "123").`,
     { title: 'Import students', confirmText: 'Import' }
   )
   if (!ok) return
@@ -127,10 +137,22 @@ async function runImport($) {
   })
   if (error) return toast(describeError(error, 'Import students'), 'error')
   const created = data?.created || []
+  // Activate the logins now so no student is left as an account that cannot sign in. Failures are listed, not hidden.
+  const failed = []
+  for (const [index, item] of created.entries()) {
+    $('import-run').textContent = `Activating logins ${index + 1} of ${created.length}…`
+    const { error: loginError } = await supabase.functions.invoke('provision-account', {
+      body: { student_id: item.student_id, action: 'provision' }
+    })
+    if (loginError) failed.push(`${item.username}: ${await describeFunctionError(loginError, 'Activate login')}`)
+  }
   await noticeDialog(
     [
       `${created.length} student(s) imported into ${year}.`,
-      'Next: place them in sections with auto-assign on Section Students, and ask the admin to provision their logins (Manage Accounts > Provision pending logins).',
+      failed.length
+        ? `${failed.length} login(s) could not be activated. Ask the admin to run Manage Accounts > Provision pending logins:\n${failed.join('\n')}`
+        : `All ${created.length} logins are active. Each student signs in with their username + "123".`,
+      'Next: place them in sections with auto-assign on Section Students.',
       ...created.slice(0, 50).map(item => `${item.student_no}  ${item.name}  (username ${item.username})`),
       created.length > 50 ? `…and ${created.length - 50} more.` : ''
     ].join('\n'),
@@ -140,4 +162,5 @@ async function runImport($) {
   $('import-file').value = ''
   $('import-preview').innerHTML = ''
   $('import-run').disabled = true
+  $('import-run').textContent = 'Import students'
 }

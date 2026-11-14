@@ -55,8 +55,10 @@ async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
     const body = await req.json()
-    const { user_id, action = 'provision', request_id } = body
-    if (!user_id && action !== 'create-account') return json({ error: 'user_id is required' }, 400)
+    const { user_id, student_id, action = 'provision', request_id } = body
+    // 'provision' may name the account by student_id (the registrar's import result only knows students).
+    if (!user_id && !(student_id && action === 'provision') && action !== 'create-account')
+      return json({ error: 'user_id is required' }, 400)
     if (
       ![
         'provision',
@@ -87,7 +89,10 @@ async function handle(req: Request): Promise<Response> {
       .eq('email', caller.email)
       .eq('is_active', true)
       .single()
-    if (!callerProfile || Number(callerProfile.role_id) !== 1) return json({ error: 'Admin role required' }, 403)
+    // Admins do everything. A registrar may only activate pending student logins (checked below once the account is loaded).
+    const isAdmin = Number(callerProfile?.role_id) === 1
+    if (!callerProfile || !(isAdmin || (Number(callerProfile.role_id) === 2 && action === 'provision')))
+      return json({ error: 'Admin role required' }, 403)
 
     // New staff account (admin, registrar or faculty): login + users row + the role's profile row, all or nothing.
     // Students are not created here; they get their account when their admission application is approved.
@@ -224,14 +229,39 @@ async function handle(req: Request): Promise<Response> {
       return json({ status: 'approved' })
     }
 
-    const { data: account, error: accountError } = await admin
+    const accountQuery = admin
       .from('users')
       .select('user_id, username, email, initial_password, student_id, is_active, deleted_at, deleted_was_active')
-      .eq('user_id', user_id)
-      .single()
+    const { data: account, error: accountError } = await (
+      user_id ? accountQuery.eq('user_id', user_id) : accountQuery.eq('student_id', student_id)
+    ).single()
     if (accountError || !account) return json({ error: 'Account not found' }, 404)
     if (account.deleted_at && action !== 'restore-account')
       return json({ error: 'This account is deleted. Restore it from the audit trail first.' }, 409)
+
+    if (action === 'provision') {
+      if (!isAdmin && !account.student_id) return json({ error: 'Registrars can only activate student logins.' }, 403)
+      if (!account.initial_password) return json({ message: 'Account already provisioned', username: account.username }, 200)
+      // ban_duration clears a ban left on an older login with the same email; otherwise "provisioned" would still not sign in.
+      const payload = {
+        email: account.email,
+        password: account.initial_password,
+        email_confirm: true,
+        user_metadata: { username: account.username },
+        ban_duration: account.is_active ? 'none' : '876000h'
+      }
+      // Create first: the full login list is only read when the email is already taken.
+      let result = await admin.auth.admin.createUser(payload)
+      if (result.error && (result.error.code === 'email_exists' || /already|registered|exists/i.test(result.error.message))) {
+        const { user: existingLogin, error: findError } = await findAuthUser(admin, account.email)
+        if (findError) return json({ error: findError.message }, 500)
+        if (existingLogin) result = await admin.auth.admin.updateUserById(existingLogin.id, payload)
+      }
+      if (result.error) return json({ error: result.error.message }, 500)
+      const { error: clearError } = await admin.from('users').update({ initial_password: null }).eq('user_id', account.user_id)
+      if (clearError) return json({ error: clearError.message }, 500)
+      return json({ username: account.username, email: account.email })
+    }
 
     const { user: existing, error: listError } = await findAuthUser(admin, account.email)
     if (listError) return json({ error: listError.message }, 500)
@@ -294,21 +324,7 @@ async function handle(req: Request): Promise<Response> {
       return json({ username: account.username, email: account.email, temporary_password: newPassword })
     }
 
-    if (!account.initial_password) return json({ message: 'Account already provisioned', username: account.username }, 200)
-
-    const payload = {
-      email: account.email,
-      password: account.initial_password,
-      email_confirm: true,
-      user_metadata: { username: account.username }
-    }
-    const result = existing ? await admin.auth.admin.updateUserById(existing.id, payload) : await admin.auth.admin.createUser(payload)
-    if (result.error) return json({ error: result.error.message }, 500)
-
-    const { error: clearError } = await admin.from('users').update({ initial_password: null }).eq('user_id', user_id)
-    if (clearError) return json({ error: clearError.message }, 500)
-
-    return json({ username: account.username, email: account.email })
+    return json({ error: 'Unknown action' }, 400)
   } catch (err) {
     return json({ error: String(err) }, 500)
   }

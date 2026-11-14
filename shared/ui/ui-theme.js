@@ -854,6 +854,19 @@ th.sortable:focus-visible { outline:2px solid #f0b429; outline-offset:-2px; }
   display: flex;
 }
 
+/* Same size at every screen width: the tablet/mobile sheets size these buttons differently (and skip .admin-approve),
+   so the column gets a fixed width wide enough for "Open Admissions" and every button fills it. */
+#approvals-table td:last-child { min-width: 160px; }
+#approvals-table td:last-child .admin-view,
+#approvals-table td:last-child .admin-approve,
+#approvals-table td:last-child .admin-remove {
+  width: 100%;
+  min-height: 36px !important;
+  padding: 6px 10px !important;
+  margin-right: 0;
+  border-radius: 8px !important;
+}
+
 /* Profile picture fields and previews */
 .photo-field { display:flex; align-items:center; gap:14px; margin-top:6px; }
 .photo-field input[type=file] { margin-top:0; }
