@@ -20,12 +20,22 @@ const takes = (subject, section) =>
 
 const modal = document.createElement('div')
 modal.className = 'admin-modal hidden'
-modal.innerHTML = `<div class="admin-modal-box schedule-box">
-  <div class="admin-modal-head"><h3 data-title>Auto-schedule</h3><button type="button" data-close>x</button></div>
-  <div class="admin-filterbar"><label>Semester (Senior High)<select data-semester><option value="1">1st Semester</option><option value="2">2nd Semester</option></select></label><label><input type="checkbox" data-preview-only /> Preview only (don't save)</label></div>
-  <p class="admin-note" data-note></p>
-  <section class="admin-table-wrap"><table data-no-pages><thead><tr><th>Section</th><th>Subject</th><th>Faculty</th><th>Time (Mon-Fri)</th><th>Room</th></tr></thead><tbody data-rows></tbody></table></section>
-  <div class="admin-actions"><button type="button" class="admin-cancel" data-cancel>Cancel</button><button type="button" class="admin-primary" data-apply>Apply</button></div>
+// Pinned header (title, counts, controls) and footer (actions); only the section list in between scrolls.
+modal.innerHTML = `<div class="admin-modal-box auto-schedule-box" role="dialog" aria-modal="true" aria-labelledby="auto-schedule-title">
+  <header class="as-head">
+    <div class="admin-modal-head as-title-row"><h3 id="auto-schedule-title" data-title>Auto-schedule</h3><button type="button" class="as-close" data-close aria-label="Close">×</button></div>
+    <div class="as-stats" data-stats></div>
+    <div class="as-controls">
+      <label class="as-semester" data-semester-wrap>Semester <select data-semester><option value="1">1st Semester</option><option value="2">2nd Semester</option></select></label>
+      <label class="as-check"><input type="checkbox" data-preview-only /> Preview only (don't save)</label>
+      <input type="search" class="as-search" data-search maxlength="100" placeholder="Search section or subject..." aria-label="Search section or subject" />
+    </div>
+  </header>
+  <div class="as-body" data-body></div>
+  <footer class="as-foot">
+    <p class="as-note" data-note></p>
+    <div class="as-actions"><button type="button" class="admin-cancel" data-cancel>Cancel</button><button type="button" class="admin-primary" data-apply>Apply</button></div>
+  </footer>
 </div>`
 document.body.append(modal)
 const $ = selector => modal.querySelector(selector)
@@ -34,6 +44,9 @@ $('[data-close]').onclick = close
 $('[data-cancel]').onclick = close
 
 let state = null
+// Which section blocks are expanded and whether removed classes are listed; kept across re-renders (search, semester).
+let openSections = new Set()
+let showRemoved = false
 
 async function loadYear(schoolYear) {
   const [subjects, schedules, assignments, settings] = await Promise.all([
@@ -89,34 +102,123 @@ function plan() {
     slots: data.slots
   })
   state.plan = { removed, results }
-  const placed = results.flatMap(result => result.placed.map(row => ({ ...row, section: result.section })))
-  const unplaced = results.flatMap(result => result.unplaced.map(row => ({ ...row, section: result.section })))
-  const sectionName = section => `${section.section_name} (${gradeLabel(section.grade_level)}${section.strand ? ` ${section.strand}` : ''})`
-  const removedRows = [...new Map(removed.map(row => [`${row.section_id}:${row.subject_id}`, row])).values()].map(row => {
-    const section = sections.find(item => Number(item.section_id) === Number(row.section_id))
-    const subject = bySubject.get(row.subject_id)
-    return `<tr class="table-state-removed"><td>${escape(section ? sectionName(section) : row.section_id)}</td><td><s>${escape(subject?.subject_name || row.subject_id)}</s></td><td>${escape(row.faculty_name || '-')}</td><td colspan="2">Removed (other semester)</td></tr>`
-  })
-  $('[data-rows]').innerHTML =
-    [
-      ...removedRows,
-      ...placed.map(
-        row =>
-          `<tr><td>${escape(sectionName(row.section))}</td><td>${escape(row.subject.subject_name)}</td><td>${escape(row.faculty_name)}</td><td>${timeRange12(row.start_time, row.end_time)}</td><td>${escape(row.room || '-')}</td></tr>`
-      ),
-      ...unplaced.map(
-        row =>
-          `<tr><td>${escape(sectionName(row.section))}</td><td>${escape(row.subject.subject_name)}</td><td colspan="3"><strong>Not placed:</strong> ${escape(row.reason)}</td></tr>`
-      )
-    ].join('') || '<tr><td colspan="5">Every subject is already scheduled. Nothing to add.</td></tr>'
-  const removedClasses = new Set(removed.map(row => `${row.section_id}:${row.subject_id}`)).size
-  $('[data-note]').textContent =
-    `${placed.length} class(es) to add, each meeting Monday to Friday` +
-    (unplaced.length ? `; ${unplaced.length} subject(s) could not be placed` : '') +
-    (removedClasses ? `; ${removedClasses} class(es) of the other semester will be removed.` : '.') +
-    ($('[data-preview-only]').checked ? ' Preview only: nothing is saved. Untick "Preview only" to apply.' : '')
+  // One removed entry per section + subject (a class meets on five days, so it has five schedule rows).
+  const removedBySection = new Map()
+  for (const row of new Map(removed.map(row => [`${row.section_id}:${row.subject_id}`, row])).values()) {
+    const key = Number(row.section_id)
+    if (!removedBySection.has(key)) removedBySection.set(key, [])
+    removedBySection.get(key).push({ ...row, subject: bySubject.get(row.subject_id) })
+  }
+  state.groups = results.map(({ section, placed, unplaced }) => ({
+    section,
+    placed: [...placed].sort((a, b) => String(a.start_time).localeCompare(String(b.start_time))),
+    unplaced,
+    removed: removedBySection.get(Number(section.section_id)) || []
+  }))
+  render()
+}
+
+const sectionLabel = section => `${gradeLabel(section.grade_level)}${section.strand ? ` ${section.strand}` : ''}`
+const count = (n, label, tone) => (n ? `<span class="as-chip ${tone}">${n} ${label}</span>` : '')
+
+function render() {
+  const groups = state.groups
+  const totals = groups.reduce(
+    (sum, g) => ({
+      placed: sum.placed + g.placed.length,
+      unplaced: sum.unplaced + g.unplaced.length,
+      removed: sum.removed + g.removed.length
+    }),
+    { placed: 0, unplaced: 0, removed: 0 }
+  )
+  const previewOnly = $('[data-preview-only]').checked
+  $('[data-stats]').innerHTML = `
+    <div class="as-stat add"><b>${totals.placed}</b><span>class(es) to add</span></div>
+    <div class="as-stat warn${totals.unplaced ? '' : ' zero'}"><b>${totals.unplaced}</b><span>not placed</span></div>
+    <div class="as-stat removed${totals.removed ? '' : ' zero'}"><b>${totals.removed}</b><span>from the other semester removed</span>${
+      totals.removed ? `<button type="button" class="as-link" data-toggle-removed>${showRemoved ? 'Hide list' : 'Show list'}</button>` : ''
+    }</div>`
+
+  const search = $('[data-search]').value.trim().toLowerCase()
+  const matches = text =>
+    String(text || '')
+      .toLowerCase()
+      .includes(search)
+  const filtered = groups
+    .map(group => {
+      if (!search || matches(`${group.section.section_name} ${sectionLabel(group.section)}`)) return group
+      const pick = rows => rows.filter(row => matches(row.subject?.subject_name) || matches(row.faculty_name))
+      const narrowed = { ...group, placed: pick(group.placed), unplaced: pick(group.unplaced), removed: pick(group.removed) }
+      return narrowed.placed.length + narrowed.unplaced.length + narrowed.removed.length ? { ...narrowed, forceOpen: true } : null
+    })
+    .filter(Boolean)
+    // Sections that need attention first, then by grade and name.
+    .sort(
+      (a, b) =>
+        Number(!a.unplaced.length) - Number(!b.unplaced.length) ||
+        Number(a.section.grade_level) - Number(b.section.grade_level) ||
+        String(a.section.section_name).localeCompare(String(b.section.section_name))
+    )
+
+  const single = groups.length === 1
+  $('[data-body]').innerHTML = filtered.length
+    ? filtered
+        .map(group => {
+          const id = Number(group.section.section_id)
+          const open = single || group.forceOpen || openSections.has(id)
+          const removedRows = showRemoved ? group.removed : []
+          const rows = [
+            ...group.unplaced.map(
+              row =>
+                `<tr class="as-row-warn"><td>${escape(row.subject.subject_name)}</td><td colspan="3"><span class="as-tag warn">Not placed</span> ${escape(row.reason)}</td></tr>`
+            ),
+            ...group.placed.map(
+              row =>
+                `<tr><td>${escape(row.subject.subject_name)}</td><td>${escape(row.faculty_name || '-')}</td><td class="as-time">${timeRange12(row.start_time, row.end_time)}</td><td>${escape(row.room || '-')}</td></tr>`
+            ),
+            ...removedRows.map(
+              row =>
+                `<tr class="as-row-removed"><td>${escape(row.subject?.subject_name || row.subject_id)}</td><td>${escape(row.faculty_name || '-')}</td><td colspan="2"><span class="as-tag removed">Removed</span> other semester</td></tr>`
+            )
+          ].join('')
+          return `<details class="as-section${group.unplaced.length ? ' needs-attention' : ''}" data-section="${id}"${open ? ' open' : ''}>
+            <summary><span class="as-section-name">${escape(group.section.section_name)}</span><span class="as-section-grade">${escape(sectionLabel(group.section))}</span>
+              <span class="as-chips">${count(group.placed.length, 'to add', 'add')}${count(group.unplaced.length, 'not placed', 'warn')}${count(group.removed.length, 'removed', 'removed')}${
+                group.placed.length + group.unplaced.length ? '' : '<span class="as-chip done">Already scheduled</span>'
+              }</span></summary>
+            ${
+              rows
+                ? `<table data-no-pages><thead><tr><th>Subject</th><th>Faculty</th><th>Time (Mon–Fri)</th><th>Room</th></tr></thead><tbody>${rows}</tbody></table>`
+                : '<p class="as-empty">Every subject is already scheduled.</p>'
+            }
+          </details>`
+        })
+        .join('')
+    : `<p class="as-empty">${search ? 'No section or subject matches your search.' : 'Every subject is already scheduled. Nothing to add.'}</p>`
+
+  $('[data-body]')
+    .querySelectorAll('details[data-section]')
+    .forEach(block => {
+      block.ontoggle = () => {
+        const id = Number(block.dataset.section)
+        block.open ? openSections.add(id) : openSections.delete(id)
+      }
+    })
+  const toggle = $('[data-toggle-removed]')
+  if (toggle)
+    toggle.onclick = () => {
+      showRemoved = !showRemoved
+      render()
+    }
+
+  $('[data-note]').textContent = previewOnly
+    ? 'Preview only: nothing is saved. Untick "Preview only" to apply.'
+    : totals.placed
+      ? `Each class meets Monday to Friday.${totals.removed ? ` Applying also removes ${totals.removed} class(es) of the other semester.` : ''}`
+      : 'Nothing to add.'
   // Nothing placed means nothing to apply: the other semester's classes are never removed on their own.
-  $('[data-apply]').disabled = !placed.length || $('[data-preview-only]').checked
+  $('[data-apply]').disabled = !totals.placed || previewOnly
+  $('[data-apply]').textContent = totals.placed ? `Apply ${totals.placed} class(es)` : 'Apply'
 }
 
 async function apply() {
@@ -165,7 +267,8 @@ $('[data-semester]').onchange = () => {
   $('[data-preview-only]').checked = Number($('[data-semester]').value) !== currentSemester()
   plan()
 }
-$('[data-preview-only]').onchange = plan
+$('[data-preview-only]').onchange = render
+$('[data-search]').oninput = render
 $('[data-apply]').onclick = () => withBusy($('[data-apply]'), 'Applying…', apply)
 
 // Opens the preview for these sections (all from one school year). onApplied reloads the page's data.
@@ -184,7 +287,10 @@ export async function openAutoSchedule(sections, onApplied) {
       : `Auto-schedule ${sections.length} sections (${years[0]})`
   $('[data-semester]').value = String(currentSemester())
   $('[data-preview-only]').checked = false
-  $('[data-semester]').closest('.admin-filterbar').hidden = !sections.some(section => Number(section.grade_level) >= 11)
+  $('[data-search]').value = ''
+  openSections = new Set()
+  showRemoved = false
+  $('[data-semester-wrap]').hidden = !sections.some(section => Number(section.grade_level) >= 11)
   plan()
   modal.classList.remove('hidden')
 }

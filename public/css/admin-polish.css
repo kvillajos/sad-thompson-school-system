@@ -80,8 +80,21 @@
   }
   body.role-admin .admin-filterbar input,
   body.role-admin .admin-filterbar select,
-  body.role-admin .admin-filterbar .admin-primary {
+  body.role-admin .admin-filterbar .admin-primary,
+  body.role-admin .admin-filterbar .admin-secondary {
     box-sizing: border-box;
     height: 42px;
+  }
+  /* Filter bars with the shared filters + Export CSV: let the search and dropdowns shrink so Export CSV
+     (and the Add button) stay on the same row instead of wrapping onto a second line. */
+  body.role-admin .admin-filterbar:has(.filter-bar-host) > input,
+  body.role-admin .admin-filterbar .filter-bar-host select {
+    flex: 1 1 130px;
+    min-width: 120px;
+    max-width: 240px;
+  }
+  body.role-admin .admin-filterbar:has(.filter-bar-host) button {
+    flex: none;
+    white-space: nowrap;
   }
 }

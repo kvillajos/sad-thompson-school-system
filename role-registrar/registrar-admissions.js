@@ -303,9 +303,14 @@ export async function loadApplications() {
     return
   }
   state.applications = data || []
+  renderApplications()
+}
 
+function renderApplications() {
+  const search = $('application-search').value.trim().toLowerCase()
   $('applications-table').innerHTML =
     state.applications
+      .filter(a => !search || `${a.first_name} ${a.last_name} ${a.last_name} ${a.first_name} ${a.id}`.toLowerCase().includes(search))
       .map(
         a => `<tr>
     <td data-label="Student">${escapeHtml(`${a.first_name} ${a.last_name}`)}</td>
@@ -325,6 +330,7 @@ export async function loadApplications() {
   document.querySelectorAll('[data-review]').forEach(b => b.addEventListener('click', () => openView(b.dataset.review)))
   document.querySelectorAll('[data-resume]').forEach(b => b.addEventListener('click', () => resumeApplication(b.dataset.resume)))
 }
+$('application-search').oninput = renderApplications
 
 function resumeApplication(id) {
   const application = state.applications.find(item => String(item.id) === String(id))
@@ -464,7 +470,13 @@ async function changeStrand(student, placed) {
       ? `${student.first_name} is in ${placed.sections?.section_name || 'a section'}. Pick the new strand and a section of that strand to move them to. Their grades so far stay on record.`
       : `${student.first_name} has no section yet. Pick the new strand; you can choose a section now or place them later.`,
     fields: [
-      { name: 'strand', label: 'New strand', required: true, value: '', options: [['', 'Choose strand'], ...STRANDS.filter(s => s.code !== student.strand).map(s => [s.code, `${s.code} - ${s.name}`])] },
+      {
+        name: 'strand',
+        label: 'New strand',
+        required: true,
+        value: '',
+        options: [['', 'Choose strand'], ...STRANDS.filter(s => s.code !== student.strand).map(s => [s.code, `${s.code} - ${s.name}`])]
+      },
       {
         name: 'section_id',
         label: 'Move to section',
@@ -472,7 +484,14 @@ async function changeStrand(student, placed) {
         hint: 'Must be a section of the new strand.',
         options: [['', placed ? 'Choose section' : 'Place later'], ...sections.map(s => [s.section_id, `${s.strand} · ${s.section_name}`])]
       },
-      { name: 'reason', label: 'Reason', required: true, multiline: true, maxlength: 300, placeholder: 'e.g. Wrong strand entered at promotion' }
+      {
+        name: 'reason',
+        label: 'Reason',
+        required: true,
+        multiline: true,
+        maxlength: 300,
+        placeholder: 'e.g. Wrong strand entered at promotion'
+      }
     ],
     confirmText: 'Change strand'
   })

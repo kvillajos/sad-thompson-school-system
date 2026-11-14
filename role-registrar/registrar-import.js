@@ -27,7 +27,7 @@ export async function mountImportTab(host) {
     </div>
     <p id="import-summary" class="note hidden" role="status"></p>
     <div id="import-preview"></div>
-    <div class="actions"><button type="button" class="btn" id="import-run" disabled>Import students</button></div>`
+    <div class="actions" style="margin-top: 16px"><button type="button" class="btn" id="import-run" disabled>Import students</button></div>`
   const $ = id => host.querySelector(`#${id}`)
 
   const years = await loadSchoolYears().catch(() => [])

@@ -185,6 +185,71 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
 .schedule-box > .admin-table-wrap { padding:14px; border-radius:15px; }
 .schedule-box > .admin-table-wrap th { height:42px; padding:8px 12px; }
 .schedule-box .admin-table-wrap table { min-width:0 !important; }
+/* Auto-schedule preview: pinned head and foot, only the section list scrolls. */
+.auto-schedule-box { width:min(100%,1080px) !important; height:min(88vh,900px); max-height:none; display:flex; flex-direction:column; padding:0 !important; overflow:hidden !important; border-radius:22px; }
+.as-head { flex:none; padding:20px 24px 14px; border-bottom:1px solid var(--ui-border); background:var(--ui-surface-strong); }
+.as-title-row { margin:0 0 14px !important; position:static !important; padding:0 !important; }
+.as-title-row h3 { display:flex; align-items:center; gap:10px; font-size:21px; }
+.as-title-row h3::before { content:''; width:5px; height:24px; border-radius:4px; background:var(--ui-blue); }
+.as-close { width:34px; height:34px; padding:0 !important; font-size:20px; line-height:1; }
+.as-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+.as-stat { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 8px; padding:10px 14px; border-radius:12px; border:1px solid var(--ui-border); background:var(--ui-surface); }
+.as-stat b { font-size:22px; line-height:1.1; }
+.as-stat span { color:var(--ui-muted); font-size:13px; }
+.as-stat.add b { color:var(--ui-success); }
+.as-stat.warn b { color:var(--ui-warning); }
+.as-stat.removed b { color:var(--ui-danger); }
+.as-stat.zero b { color:var(--ui-muted); }
+.as-link { margin-left:auto; min-height:0 !important; border:0; background:none; padding:0; color:var(--ui-blue); font-weight:700; font-size:13px; cursor:pointer; text-decoration:underline; }
+.as-controls { display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; }
+.as-semester { display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; }
+.as-semester select { width:auto; margin:0; }
+.as-check { display:flex; align-items:center; gap:6px; font-size:13px; }
+.as-check input { width:auto; margin:0; }
+.as-search { flex:1 1 220px; max-width:340px; margin:0 0 0 auto !important; }
+.as-body { flex:1; min-height:0; overflow-y:auto; padding:14px 24px; background:var(--ui-bg); }
+.as-section { margin-bottom:10px; border:1px solid var(--ui-border); border-radius:14px; background:var(--ui-surface-strong); }
+.as-section.needs-attention { border-left:4px solid var(--ui-warning); }
+.as-section > summary { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; padding:12px 16px; cursor:pointer; list-style:none; }
+.as-section > summary::-webkit-details-marker { display:none; }
+.as-section > summary::before { content:'▸'; color:var(--ui-muted); transition:transform .15s; }
+.as-section[open] > summary::before { transform:rotate(90deg); }
+.as-section-name { font-weight:700; color:var(--ui-blue-dark); }
+.as-section-grade { color:var(--ui-muted); font-size:13px; }
+.as-chips { display:flex; flex-wrap:wrap; gap:6px; margin-left:auto; }
+.as-chip, .as-tag { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:700; white-space:nowrap; }
+.as-chip.add { background:rgba(22,131,75,.12); color:var(--ui-success); }
+.as-chip.warn, .as-tag.warn { background:rgba(183,121,31,.15); color:var(--ui-warning); }
+.as-chip.removed, .as-tag.removed { background:rgba(192,57,43,.12); color:var(--ui-danger); }
+.as-chip.done { background:var(--ui-surface); color:var(--ui-muted); }
+.as-section table { width:100%; border-collapse:collapse; min-width:0 !important; }
+.as-section th { position:sticky; top:-14px; z-index:1; background:var(--ui-surface) !important; color:var(--ui-muted) !important; font-size:12px; text-align:left; padding:8px 16px; border-top:1px solid var(--ui-border); border-bottom:1px solid var(--ui-border); }
+.as-section td { padding:9px 16px; border-bottom:1px solid var(--ui-border); font-size:13px; }
+.as-section tr:last-child td { border-bottom:0; }
+.as-time { white-space:nowrap; font-variant-numeric:tabular-nums; }
+.as-row-warn td { background:rgba(183,121,31,.06); }
+.as-row-removed td { color:var(--ui-muted); }
+.as-row-removed td:first-child { text-decoration:line-through; }
+.as-empty { margin:24px 0; text-align:center; color:var(--ui-muted); }
+.as-foot { flex:none; display:flex; align-items:center; gap:14px; padding:14px 24px; border-top:1px solid var(--ui-border); background:var(--ui-surface-strong); }
+.as-note { margin:0; flex:1; color:var(--ui-muted); font-size:13px; }
+.as-actions { display:flex; gap:10px; }
+@media (max-width:700px) {
+  /* Beats the generic mobile modal rule (padding + whole-box scrolling), which would unpin the head and foot. */
+  .admin-modal .admin-modal-box.auto-schedule-box { height:calc(100dvh - 24px); max-height:none !important; padding:0 !important; overflow:hidden !important; }
+  .as-head, .as-body, .as-foot { padding-left:14px; padding-right:14px; }
+  .as-stats { gap:6px; margin-bottom:10px; }
+  .as-stat { flex-direction:column; align-items:flex-start; gap:2px; padding:8px 10px; }
+  .as-stat b { font-size:18px; }
+  .as-stat span, .as-link { font-size:11px; }
+  .as-link { margin-left:0; }
+  .as-title-row h3 { font-size:17px; }
+  .as-controls { gap:8px 12px; }
+  .as-search { max-width:none; margin-left:0 !important; }
+  .as-foot { flex-direction:column; align-items:stretch; }
+  .as-actions > button { flex:1; }
+  .as-section td, .as-section th { padding-left:10px; padding-right:10px; }
+}
 .schedule-form-box { width:min(580px, calc(100vw - 24px)) !important; max-height:calc(100vh - 24px); padding:0 !important; border-radius:18px; overflow:hidden; font-family:Arial, 'Helvetica Neue', sans-serif; }
 .schedule-form-head { box-sizing:border-box; padding:24px 32px 18px; margin:0; align-items:flex-start; }
 .schedule-form-head h3 { font-size:22px; letter-spacing:-.01em; }

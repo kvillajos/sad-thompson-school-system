@@ -28,8 +28,16 @@ async function loadApplications() {
   if (error) return ($('admission-rejection-table').innerHTML = errorRow(7, error, 'Load applications'))
   applications = data || []
   $('admissions-count').textContent = applications.length ? `${applications.length} waiting` : ''
+  renderApplications()
+}
+
+function renderApplications() {
+  const search = $('admission-search').value.trim().toLowerCase()
+  const shown = applications.filter(
+    app => !search || `${app.id} ${app.first_name} ${app.last_name} ${app.last_name} ${app.first_name}`.toLowerCase().includes(search)
+  )
   $('admission-rejection-table').innerHTML =
-    applications
+    shown
       .map(
         app => `<tr>
           <td data-label="Application ID">${app.id}</td>
@@ -41,12 +49,14 @@ async function loadApplications() {
           <td data-label="Action"><button type="button" class="admin-view" data-review="${app.id}">Review</button></td>
         </tr>`
       )
-      .join('') || '<tr><td colspan="7">No applications are waiting for review.</td></tr>'
+      .join('') ||
+    `<tr><td colspan="7">${search ? 'No applications match your search.' : 'No applications are waiting for review.'}</td></tr>`
   document.querySelectorAll('[data-review]').forEach(button => {
     button.onclick = () => openReview(applications.find(app => String(app.id) === button.dataset.review))
   })
 }
 
+$('admission-search').oninput = renderApplications
 $('refresh-admissions').onclick = event => withBusy(event.currentTarget, 'Refreshing…', loadApplications)
 await loadApplications()
 // Open straight to one application when the Dashboard links here with ?review=<id>.
