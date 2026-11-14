@@ -7,6 +7,7 @@ import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { currentSchoolYear } from '../shared/lib/grades.js'
 import { mountAdminShell } from './admin-page.js'
 import { mountAuditTrail } from './audit-trail.js'
+import { mountDatabaseBackup } from './database-backup.js'
 
 // Two tabs: Reports and Audit Trail. The audit data loads the first time its tab opens; ?tab=audit opens it directly.
 let auditMounted = null
@@ -455,7 +456,8 @@ function generateReport() {
 
 async function initializeReportsPage() {
   try {
-    await mountAdminShell('reports')
+    const admin = await mountAdminShell('reports')
+    mountDatabaseBackup(document.getElementById('database-backup-host'), admin)
     if (new URLSearchParams(location.search).get('tab') === 'audit') showPageTab('audit')
 
     await loadReportData()
