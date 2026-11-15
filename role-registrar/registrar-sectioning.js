@@ -6,7 +6,7 @@ import { escapeHtml, lastFirst, byLastName, formatDate, gradeLabel, errorRow } f
 import { describeError } from '../shared/lib/errors.js'
 import { currentSchoolYear } from '../shared/lib/grades.js'
 import { fillYearSelect } from '../shared/lib/school-years.js'
-import { planBalancedAssignments, studentsForSection, isPlaceable } from '../shared/lib/sectioning.js'
+import { autoAssignCandidates, planBalancedAssignments, studentsForSection, isPlaceable } from '../shared/lib/sectioning.js'
 import { isSeniorHigh, strandOptions } from '../shared/lib/strands.js'
 import { statusBadge, bindViewStudentButtons } from './registrar-admissions.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
@@ -509,10 +509,7 @@ const excludeFilters = mountFilterBar($('auto-assign-exclude-filters'), {
     renderAutoAssignExclusions()
   }
 })
-const excludeCandidates = () => {
-  const grades = new Set(chosenGrades())
-  return state.students.filter(student => grades.has(Number(student.grade_level)) && !state.enrolledByStudent.get(student.student_id))
-}
+const excludeCandidates = () => autoAssignCandidates(state.students, chosenGrades(), state.enrolledByStudent)
 function renderAutoAssignExclusions() {
   const search = $('auto-assign-exclude-search').value.trim().toLowerCase()
   const candidates = excludeCandidates()
@@ -532,7 +529,7 @@ function renderAutoAssignExclusions() {
         return `<tr class="${on ? 'is-excluded' : ''}"><td><input type="checkbox" value="${student.student_id}"${on ? ' checked' : ''} aria-label="Exclude ${escapeHtml(lastFirst(student))}"></td><td>${escapeHtml(student.lrn_number || student.student_id)}</td><td>${escapeHtml(lastFirst(student))}</td><td>${escapeHtml(gradeLabel(student.grade_level))}</td><td>${sexOf(student)}</td></tr>`
       })
       .join('') ||
-    `<tr><td colspan="5">${candidates.length ? 'No students match the search or filters.' : 'Every student in the selected grade levels already has a section.'}</td></tr>`
+    `<tr><td colspan="5">${candidates.length ? 'No students match the search or filters.' : 'No eligible unassigned students are available in the selected grade levels.'}</td></tr>`
   const pageAll = $('auto-assign-exclude-page-all')
   const onPage = visible.filter(student => excludedIds.has(student.student_id)).length
   pageAll.checked = visible.length > 0 && onPage === visible.length

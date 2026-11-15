@@ -34,6 +34,16 @@ function splitByGender(students) {
 // Graduated, transferred and withdrawn students have left the school and must not be placed again.
 export const isPlaceable = student => !['Graduated', 'Transferred', 'Withdrawn'].includes(student.enrollment_status)
 
+export function autoAssignCandidates(students, grades, enrolledByStudent = new Map()) {
+  const inScope = new Set(grades.map(Number))
+  return students.filter(
+    student =>
+      inScope.has(Number(student.grade_level)) &&
+      isPlaceable(student) &&
+      !enrolledByStudent.get(student.student_id)
+  )
+}
+
 // A Senior High section belongs to one strand (STEM, ABM, ...); only students of that strand may join it.
 // Sections and students without a strand (Junior High) match each other.
 export const sameStrand = (student, section) => (student.strand || '') === (section?.strand || '')
@@ -68,19 +78,17 @@ export function planBalancedAssignments({
   const assignments = []
   const summary = []
   const unplaced = []
-  const inScope = new Set(grades.map(Number))
 
   // Students are dealt per grade level and strand (Junior High has no strand, so it is one group per grade).
   const byGroup = new Map()
-  students.forEach(student => {
-    const grade = Number(student.grade_level)
-    if (!inScope.has(grade) || !isPlaceable(student)) return
-    if (enrolledByStudent.get(student.student_id)) return // already has a section
-    if (excludedStudentIds.has(Number(student.student_id))) return // registrar excluded them
-    const key = `${grade}|${student.strand || ''}`
-    if (!byGroup.has(key)) byGroup.set(key, { grade, strand: student.strand || '', students: [] })
-    byGroup.get(key).students.push(student)
-  })
+  autoAssignCandidates(students, grades, enrolledByStudent)
+    .filter(student => !excludedStudentIds.has(Number(student.student_id)))
+    .forEach(student => {
+      const grade = Number(student.grade_level)
+      const key = `${grade}|${student.strand || ''}`
+      if (!byGroup.has(key)) byGroup.set(key, { grade, strand: student.strand || '', students: [] })
+      byGroup.get(key).students.push(student)
+    })
   ;[...byGroup.values()]
     .sort((a, b) => a.grade - b.grade || a.strand.localeCompare(b.strand))
     .forEach(({ grade, strand, students: groupStudents }) => {
