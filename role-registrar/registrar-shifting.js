@@ -4,7 +4,7 @@ import { withBusy } from '../shared/ui/shell.js'
 import { $, state } from './registrar-state.js'
 import { escapeHtml, lastFirst, byLastName, gradeLabel, gradeToNumber } from '../shared/lib/html.js'
 import { describeError } from '../shared/lib/errors.js'
-import { loadSections, loadEnrollments, renderStudentDirectory } from './registrar-sectioning.js'
+import { getActiveYearSections, loadSections, loadEnrollments, renderStudentDirectory } from './registrar-sectioning.js'
 import { renderAcademicStudents } from './registrar-academic.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
@@ -82,7 +82,7 @@ export async function refreshShiftSections() {
   const { data, error } = await supabase.from('enrollments').select('section_id').eq('student_id', studentId).eq('status', 'active')
   if (error) return toast(describeError(error, 'Load the current section'), 'error')
   const currentSections = new Set((data || []).map(row => row.section_id))
-  const candidates = state.sections.filter(
+  const candidates = getActiveYearSections().filter(
     section => Number(section.grade_level) === Number(student?.grade_level) && !currentSections.has(section.section_id)
   )
   select.innerHTML = candidates.length

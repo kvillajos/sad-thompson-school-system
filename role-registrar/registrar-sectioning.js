@@ -18,6 +18,7 @@ $('new-enrollment').onclick = () => document.querySelector('[data-tab="admission
 $('close-section-students').addEventListener('click', () => $('section-students-modal').classList.add('hidden'))
 
 let sectionCounts = {}
+export const getActiveYearSections = () => state.sections.filter(section => section.academic_year === currentSchoolYear())
 // Rebuilding a <select> resets it, so the current choice is put back afterwards.
 const refill = (select, html) => {
   const keep = select.value
@@ -45,7 +46,7 @@ export async function loadSections() {
     result[row.section_id] = (result[row.section_id] || 0) + 1
     return result
   }, {})
-  const grades = [...new Set(state.sections.map(s => s.grade_level))]
+  const grades = [...new Set(getActiveYearSections().map(s => s.grade_level))]
   refill($('placement-grade'), grades.map(g => `<option value="${g}">${escapeHtml(gradeLabel(g))}</option>`).join(''))
   refill(
     $('section-grade-filter'),
@@ -66,7 +67,8 @@ export async function loadSections() {
 function renderSections() {
   const sectionSearch = ($('section-search')?.value || '').trim().toLowerCase()
   const sectionGrade = $('section-grade-filter')?.value || ''
-  const visibleSections = state.sections.filter(
+  const activeYearSections = getActiveYearSections()
+  const visibleSections = activeYearSections.filter(
     section =>
       (!sectionGrade || String(section.grade_level) === sectionGrade) &&
       (!sectionSearch || section.section_name.toLowerCase().includes(sectionSearch))
@@ -78,7 +80,7 @@ function renderSections() {
           `<tr><td>${escapeHtml(s.section_name)}</td><td>${escapeHtml(gradeLabel(s.grade_level))}</td><td>${escapeHtml(s.faculty_assigned || '-')}</td><td>${sectionCounts[s.section_id] || 0}</td><td><button class="admin-view" data-view-section="${s.section_id}">View Students</button></td></tr>`
       )
       .join('') ||
-    `<tr><td colspan="5">${state.sections.length ? 'No sections match this filter.' : 'No sections configured. Ask the administrator to add sections.'}</td></tr>`
+    `<tr><td colspan="5">${activeYearSections.length ? 'No sections match this filter.' : 'No sections configured for the active school year. Ask the administrator to add sections.'}</td></tr>`
   document.querySelectorAll('[data-place]').forEach(b => (b.onclick = () => openPlacement(Number(b.dataset.place))))
   document.querySelectorAll('[data-view-section]').forEach(b => (b.onclick = () => viewSectionStudents(Number(b.dataset.viewSection))))
 }
@@ -341,7 +343,7 @@ async function openPlacement(sectionId = '') {
       .map(row => [String(row.student_id), row.sections?.section_name || 'Another section'])
   )
   if (!state.students.length) return toast('No students are available for placement. Check the students table and RLS policy.', 'error')
-  const grades = [...new Set(state.sections.map(s => s.grade_level))].sort((a, b) => a - b)
+  const grades = [...new Set(getActiveYearSections().map(s => s.grade_level))].sort((a, b) => a - b)
   $('placement-grade').innerHTML = grades.map(g => `<option value="${g}">${escapeHtml(gradeLabel(g))}</option>`).join('')
   $('placement-search').value = ''
   renderPlacementStudents()
@@ -353,15 +355,14 @@ async function openPlacement(sectionId = '') {
 // "without a section" filter, so the registrar can see who is being moved before placing.
 function placementRows() {
   const grade = $('placement-grade').value
-  const sections = state.sections
+  const sections = getActiveYearSections()
     .filter(section => Number(section.grade_level) === Number(grade))
     .sort((a, b) => (a.section_name || '').localeCompare(b.section_name || ''))
   const currentSection = $('placement-section').value
-  const manyYears = new Set(sections.map(s => s.academic_year)).size > 1
   $('placement-section').innerHTML = sections
     .map(
       s =>
-        `<option value="${s.section_id}">${escapeHtml(s.section_name)}${s.strand ? ` · ${escapeHtml(s.strand)}` : ''}${manyYears ? ` · ${escapeHtml(s.academic_year)}` : ''} (${Math.max(0, s.capacity - (sectionCounts[s.section_id] || 0))} of ${s.capacity} seats left)</option>`
+        `<option value="${s.section_id}">${escapeHtml(s.section_name)}${s.strand ? ` · ${escapeHtml(s.strand)}` : ''} (${Math.max(0, s.capacity - (sectionCounts[s.section_id] || 0))} of ${s.capacity} seats left)</option>`
     )
     .join('')
   if (sections.some(section => String(section.section_id) === currentSection)) $('placement-section').value = currentSection
@@ -382,7 +383,7 @@ function placementRows() {
 }
 function renderPlacementStudents() {
   const rows = placementRows()
-  const section = state.sections.find(item => String(item.section_id) === $('placement-section').value)
+  const section = getActiveYearSections().find(item => String(item.section_id) === $('placement-section').value)
   $('placement-list-title').textContent =
     `${rows.length} student${rows.length === 1 ? '' : 's'}${section ? ` · ${section.section_name}` : ''}`
   $('placement-students').innerHTML =

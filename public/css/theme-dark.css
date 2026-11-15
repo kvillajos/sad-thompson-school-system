@@ -201,9 +201,13 @@
     color: #fff !important;
   }
 
-  html[data-theme='dark'] .review-grid > div,
-  html[data-theme='dark'] .selected-row {
+  html[data-theme='dark'] .review-grid > div {
     background: #27364a !important;
+  }
+
+  html[data-theme='dark'] #shift-student-table tr.selected-row,
+  html[data-theme='dark'] #shift-student-table tr.selected-row td {
+    background: #244b3a !important;
   }
 
   html[data-theme='dark'] .main .card > p,

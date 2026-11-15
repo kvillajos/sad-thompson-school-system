@@ -41,13 +41,15 @@ export const sameStrand = (student, section) => (student.strand || '') === (sect
 // Students that may be placed into one section: exactly that grade level and strand, still in school, and not
 // already sitting in that same section.
 export function studentsForSection(students, { gradeLevel, sectionId, strand = null, enrolledByStudent = new Map() }) {
-  return students.filter(
-    student =>
+  return students.filter(student => {
+    const currentSectionId = enrolledByStudent.get(student.student_id)
+    return (
       Number(student.grade_level) === Number(gradeLevel) &&
       sameStrand(student, { strand }) &&
       isPlaceable(student) &&
-      Number(enrolledByStudent.get(student.student_id)) !== Number(sectionId)
-  )
+      (currentSectionId == null || Number(currentSectionId) !== Number(sectionId))
+    )
+  })
 }
 
 // Deals shuffled boys and girls into the grade's sections one boy + one girl per

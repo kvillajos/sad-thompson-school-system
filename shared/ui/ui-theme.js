@@ -833,7 +833,8 @@ button.btn-remove, .admin-remove { background:#fee2e2 !important; color:#c0392b 
 .camera-box { width:min(100%, 560px) !important; }
 .camera-box video { display:block; width:100%; max-height:65vh; object-fit:cover; border-radius:6px; background:#071b3a; }
 .camera-box .admin-actions { margin-top:14px; }
-.selected-row { background:#eaf1ff; }
+#shift-student-table tr.selected-row,
+#shift-student-table tr.selected-row td { background:#e8f5e9; }
 .table-scroll { overflow:auto; max-height:360px; }
 #grade-table input[type=number]:invalid { border-color:#c62828; background:#fdecea; }
 .shift-student-picker table { min-width:0 !important; }

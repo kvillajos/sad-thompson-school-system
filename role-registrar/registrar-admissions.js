@@ -5,7 +5,7 @@ import { $, state } from './registrar-state.js'
 import { escapeHtml, formatDate, gradeLabel, gradeToNumber, errorRow } from '../shared/lib/html.js'
 import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { attendanceSummaryLine } from '../shared/lib/attendance.js'
-import { generalAverage, letterGrade } from '../shared/lib/grades.js'
+import { currentSchoolYear, generalAverage, letterGrade } from '../shared/lib/grades.js'
 import { fetchAll } from '../shared/lib/fetch-all.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog, formDialog } from '../shared/ui/dialog.js'
@@ -431,6 +431,9 @@ export async function openStudentDetails(studentId) {
   const enrollmentRows = enrollments.data || []
   const academicRows = academics.data || []
   const active = enrollmentRows.find(row => row.status === 'active')
+  const activeYear = active?.school_year || currentSchoolYear()
+  const academicYears = [...new Set([activeYear, ...academicRows.map(row => row.school_year)].filter(Boolean))].sort().reverse()
+  const activeYearRows = academicRows.filter(row => row.school_year === activeYear)
   const currentYearAverage = generalAverage(academicRows.filter(row => row.school_year === active?.school_year))
   const attendanceTotals = await supabase.rpc('attendance_totals', { p_student_id: studentId, p_school_year: active?.school_year || null })
   const attendanceLine = attendanceTotals.error
@@ -456,7 +459,19 @@ export async function openStudentDetails(studentId) {
     <h3>Enrollment History</h3>
     <table><thead><tr><th>School Year</th><th>Section</th><th>Status</th><th>Enrolled On</th></tr></thead><tbody>${enrollmentRows.map(row => `<tr><td>${escapeHtml(row.school_year || '-')}</td><td>${escapeHtml(row.sections?.section_name || 'No Section')}</td><td>${statusBadge(row.status || 'active')}</td><td>${formatDate(row.enrolled_at)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty-state">No enrollment records.</td></tr>'}</tbody></table>
     <h3>Academic History</h3>
-    ${buildSemesterTable(academicRows, { polished: true })}`
+    <div class="academic-year-picker"><label for="student-details-academic-year">School year</label><select id="student-details-academic-year"><option value="">All school years</option>${academicYears
+      .map(
+        year =>
+          `<option value="${escapeHtml(year)}"${year === activeYear ? ' selected' : ''}>${escapeHtml(year)}</option>`
+      )
+      .join('')}</select><span class="grade-picker-count" id="student-details-academic-count">${activeYearRows.length} record${activeYearRows.length === 1 ? '' : 's'}</span></div>
+    <div id="student-details-academic-table" class="academic-scroll">${buildSemesterTable(activeYearRows, { polished: true })}</div>`
+  $('student-details-academic-year').onchange = event => {
+    const selectedYear = event.target.value
+    const rows = selectedYear ? academicRows.filter(row => row.school_year === selectedYear) : academicRows
+    $('student-details-academic-table').innerHTML = buildSemesterTable(rows, { polished: true })
+    $('student-details-academic-count').textContent = `${rows.length} record${rows.length === 1 ? '' : 's'}`
+  }
   $('change-strand')?.addEventListener('click', () => changeStrand(student, active?.section_id ? active : null))
 }
 
