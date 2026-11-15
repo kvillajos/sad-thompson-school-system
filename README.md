@@ -2,12 +2,6 @@
 
 Vite + vanilla JavaScript + Supabase, deployed on Vercel. Roles: administrator, registrar, faculty, student.
 
-| Read | When |
-| --- | --- |
-| [dev/docs/ARCHITECTURE.md](dev/docs/ARCHITECTURE.md) | Before changing code. **AI assistants: read this first.** |
-| [dev/docs/DEPLOYMENT.md](dev/docs/DEPLOYMENT.md) | Setting up Supabase / Vercel, or shipping a release |
-| [dev/docs/TESTING.md](dev/docs/TESTING.md) | What the checks cover, plus manual acceptance scripts |
-
 ## Run it
 
 ```
@@ -16,7 +10,6 @@ cp .env.example .env   # set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (never
 npm run dev            # local site
 npm run build          # production build -> dist/
 npm run preview        # serve the production build locally
-npm run check          # run every automated check
 npm run format         # Prettier
 ```
 
@@ -29,7 +22,5 @@ role-admin/  role-registrar/  role-faculty/  role-student/   one folder per role
 shared/ui/  shared/lib/  shared/documents/                   used by more than one role
 public/                               static assets and CSS (served at the site root)
 supabase/functions/                   Edge Function (provision-account)
-dev/                                  development only: database/, scripts/checks/, scripts/seed/, docs/, backups/
+dev/                                  development only: database/ (SQL migrations)
 ```
-
-Full map in [ARCHITECTURE.md](dev/docs/ARCHITECTURE.md#folder-layout).

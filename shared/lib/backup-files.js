@@ -1,5 +1,5 @@
 // Text files inside the admin "Download backup" zip (pure: no DOM, no network; dev/scripts/checks/check-backup-files.mjs).
-// AGENTS.md: the download itself is never run in a test or a demo; checking these text builders is fine.
+// Project rule: the download itself is never run in a test or a demo; checking these text builders is fine.
 
 export const PAGE_ROWS = 1000 // rows per backup_table_sql call
 export const PART_LIMIT = 2_000_000 // characters per data file: small enough to paste into the Supabase SQL editor

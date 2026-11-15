@@ -1,28 +1,4 @@
-import { execSync } from 'node:child_process'
 import { defineConfig } from 'vite'
-
-const git = command => {
-  try {
-    return execSync(command, { stdio: ['ignore', 'pipe', 'ignore'] })
-      .toString()
-      .trim()
-  } catch {
-    return ''
-  }
-}
-
-// Commit messages start "<work-branch>/<target> - ..." (e.g. "TuesdayFixes/main - ..."); use that work-branch name so a push to main still shows it.
-const prefix = (process.env.VERCEL_GIT_COMMIT_MESSAGE || git('git log -1 --format=%s')).match(/^([\w.&-]+)\/[\w.-]+ - /)?.[1]
-const branch = prefix || process.env.VERCEL_GIT_COMMIT_REF || git('git rev-parse --abbrev-ref HEAD')
-const builtAt = new Date().toLocaleString('en-US', {
-  timeZone: 'Asia/Manila',
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit'
-})
-const buildLabel = branch ? `${branch} · ${builtAt}` : builtAt
 
 // Every HTML page is a build entry. Add new pages here.
 const pages = {
@@ -62,7 +38,5 @@ const pages = {
 }
 
 export default defineConfig({
-  // Shown on the login screen so a branch/build can be identified at a glance.
-  define: { __APP_VERSION__: JSON.stringify(buildLabel) },
   build: { rollupOptions: { input: pages } }
 })

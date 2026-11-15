@@ -1,7 +1,7 @@
 // Reports & Audit > Audit Trail > Database Backup: one button that downloads the whole database as a zip of .sql files
 // plus a README. The server writes the SQL (v70 backup_table_sql, admin only, password fields blanked); this page only
 // pages through it, zips it and logs the download.
-// AGENTS.md: NEVER click, script or call this in a test or a demo. It copies real student data out of the system.
+// Project rule: NEVER click, script or call this in a test or a demo. It copies real student data out of the system.
 import { supabase } from '../shared/lib/auth-client.js'
 import { confirmPassword, withBusy } from '../shared/ui/shell.js'
 import { downloadFile } from '../shared/ui/download.js'

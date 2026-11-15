@@ -9,3 +9,8 @@ dev/backups/
 .playwright-mcp/
 dev/docs/
 dev/scripts/
+AGENTS.md
+CLAUDE.md
+.claude/
+.impeccable/
+.mcp.json

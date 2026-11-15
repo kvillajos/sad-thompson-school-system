@@ -7158,7 +7158,7 @@ commit;
 -- Never exported: password hashes and pending passwords (users.password_hash -> 'supabase-auth' placeholder,
 -- users.initial_password -> NULL), the transient admission edit lock token, and those same fields inside the
 -- Restore Changes history (change_snapshots.old_row / new_row). Logins (auth schema) are not exported at all.
--- AGENTS.md: never call these in a test or a demo.
+-- Project rule: never call these in a test or a demo.
 begin;
 
 create or replace function public.backup_admin() returns text
