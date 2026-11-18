@@ -52,7 +52,8 @@ const FORMS = {
     const { students } = await loadSectionData(section)
     const ids = students.map(s => s.student_id)
     const start = `${year}-${String(month).padStart(2, '0')}-01`
-    const end = `${year}-${String(month).padStart(2, '0')}-31`
+    // Day 0 of the next month is this month's last day (30 for November, 28 or 29 for February).
+    const end = `${year}-${String(month).padStart(2, '0')}-${new Date(Date.UTC(year, month, 0)).getUTCDate()}`
     const [attendance, holidays, quarters, schoolYear] = await Promise.all([
       ids.length
         ? fetchAll(() =>

@@ -258,9 +258,11 @@ async function loadEnrollmentHistory() {
 function renderHistory() {
   const filter = document.getElementById('history-year-filter')
   const years = historicalSchoolYears(enrollmentHistory, gradeRows, schoolYear)
-  const selectedYear = years.includes(filter.value) ? filter.value : years[0] || ''
+  const selectedYear = filter.value === 'all' || years.includes(filter.value) ? filter.value : years[0] || ''
 
-  filter.innerHTML = years.map(year => `<option value="${escape(year)}">${escape(year)}</option>`).join('')
+  filter.innerHTML =
+    (years.length > 1 ? '<option value="all">All school years</option>' : '') +
+    years.map(year => `<option value="${escape(year)}">${escape(year)}</option>`).join('')
   filter.disabled = years.length === 0
   filter.value = selectedYear
 
@@ -274,11 +276,14 @@ function renderHistory() {
   }
 
   const render = () => {
-    const records = renderHistoricalRecords({
-      schoolYear: filter.value,
-      enrollments: enrollmentHistory,
-      gradeRows
-    })
+    // "All school years": every year's placement and grade table, newest first, each under its year.
+    const shownYears = filter.value === 'all' ? years : [filter.value]
+    const parts = shownYears.map(year => ({ year, ...renderHistoricalRecords({ schoolYear: year, enrollments: enrollmentHistory, gradeRows }) }))
+    const heading = year => (shownYears.length > 1 ? `<h4>${escape(year)}</h4>` : '')
+    const records = {
+      placementHtml: parts.map(part => heading(part.year) + part.placementHtml).join(''),
+      gradesHtml: parts.map(part => heading(part.year) + part.gradesHtml).join('')
+    }
     document.getElementById('history-placement').innerHTML = historyError
       ? `<p class="note" role="alert">${escape(historyError)}</p>`
       : records.placementHtml

@@ -58,6 +58,9 @@ function candidateSubjects(studentId, gradedYear, history) {
       recordsBySubject.set(key, records)
     })
 
+  // No grade at all for the year: one plain message instead of a list of empty subjects.
+  if (!recordsBySubject.size) return { failed: [], unattempted: [], passed: [], passedAll: false, noGrades: true }
+
   const failed = []
   const unattempted = []
   const passed = []
@@ -65,12 +68,14 @@ function candidateSubjects(studentId, gradedYear, history) {
   subjects.forEach((name, key) => {
     const records = recordsBySubject.get(key) || []
     const grades = records.map(record => (record.grade == null || record.grade === '' ? null : Number(record.grade)))
+    const shown = grades.filter(grade => grade != null && Number.isFinite(grade)).join(', ')
+    const label = shown ? `${name}: ${shown}` : name
     if (grades.some(grade => grade != null && Number.isFinite(grade) && grade < PASSING_GRADE)) {
-      failed.push(name)
+      failed.push(label)
     } else if (!grades.length || grades.some(grade => grade == null || !Number.isFinite(grade))) {
-      unattempted.push(name)
+      unattempted.push(label)
     } else {
-      passed.push(name)
+      passed.push(label)
     }
   })
 
@@ -89,6 +94,8 @@ function candidateRow(student, status) {
   const who = `<td>${escapeHtml(student.lrn_number || student.student_id)}</td><td>${escapeHtml(lastFirst(student))}</td>`
   const open = `<tr class="promotion-candidate${excluded ? ' is-excluded' : ''}" data-quickview-student="${escapeHtml(student.student_id)}">`
   if (!status) return `${open}${check}${who}<td><span class="promotion-status promotion-status-unavailable" role="status">Unavailable</span></td><td>-</td></tr>`
+  if (status.noGrades)
+    return `${open}${check}${who}<td><span class="promotion-status promotion-status-fail" role="status">No</span></td><td>No grades yet</td></tr>`
   const concernCount = status.failed.length + status.unattempted.length
   const details = subjectList('Failed', status.failed) + subjectList('Unattempted', status.unattempted) + subjectList('Passed', status.passed)
   return `${open}${check}${who}
@@ -107,7 +114,11 @@ function renderCandidateTable(status, unavailableMessage = '') {
   resultFilter.disabled = Boolean(unavailableMessage)
   const search = $('promotion-exclude-search').value.trim().toLowerCase()
   const grade = gradeToNumber($('promotion-grade').value)
-  const inGrade = state.students.filter(student => Number(student.grade_level) === grade)
+  // Same students batch_promote_students() acts on: graduated, transferred and withdrawn ones are never promoted.
+  const inGrade = state.students.filter(
+    student =>
+      Number(student.grade_level) === grade && !['Graduated', 'Transferred', 'Withdrawn'].includes(student.enrollment_status || 'Enrolled')
+  )
   const rows = inGrade
     .filter(student => `${student.lrn_number} ${student.first_name} ${student.last_name}`.toLowerCase().includes(search))
     .map(student => ({ student, result: status(student) }))

@@ -129,7 +129,9 @@ export function installTableSort(doc = document) {
       if (state) sortTable(table, state.column, state.direction)
       else {
         const labels = headerCells(table).map(cell => cell.textContent)
-        const column = pickDefaultColumn(labels)
+        // data-sort-default="Date" opens a table on that column instead of the name column.
+        const preset = labels.findIndex(label => label.trim().toLowerCase() === table.dataset?.sortDefault?.toLowerCase())
+        const column = preset === -1 ? pickDefaultColumn(labels) : preset
         const direction = defaultDirection(labels[column])
         sortState.set(table, { column, direction })
         sortTable(table, column, direction)
