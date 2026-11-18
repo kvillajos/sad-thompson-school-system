@@ -153,6 +153,9 @@ async function runImport($) {
         ? `${failed.length} login(s) could not be activated. Ask the admin to run Manage Accounts > Provision pending logins:\n${failed.join('\n')}`
         : `All ${created.length} logins are active. Each student signs in with their username + "123".`,
       'Next: place them in sections with auto-assign on Section Students.',
+      ...created
+        .filter(item => item.email_in_use)
+        .map(item => `${item.name}: ${item.email_in_use} is already used by another account, so they sign in with ${item.email}.`),
       ...created.slice(0, 50).map(item => `${item.student_no}  ${item.name}  (username ${item.username})`),
       created.length > 50 ? `…and ${created.length - 50} more.` : ''
     ].join('\n'),

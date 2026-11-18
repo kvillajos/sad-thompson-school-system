@@ -23,13 +23,16 @@
           <h3>Applications Awaiting Review <span class="badge pending" id="admissions-count"></span></h3>
           <button id="refresh-admissions" class="admin-secondary" type="button">Refresh</button>
         </div>
-        <input
-          maxlength="100"
-          id="admission-search"
-          type="search"
-          placeholder="Search applicant name or application ID..."
-          aria-label="Search applications"
-        />
+        <div class="admin-filterbar">
+          <input
+            maxlength="100"
+            id="admission-search"
+            type="search"
+            placeholder="Search applicant name or application ID..."
+            aria-label="Search applications"
+            style="box-sizing:border-box;width:min(100%,340px)"
+          />
+        </div>
 
         <table>
           <thead>

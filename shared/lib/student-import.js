@@ -16,7 +16,7 @@ export const IMPORT_COLUMNS = [
   { key: 'guardian_relationship', label: 'Guardian Relationship' },
   { key: 'guardian_phone', label: 'Guardian Phone' },
   { key: 'guardian_email', label: 'Guardian Email' },
-  { key: 'student_email', label: 'Student Email', hint: 'Login email, e.g. their Gmail. Blank = username@tcs.edu.ph' }
+  { key: 'student_email', label: 'Student Email', hint: 'Login email, e.g. their Gmail. Blank or already used = username@tcs.edu.ph' }
 ]
 export const MAX_IMPORT_ROWS = 500
 
@@ -118,7 +118,6 @@ export function tableToRecords(table) {
 export function validateImportRows(rows, { offeredGrades = [], strands = [], existingKeys = new Set(), existingNumbers = new Set() } = {}) {
   const seen = new Map()
   const seenNumbers = new Map()
-  const seenEmails = new Map()
   return rows.map(({ row, values }) => {
     const errors = []
     const clean = {}
@@ -152,12 +151,11 @@ export function validateImportRows(rows, { offeredGrades = [], strands = [], exi
     }
     if (clean.guardian_email && !/^\S+@\S+\.\S+$/.test(clean.guardian_email)) errors.push('Guardian Email is not valid')
     if (clean.guardian_phone && !/^\+?[0-9 ()-]{7,20}$/.test(clean.guardian_phone)) errors.push('Guardian Phone is not valid')
-    // Already-taken emails are refused by bulk_import_students(); the registrar cannot read other accounts here.
+    // A shared email is allowed (siblings, one parent's Gmail): bulk_import_students() gives the first row with it
+    // that login email and the others the default username@tcs.edu.ph, and the import result lists them.
     if (clean.student_email) {
       clean.student_email = clean.student_email.toLowerCase()
       if (!/^\S+@\S+\.\S+$/.test(clean.student_email)) errors.push('Student Email is not valid')
-      if (seenEmails.has(clean.student_email)) errors.push(`Student Email repeats row ${seenEmails.get(clean.student_email)}`)
-      else seenEmails.set(clean.student_email, row)
     }
     for (const [key, max] of Object.entries({ first_name: 50, middle_name: 50, last_name: 50, address: 200, student_no: 30, student_email: 120 }))
       if (clean[key] && clean[key].length > max)

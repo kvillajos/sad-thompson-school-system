@@ -7,6 +7,50 @@ import { toast } from '../shared/ui/ui-theme.js'
 import { withBusy } from '../shared/ui/shell.js'
 import { isEditLocked, editLockMessage } from './edit-lock.js'
 import { describeError, describeFunctionError } from '../shared/lib/errors.js'
+import { previewPdf, pdfName } from '../shared/documents/pdf-preview.js'
+
+// A printable slip with the new student's login, handed to the student or guardian. The first password is
+// username + "123" (set by review_admission_application); the slip asks the student to change it.
+// The address students sign in at, whatever copy of the app the admin approved from (local dev, a preview).
+const STUDENT_SITE = 'https://tcsms.vercel.app'
+
+// sharedEmail: the application's Student Email when another account already signs in with it (v76), so the
+// student got the default username@tcs.edu.ph login instead; the slip says so.
+export async function showLoginSlip(userId, provision = {}, sharedEmail = '') {
+  const { data: account } = await supabase.from('users').select('username,email,student_id').eq('user_id', userId).single()
+  const { data: student } = account?.student_id
+    ? await supabase.from('students').select('first_name,middle_name,last_name,lrn_number,grade_level').eq('student_id', account.student_id).single()
+    : { data: null }
+  const username = account?.username || provision.username
+  const email = account?.email || provision.email
+  const name = [student?.first_name, student?.middle_name, student?.last_name].filter(Boolean).join(' ')
+  const row = (label, value, big) =>
+    `<tr><th style="text-align:left;padding:8px 12px;border:1px solid #cbd5e1;background:#f1f5f9;width:38%">${label}</th><td style="padding:8px 12px;border:1px solid #cbd5e1;${big ? 'font-size:18px;font-weight:700;font-family:monospace' : ''}">${escape(value || '-')}</td></tr>`
+  let host = document.getElementById('login-slip-print')
+  if (!host) {
+    // Its own direct child of <body> with this class, so "Print" (printing-card) shows only the slip.
+    host = Object.assign(document.createElement('div'), { id: 'login-slip-print', className: 'academic-print-card', hidden: true })
+    document.body.appendChild(host)
+  }
+  host.innerHTML = `<div style="font-family:Arial,sans-serif;color:#111;max-width:640px;margin:0 auto">
+      <p style="text-align:center;margin:0;font-size:12px;letter-spacing:.08em">THOMPSON CHRISTIAN SCHOOL, INC. · DAVAO CITY</p>
+      <h2 style="text-align:center;margin:6px 0 4px">Student Login Slip</h2>
+      <p style="text-align:center;margin:0 0 18px;font-size:13px">Thompson Christian School Management System (TCSMS)</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        ${row('Student', name)}${row('Student No.', student?.lrn_number)}${row('Grade Level', student?.grade_level == null ? '' : gradeLabel(student.grade_level))}
+        ${row('Website', STUDENT_SITE)}${row('Username', username, true)}${row('Login email', email)}${row('First password', `${username}123`, true)}
+      </table>
+      ${
+        sharedEmail
+          ? `<p style="margin:14px 0 0;font-size:13px"><b>Note:</b> ${escape(sharedEmail)} is already used by another account, so this student signs in with ${escape(email)} instead.</p>`
+          : ''
+      }
+      <p style="margin:18px 0 6px;font-size:13px"><b>How to sign in:</b> open the website, type the username (or the login email) and the first password, then press Sign In.</p>
+      <p style="margin:0 0 6px;font-size:13px"><b>Please change your password as soon as you can</b> after your first sign-in: open the menu with your name (top right) → Change Password.</p>
+      <p style="margin:0;font-size:12px;color:#475569">Keep this slip private. Issued ${escape(new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }))}.</p>
+    </div>`
+  previewPdf(host, { title: 'Student Login Slip', filename: pdfName('Login Slip', student), printClass: 'printing-card' })
+}
 
 const markup = `
 <div id="review-modal" class="admin-modal hidden">
@@ -177,7 +221,14 @@ export function mountAdmissionReview(onChanged) {
             `The application was approved, but the student's login could not be created automatically (${await describeFunctionError(provisionError, 'Create login')}).\nOpen Manage Accounts and use "Provision Login" on the new student account to finish.`,
             { title: 'Approved, login still needed' }
           )
-        else toast(`Application approved. Student login "${provision.username}" (${provision.email}) is ready to use.`)
+        else {
+          toast(
+            data.email_in_use
+              ? `Application approved. ${data.email_in_use} is already used by another account, so the student signs in as "${provision.username}" (${provision.email}).`
+              : `Application approved. Student login "${provision.username}" (${provision.email}) is ready to use.`
+          )
+          await showLoginSlip(data.new_user_id, provision, data.email_in_use)
+        }
       } else toast(status === 'approved' ? 'Application approved.' : 'Application declined.')
     })
   }

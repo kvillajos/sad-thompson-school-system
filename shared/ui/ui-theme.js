@@ -78,6 +78,8 @@ button:not(:disabled):hover { filter:brightness(0.96); }
 .admin-primary { background:var(--ui-blue); color:#fff; border:1px solid var(--ui-blue); border-radius:11px; padding:9px 14px; font-size:14px; line-height:1.3; cursor:pointer; font-weight:700 }
 button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12px rgba(23,86,209,.2); transform:translateY(-1px) scale(1.02); }
 .admin-secondary { display:inline-block; background:#eaf1ff; color:var(--ui-blue-dark); border:1px solid #c9dbfb; border-radius:11px; padding:9px 14px; font-size:14px; line-height:1.3; text-decoration:none; cursor:pointer; font-weight:700 }
+/* Base look for admin/faculty fields that have no rule of their own. :where() keeps it at zero specificity, so every specific rule still wins. */
+:where(.admin-shell) :where(input:not([type=checkbox],[type=radio],[type=file],[type=range],[type=color],[type=hidden]),select,textarea) { padding:8px 10px; border:1px solid #b9c8dc; border-radius:10px; background:#fff; color:var(--ui-text); font:inherit; }
 .admin-filterbar { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 14px }
 .admin-filterbar input,.admin-filterbar select { min-width:180px; padding:10px 12px; border:1px solid #b9c8dc; border-radius:11px; color:var(--ui-text); background:#fff }
 .admin-filterbar .admin-action { margin-left:auto }

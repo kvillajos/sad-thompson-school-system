@@ -450,7 +450,7 @@ export async function openStudentDetails(studentId) {
   const detailResult = cached ? { data: cached } : await supabase.from('students').select('*').eq('student_id', studentId).single()
   const student = detailResult.data
   if (!student) return ($('student-details').innerHTML = '<p class="empty-state">Student record not found.</p>')
-  const [enrollments, academics] = await Promise.all([
+  const [enrollments, academics, accounts] = await Promise.all([
     supabase
       .from('enrollments')
       .select('school_year,status,enrolled_at,section_id,sections(section_name)')
@@ -460,8 +460,16 @@ export async function openStudentDetails(studentId) {
       .from('academic_history')
       .select('school_year,subject,grade,letter_grade,remarks,first_sem_q1,first_sem_q2,second_sem_q1,second_sem_q2')
       .eq('student_id', studentId)
-      .order('school_year', { ascending: false })
+      .order('school_year', { ascending: false }),
+    // The registrar cannot read the users table; this search (by student no.) returns the student's login.
+    student.lrn_number ? supabase.rpc('registrar_find_accounts', { p_query: student.lrn_number }) : { data: [] }
   ])
+  const account = (accounts.data || []).find(row => row.role_id === 4 && row.lrn_number === student.lrn_number)
+  const loginLine = accounts.error
+    ? '-'
+    : account
+      ? `${account.username} · ${account.email}${account.is_active ? '' : ' (inactive)'}`
+      : 'No login yet'
   const enrollmentRows = enrollments.data || []
   const academicRows = academics.data || []
   const active = enrollmentRows.find(row => row.status === 'active')
@@ -481,6 +489,7 @@ export async function openStudentDetails(studentId) {
       <div><b>Grade Level</b><p>${escapeHtml(student.grade_level == null ? '-' : gradeLabel(student.grade_level))}</p></div>
       <div><b>Birth Date</b><p>${escapeHtml(student.date_of_birth || student.birth_date || '-')}</p></div>
       <div><b>Sex</b><p>${escapeHtml(student.gender || student.sex || '-')}</p></div>
+      <div><b>Login (username · email)</b><p>${escapeHtml(loginLine)}</p></div>
       <div><b>Enrollment Status</b><p>${statusBadge(student.enrollment_status || 'Enrolled')}</p></div>
       <div><b>Section</b><p>${escapeHtml(active?.sections?.section_name || 'No Section')}</p></div>
       <div><b>School Year</b><p>${escapeHtml(active?.school_year || '-')}</p></div>
