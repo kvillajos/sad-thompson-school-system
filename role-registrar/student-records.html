@@ -724,9 +724,6 @@
               <h2>Auto-Assign Students</h2>
               <button id="close-auto-assign">×</button>
             </div>
-            <p class="note">
-              Balanced and randomized: boys and girls are dealt evenly into each grade level's sections without exceeding capacity.
-            </p>
             <label>Choose Grade Levels</label>
             <div id="auto-assign-grades" class="grade-picker"></div>
             <div class="grade-picker-bar">
@@ -737,7 +734,6 @@
               <label for="auto-assign-exclude-search">Exclude Students</label>
               <span id="auto-assign-excluded-count" class="grade-picker-count" aria-live="polite">None excluded</span>
             </div>
-            <p class="note exclude-note">Only students without a section are listed: they are the ones auto-assign would place. Tick a student to leave them out.</p>
             <div class="exclude-toolbar">
               <input maxlength="100" id="auto-assign-exclude-search" type="search" placeholder="Search student name or ID..." /><span
                 id="auto-assign-exclude-filters"
@@ -799,7 +795,6 @@
           <label for="placement-search">Students to place</label>
           <span id="placement-list-title" class="grade-picker-count" aria-live="polite">0 students</span>
         </div>
-        <p class="note exclude-note">Students of this grade (and strand) not already in the chosen section. Tick the ones to place.</p>
         <div class="exclude-toolbar">
           <input maxlength="100" id="placement-search" type="search" placeholder="Search student name or ID..." />
         </div>
@@ -830,11 +825,6 @@
           <h2>Set Senior High Strands</h2>
           <button id="close-set-strand" data-close="set-strand-modal">×</button>
         </div>
-        <p class="note">
-          Grade 11-12 students without a section and without a strand. A student's strand decides which sections
-          they can be placed in. To correct a strand, tick "Also show students with a strand". To change the strand
-          of a student who already has a section, remove the enrollment first.
-        </p>
         <div class="filterbar">
           <input maxlength="100" id="set-strand-search" type="search" placeholder="Search student name or ID..." style="flex:1;max-width:none" />
           <select id="set-strand-value" aria-label="Strand to set"></select>
