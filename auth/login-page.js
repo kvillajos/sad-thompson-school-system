@@ -56,7 +56,33 @@ passwordInput.addEventListener('blur', () => {
   capsWarning.hidden = true
 })
 
-const LOGIN_FAILURE_MESSAGE = 'Your password is incorrect or this account does not exist.'
+// Reaching the login page (Back from a dashboard, a bookmark, the typed address) always means signed out, so
+// Forward can no longer reopen the dashboard without a password. scope 'local' ends only this tab's session
+// (sessions live in sessionStorage, one per tab): the same account in other windows or devices stays signed in.
+// If the sign-out request fails (offline), the stored session is removed anyway.
+async function endSession() {
+  if (!supabase) return
+  if (!(await supabase.auth.getSession()).data.session) return
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+  if ((await supabase.auth.getSession()).data.session)
+    Object.keys(sessionStorage)
+      .filter(key => /^sb-.+-auth-token$/.test(key))
+      .forEach(key => sessionStorage.removeItem(key))
+}
+let sessionEnded = endSession()
+
+// Back restores this page from the bfcache without rerunning the script: end the session again, clear the
+// password the browser kept in the box, and undo the "Signing you in..." state left from the last sign-in.
+window.addEventListener('pageshow', event => {
+  if (!event.persisted) return
+  passwordInput.value = ''
+  sessionEnded = endSession()
+  loginForm.querySelector('[type="submit"]').disabled = false
+  messageDiv.textContent = ''
+  hideLoadingScreen()
+})
+
+const LOGIN_FAILURE_MESSAGE ='Your password is incorrect or this account does not exist.'
 // A dropped connection is not a wrong password; saying so stops people from retyping a correct one.
 const isNetworkError = error => /fetch|network|load failed/i.test(String(error?.message || error || ''))
 function failLogin(message, username, password) {
@@ -78,6 +104,8 @@ function failLogin(message, username, password) {
 // Handle Login
 loginForm.addEventListener('submit', async e => {
   e.preventDefault()
+  // A fast sign-in must not be undone by the sign-out still running from page load.
+  await sessionEnded
 
   if (!supabase) {
     showConfigurationError()
