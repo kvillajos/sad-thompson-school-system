@@ -20,7 +20,7 @@ async function loadApplications() {
   const [{ data, error }] = await Promise.all([
     supabase
       .from('admission_applications')
-      .select('id,first_name,last_name,grade_level,admission_type,status,created_at,editing_by,editing_since')
+      .select('id,first_name,last_name,grade_level,admission_type,status,created_at,editing_by,editing_since,student_email')
       .in('status', ['submitted', 'under_review'])
       .order('created_at'),
     loadRequirementData()

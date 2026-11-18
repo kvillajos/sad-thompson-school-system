@@ -7323,3 +7323,294 @@ $function$;
 notify pgrst, 'reload schema';
 commit;
 -- END v71-restore-changes-speed.sql
+
+-- BEGIN v72-student-email.sql  (applied live 2026-11-18 via the Supabase CLI after a rollback dry run; branch main)
+-- v72-student-email.sql
+-- An admission can carry the student's own email (for example their Gmail). Approval uses it as the
+-- student's login email; left blank, the login stays username@tcs.edu.ph as before. Login is by username,
+-- so a custom email changes nothing about signing in. Emails are stored lowercase (login looks them up
+-- lowercase). Safe to run twice.
+begin;
+
+alter table public.admission_applications add column if not exists student_email text;
+alter table public.admission_applications drop constraint if exists admission_applications_student_email_check;
+alter table public.admission_applications add constraint admission_applications_student_email_check
+  check (student_email is null or student_email ~* '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$');
+
+-- Registrar corrections: also save student_email (lowercased) and audit it.
+CREATE OR REPLACE FUNCTION public.save_application_edit(p_application_id integer, p_token uuid, p_payload jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare a admission_applications%rowtype; merged jsonb; next_status text; editor text; after jsonb; changes text[] := '{}'; f text;
+  tracked text[] := array['first_name','middle_name','last_name','birth_date','sex','address','contact_number','guardian_name',
+    'guardian_relationship','guardian_phone','guardian_email','student_email','prior_school','prior_grade','grade_level','special_program','remarks'];
+begin
+  select * into a from admission_applications where id = p_application_id for update;
+  if not found then raise exception 'Application not found'; end if;
+  editor := registrar_workflow_actor(2);
+  if p_token is null or a.editing_token is distinct from p_token
+    or a.editing_since is null or a.editing_since <= now() - interval '10 minutes'
+    or a.editing_by is distinct from editor
+    or a.status not in ('draft','submitted','under_review') then
+    raise exception 'This edit session is no longer active. Close the form and open the application again.';
+  end if;
+  merged := to_jsonb(a) || coalesce(p_payload, '{}'::jsonb);
+  next_status := a.status::text;
+  if p_payload ? 'status' and p_payload->>'status' is distinct from next_status then
+    raise exception 'Corrections cannot change the approval decision';
+  end if;
+  if not exists (select 1 from grade_levels where grade_level = (merged->>'grade_level')::integer and offered) then raise exception 'Choose a grade level the school offers'; end if;
+  if next_status <> 'draft' then perform validate_admission(merged); end if;
+  update admission_applications set
+    first_name = merged->>'first_name',
+    middle_name = nullif(merged->>'middle_name', ''),
+    last_name = merged->>'last_name',
+    birth_date = nullif(merged->>'birth_date', '')::date,
+    sex = nullif(merged->>'sex', ''),
+    address = nullif(merged->>'address', ''),
+    contact_number = nullif(merged->>'contact_number', ''),
+    guardian_name = nullif(merged->>'guardian_name', ''),
+    guardian_relationship = nullif(merged->>'guardian_relationship', ''),
+    guardian_phone = nullif(merged->>'guardian_phone', ''),
+    guardian_email = nullif(merged->>'guardian_email', ''),
+    student_email = lower(nullif(trim(merged->>'student_email'), '')),
+    prior_school = nullif(merged->>'prior_school', ''),
+    prior_grade = nullif(merged->>'prior_grade', ''),
+    grade_level = nullif(merged->>'grade_level', ''),
+    special_program = nullif(merged->>'special_program', ''),
+    remarks = nullif(merged->>'remarks', ''),
+    status = next_status::admission_status,
+    editing_by = null, editing_since = null, editing_token = null,
+    updated_at = now()
+  where id = p_application_id
+  returning to_jsonb(admission_applications.*) into after;
+  foreach f in array tracked loop
+    if (to_jsonb(a)->>f) is distinct from (after->>f) then
+      changes := changes || format('%s: %s -> %s', f, coalesce('"' || (to_jsonb(a)->>f) || '"', '(blank)'), coalesce('"' || (after->>f) || '"', '(blank)'));
+    end if;
+  end loop;
+  insert into audit_logs(actor, action, entity_type, entity_id, details)
+  values (auth.jwt() ->> 'email', 'REGISTRAR_EDIT', 'admission_application', p_application_id,
+    jsonb_build_object('editor', editor, 'status', next_status,
+      'changes', case when cardinality(changes) = 0 then 'no field changed' else array_to_string(changes, '; ') end));
+  return jsonb_build_object('id', p_application_id, 'status', next_status, 'edit_released', true, 'changed', cardinality(changes));
+end $function$;
+
+-- Approval: the new student login uses the application's student_email when given, else username@tcs.edu.ph.
+-- An email another account already uses is refused before anything is saved (users.email is not unique,
+-- and provision-account would otherwise take over that account's login).
+create or replace function public.review_admission_application(p_application_id integer, p_status admission_status, p_remarks text default null::text)
+ returns jsonb
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare a admission_applications%rowtype; new_no text; target_student_id integer; new_username text; new_password text; new_user_id integer;
+  new_email text;
+begin
+  perform registrar_workflow_actor(1);
+  if p_status not in ('approved','rejected') then raise exception 'Choose Approve or Decline'; end if;
+  if length(coalesce(p_remarks, '')) > 500 then raise exception 'Remarks must be 500 characters or fewer'; end if;
+  select * into a from admission_applications where id=p_application_id for update;
+  if not found then raise exception 'Application not found'; end if;
+  if a.status not in ('submitted','under_review') then raise exception 'This application is no longer pending'; end if;
+  if a.editing_by is not null and a.editing_since is not null and a.editing_since > now() - interval '10 minutes' then
+    raise exception 'Registrar % is editing this application right now. Ask them to save or close the form before reviewing it.', a.editing_by;
+  end if;
+  if p_status in ('under_review','approved') then perform validate_admission(to_jsonb(a)); end if;
+  new_email := lower(nullif(trim(a.student_email), ''));
+  if p_status='approved' and new_email is not null and exists (select 1 from users where lower(email) = new_email) then
+    raise exception 'The student email % is already used by another account. Ask the registrar to change it on the application.', new_email;
+  end if;
+  update admission_applications set status=p_status, remarks=p_remarks, updated_at=now(), editing_by=null, editing_since=null, editing_token=null where id=p_application_id;
+  if p_status='approved' and not exists(select 1 from students where lower(first_name)=lower(a.first_name) and lower(last_name)=lower(a.last_name) and date_of_birth=a.birth_date) then
+    new_no := 'TCS-' || to_char(now(),'YY') || '-' || lpad(nextval('student_number_seq')::text,5,'0');
+    insert into students(lrn_number,first_name,last_name,date_of_birth,gender,enrollment_status,
+      address,contact_number,guardian_name,guardian_relationship,guardian_phone,guardian_email)
+    values(new_no,a.first_name,a.last_name,a.birth_date,a.sex,'Enrolled',
+      a.address,a.contact_number,a.guardian_name,a.guardian_relationship,a.guardian_phone,a.guardian_email);
+  end if;
+  if p_status='approved' then
+    select student_id into target_student_id from students
+      where lower(first_name)=lower(a.first_name) and lower(last_name)=lower(a.last_name) and date_of_birth=a.birth_date
+      limit 1;
+    insert into enrollments(student_id, school_year, grade_level, status, enrolled_at)
+    select target_student_id, current_school_year(),
+      a.grade_level::integer, 'active', now()
+    on conflict(student_id, school_year) do update set grade_level=excluded.grade_level, status='active', enrolled_at=excluded.enrolled_at;
+
+    -- coalesce: an already-enrolled sibling record's saved details are not blanked out by an application that left a field empty.
+    update students set grade_level=a.grade_level::integer, enrollment_status='Enrolled',
+      strand=case when a.grade_level::integer >= 11 then coalesce(a.strand, strand) end,
+      address=coalesce(a.address, address), contact_number=coalesce(a.contact_number, contact_number),
+      guardian_name=coalesce(a.guardian_name, guardian_name), guardian_relationship=coalesce(a.guardian_relationship, guardian_relationship),
+      guardian_phone=coalesce(a.guardian_phone, guardian_phone), guardian_email=coalesce(a.guardian_email, guardian_email)
+      where student_id=target_student_id;
+    if a.profile_picture_url is not null then
+      update students set profile_picture_url = a.profile_picture_url where student_id = target_student_id;
+    end if;
+
+    if target_student_id is not null and not exists (select 1 from users where student_id = target_student_id) then
+      new_username := generate_username(a.first_name, a.last_name);
+      new_password := new_username || '123';
+      insert into users(username, email, password_hash, role_id, is_active, student_id, initial_password)
+      values (new_username, coalesce(new_email, new_username || '@tcs.edu.ph'), extensions.crypt(new_password, extensions.gen_salt('bf')), 4, true, target_student_id, new_password)
+      returning user_id into new_user_id;
+    end if;
+  end if;
+  insert into notifications(recipient_email,title,message,entity_type,entity_id) values(a.guardian_email,'Application Status Updated','Your TCSMS admission application is now '||replace(p_status::text,'_',' ')||'.','admission_application',a.id);
+  insert into audit_logs(action,entity_type,entity_id,details) values('UPDATE_STATUS','admission_application',a.id,jsonb_build_object('status',p_status,'remarks',p_remarks));
+  return jsonb_build_object('id',a.id,'status',p_status,'new_user_id',new_user_id);
+end $function$;
+
+notify pgrst, 'reload schema';
+commit;
+-- END v72-student-email.sql
+
+-- BEGIN v73-username-accents.sql  (applied live 2026-11-18 via the Supabase MCP after a rollback dry run; branch main)
+-- v73-username-accents.sql  (branch main)
+-- generate_username() dropped every letter outside a-z, so "Juan Peña" became "jpea". Accented letters are now
+-- converted to plain ones first (ñ -> n, á -> a, ü -> u, ...), so he gets "jpena". Usernames stay plain a-z because
+-- they are also the login email (username@tcs.edu.ph). Existing usernames do not change. Same callers as before:
+-- review_admission_application(), bulk import and the provision-account Edge Function.
+-- Safe to run twice.
+begin;
+
+create or replace function public.generate_username(p_first_name text, p_last_name text)
+ returns text language plpgsql stable as $function$
+declare initials text; surname text; base text; candidate text; suffix int := 0;
+  accents constant text := 'ñÑáéíóúüÁÉÍÓÚÜàèìòùÀÈÌÒÙâêîôûÂÊÎÔÛäëïöÄËÏÖçÇ';
+  plain   constant text := 'nNaeiouuAEIOUUaeiouAEIOUaeiouAEIOUaeioAEIOcC';
+begin
+  initials := lower(regexp_replace(translate(coalesce(p_first_name, ''), accents, plain), '[^a-zA-Z ]', '', 'g'));
+  initials := (select string_agg(left(part, 1), '') from unnest(string_to_array(trim(initials), ' ')) part where part <> '');
+  surname := lower(regexp_replace(translate(coalesce(p_last_name, ''), accents, plain), '[^a-zA-Z]', '', 'g'));
+  base := coalesce(initials, '') || surname;
+  if nullif(base, '') is null then base := 'student'; end if;
+  candidate := base;
+  while exists (select 1 from users where lower(username) = candidate) loop
+    suffix := suffix + 1;
+    candidate := base || suffix::text;
+  end loop;
+  return candidate;
+end $function$;
+
+notify pgrst, 'reload schema';
+commit;
+-- Check: select generate_username('Juan', 'Peña');  -- jpena
+-- END v73-username-accents.sql
+
+-- BEGIN v74-import-student-email.sql  (applied live 2026-11-18 via the Supabase CLI after a rollback dry run; branch main)
+-- v74-import-student-email.sql
+-- Bulk import gets the same optional Student Email as admissions (v72): when a row gives one, it becomes the
+-- student's login email; blank keeps username@tcs.edu.ph. An email another account already uses (or an earlier
+-- row of the same file) is refused and nothing from the file is imported. Safe to run twice.
+begin;
+
+create or replace function public.bulk_import_students(p_school_year text, p_rows jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actor text;
+  r jsonb;
+  n integer := 0;
+  grade integer;
+  strand_code text;
+  birth date;
+  student_no text;
+  new_student integer;
+  new_username text;
+  new_email text;
+  created jsonb := '[]'::jsonb;
+begin
+  select username into actor from users
+    where lower(email) = lower(auth.jwt() ->> 'email') and is_active and role_id in (1, 2) limit 1;
+  if actor is null then raise exception 'Not authorized to import students'; end if;
+  if not exists (select 1 from school_years where label = p_school_year) then
+    raise exception 'School year % does not exist', p_school_year;
+  end if;
+  if not enrollment_is_open(p_school_year) then perform enrollment_window_error(p_school_year); end if;
+  if coalesce(jsonb_typeof(p_rows), '') <> 'array' or jsonb_array_length(p_rows) = 0 then
+    raise exception 'The file has no student rows';
+  end if;
+  if jsonb_array_length(p_rows) > 500 then raise exception 'Import at most 500 students at a time'; end if;
+
+  for r in select value from jsonb_array_elements(p_rows) loop
+    n := n + 1;
+    if nullif(trim(r ->> 'first_name'), '') is null or nullif(trim(r ->> 'last_name'), '') is null then
+      raise exception 'Row %: first and last name are required', n + 1;
+    end if;
+    begin
+      birth := (r ->> 'birth_date')::date;
+    exception when others then
+      raise exception 'Row %: birth date is not a valid date', n + 1;
+    end;
+    if birth is null then raise exception 'Row %: birth date is required', n + 1; end if;
+    if coalesce(r ->> 'sex', '') not in ('Male', 'Female') then raise exception 'Row %: sex must be Male or Female', n + 1; end if;
+    grade := nullif(r ->> 'grade_level', '')::integer;
+    if grade is null or not exists (select 1 from grade_levels where grade_level = grade and offered) then
+      raise exception 'Row %: grade level % is not offered', n + 1, coalesce(grade::text, '(blank)');
+    end if;
+    strand_code := nullif(trim(r ->> 'strand'), '');
+    if grade >= 11 and (strand_code is null or not exists (select 1 from strands where code = strand_code)) then
+      raise exception 'Row %: choose a valid strand for Grade %', n + 1, grade;
+    end if;
+    if grade < 11 then strand_code := null; end if;
+    if exists (select 1 from students where lower(first_name) = lower(trim(r ->> 'first_name'))
+               and lower(last_name) = lower(trim(r ->> 'last_name')) and date_of_birth = birth) then
+      raise exception 'Row %: % % (born %) is already a student; re-enroll them instead', n + 1,
+        trim(r ->> 'first_name'), trim(r ->> 'last_name'), birth;
+    end if;
+    student_no := nullif(trim(r ->> 'student_no'), '');
+    if student_no is not null and exists (select 1 from students where lower(lrn_number) = lower(student_no)) then
+      raise exception 'Row %: student no. % is already used', n + 1, student_no;
+    end if;
+    new_email := lower(nullif(trim(r ->> 'student_email'), ''));
+    if new_email is not null and new_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then
+      raise exception 'Row %: student email % is not valid', n + 1, new_email;
+    end if;
+    if new_email is not null and exists (select 1 from users where lower(email) = new_email) then
+      raise exception 'Row %: student email % is already used by another account', n + 1, new_email;
+    end if;
+    if student_no is null then
+      student_no := 'TCS-' || to_char(now(), 'YY') || '-' || lpad(nextval('student_number_seq')::text, 5, '0');
+    end if;
+
+    insert into students (lrn_number, first_name, middle_name, last_name, date_of_birth, gender, enrollment_status,
+      grade_level, strand, address, contact_number, guardian_name, guardian_relationship, guardian_phone, guardian_email)
+    values (student_no, trim(r ->> 'first_name'), nullif(trim(r ->> 'middle_name'), ''), trim(r ->> 'last_name'), birth,
+      r ->> 'sex', 'Enrolled', grade, strand_code, nullif(trim(r ->> 'address'), ''), nullif(trim(r ->> 'contact_number'), ''),
+      nullif(trim(r ->> 'guardian_name'), ''), nullif(trim(r ->> 'guardian_relationship'), ''),
+      nullif(trim(r ->> 'guardian_phone'), ''), nullif(trim(r ->> 'guardian_email'), ''))
+    returning student_id into new_student;
+
+    insert into enrollments (student_id, school_year, grade_level, status, enrolled_at)
+    values (new_student, p_school_year, grade, 'active', now());
+
+    new_username := generate_username(trim(r ->> 'first_name'), trim(r ->> 'last_name'));
+    insert into users (username, email, password_hash, role_id, is_active, student_id, initial_password)
+    values (new_username, coalesce(new_email, new_username || '@tcs.edu.ph'),
+      extensions.crypt(new_username || '123', extensions.gen_salt('bf')), 4, true, new_student, new_username || '123');
+
+    created := created || jsonb_build_object('row', n + 1, 'student_id', new_student, 'student_no', student_no,
+      'username', new_username, 'name', trim(r ->> 'last_name') || ', ' || trim(r ->> 'first_name'));
+  end loop;
+
+  insert into audit_logs (action, entity_type, entity_id, details)
+  values ('BULK_IMPORT_STUDENTS', 'school_year', null,
+    jsonb_build_object('school_year', p_school_year, 'count', n, 'actor', actor));
+  return jsonb_build_object('created', created, 'count', n);
+end $$;
+
+revoke all on function public.bulk_import_students(text, jsonb) from public, anon;
+grant execute on function public.bulk_import_students(text, jsonb) to authenticated;
+
+notify pgrst, 'reload schema';
+commit;
+-- END v74-import-student-email.sql

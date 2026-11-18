@@ -110,18 +110,49 @@ if ($('application-photo')) {
     })
   $('application-photo').after(cameraButton)
 }
-// Documents: the back camera on phones, at a higher resolution so the text stays readable (a laptop uses its webcam).
+// Supporting documents: same limits as the admission-documents bucket (v41), checked as soon as a file is chosen.
+const DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
+const DOC_MAX_BYTES = 5 * 1024 * 1024
+const docProblem = file => (!DOC_TYPES.includes(file.type) ? 'not a PDF, JPG or PNG' : file.size > DOC_MAX_BYTES ? 'over 5 MB' : '')
+const fileSize = bytes => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`)
+function syncDocTile(input) {
+  const file = input.files?.[0]
+  const problem = file ? docProblem(file) : ''
+  const tile = input.closest('.doc-tile')
+  tile.classList.toggle('has-file', !!file)
+  tile.classList.toggle('is-invalid', !!problem)
+  tile.querySelector('.doc-remove').classList.toggle('hidden', !file)
+  tile.querySelector('.doc-file').textContent = !file
+    ? 'No file chosen'
+    : `${problem ? '✕' : '✓'} ${file.name} · ${fileSize(file.size)}${problem ? ` (${problem})` : ''}`
+}
+// Each tile: Choose file, Use camera (the back camera on phones, at a higher resolution so the text stays
+// readable; a laptop uses its webcam) and Remove, then the chosen file's name.
 document.querySelectorAll('#application-documents input[type=file]').forEach(input => {
-  const button = Object.assign(document.createElement('button'), { type: 'button', className: 'btn secondary', textContent: 'Use Camera' })
-  button.onclick = () =>
-    openCamera({
-      input,
-      title: `Capture ${input.dataset.label}`,
-      name: input.dataset.type,
-      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
-    })
-  input.after(button)
+  const button = (textContent, onclick, extra = '') =>
+    Object.assign(document.createElement('button'), { type: 'button', className: `btn secondary ${extra}`, textContent, onclick })
+  const actions = Object.assign(document.createElement('div'), { className: 'doc-actions' })
+  actions.append(
+    button('Choose File', () => input.click()),
+    button('Use Camera', () =>
+      openCamera({
+        input,
+        title: `Capture ${input.dataset.label}`,
+        name: input.dataset.type,
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        onCaptured: () => syncDocTile(input)
+      })
+    ),
+    button('Remove', () => ((input.value = ''), syncDocTile(input)), 'doc-remove')
+  )
+  input.after(actions, Object.assign(document.createElement('span'), { className: 'doc-file', role: 'status' }))
+  input.addEventListener('change', () => syncDocTile(input))
+  syncDocTile(input)
 })
+// form.reset() clears the inputs after the reset event fires, so sync on the next tick.
+$('application-form').addEventListener('reset', () =>
+  setTimeout(() => document.querySelectorAll('#application-documents input[type=file]').forEach(syncDocTile))
+)
 let photoObjectUrl = null
 let removeSavedPhoto = false
 function setApplicationPhoto(url) {
@@ -178,6 +209,8 @@ function validateApplication(form) {
   if (!data.first_name?.trim() || !data.last_name?.trim()) errors.push('Student first and last name are required.')
   if (!/^\+?[0-9 ()-]{7,20}$/.test(data.guardian_phone || '')) errors.push('Enter a valid guardian phone number.')
   if (!/^\S+@\S+\.\S+$/.test(data.guardian_email || '')) errors.push('Enter a valid guardian email.')
+  if (data.student_email?.trim() && !/^\S+@\S+\.\S+$/.test(data.student_email.trim()))
+    errors.push('Enter a valid student email, or leave it blank.')
   const address = (data.address || '').trim()
   if (address && (address.length < ADDRESS_MIN || address.length > ADDRESS_MAX))
     errors.push(`Address must be ${ADDRESS_MIN} to ${ADDRESS_MAX} characters (now ${address.length}).`)
@@ -211,6 +244,7 @@ async function saveApplication(data, status) {
     guardian_relationship: data.guardian_relationship || null,
     guardian_phone: data.guardian_phone || null,
     guardian_email: data.guardian_email || null,
+    student_email: data.student_email?.trim().toLowerCase() || null,
     prior_school: data.prior_school || null,
     prior_grade: data.prior_grade || null,
     grade_level: data.grade_level ? gradeToNumber(data.grade_level) : null,
@@ -270,8 +304,7 @@ async function uploadDocuments(applicationId) {
   for (const input of files) {
     const file = input.files?.[0]
     if (!file) continue
-    const allowed = ['application/pdf', 'image/jpeg', 'image/png']
-    if (!allowed.includes(file.type) || file.size > 5 * 1024 * 1024) {
+    if (docProblem(file)) {
       failed.push(`${input.dataset.label} (PDF/JPG/PNG up to 5MB only)`)
       continue
     }
@@ -289,6 +322,7 @@ async function uploadDocuments(applicationId) {
       continue
     }
     input.value = '' // uploaded: a retry must not attach it twice
+    syncDocTile(input)
   }
   return failed
 }
@@ -537,6 +571,7 @@ const APPLICATION_FIELDS = [
   ['Relationship', 'guardian_relationship'],
   ['Guardian Phone', 'guardian_phone'],
   ['Guardian Email', 'guardian_email'],
+  ['Student Email', 'student_email'],
   ['Prior School', 'prior_school'],
   ['Prior Grade', 'prior_grade'],
   ['Special Program', 'special_program'],
@@ -612,6 +647,7 @@ async function openReview(id) {
     guardian_relationship: 30,
     guardian_phone: 20,
     guardian_email: 120,
+    student_email: 120,
     prior_school: 100,
     prior_grade: 20,
     special_program: 50
@@ -620,7 +656,7 @@ async function openReview(id) {
     `<label>${label}<input name="${name}" type="${type}"${LIMITS[name] ? ` maxlength="${LIMITS[name]}"` : ''} value="${escapeHtml(data[name] ?? '')}"></label>`
   $('review-content').innerHTML =
     `<div class="note">Editing as <b>${escapeHtml(data.editing_by || 'registrar')}</b>. The administrator cannot approve or decline this file while it is open here. Closing the form releases it.</div>
-  <form id="review-form">${field('First Name', 'first_name')}${field('Middle Name', 'middle_name')}${field('Last Name', 'last_name')}${field('Birth Date', 'birth_date', 'date')}${field('Sex', 'sex')}${field('Grade Level', 'grade_level')}${field('Address', 'address')}${field('Contact Number', 'contact_number')}${field('Guardian Name', 'guardian_name')}${field('Relationship', 'guardian_relationship')}${field('Guardian Phone', 'guardian_phone')}${field('Guardian Email', 'guardian_email')}${field('Prior School', 'prior_school')}${field('Prior Grade', 'prior_grade')}${field('Special Program', 'special_program')}<label>Registrar remarks<textarea name="remarks" maxlength="500">${escapeHtml(data.remarks || '')}</textarea></label><label>Status<select name="status" disabled><option>draft</option><option>under_review</option></select></label><div class="actions"><button class="btn-approve">Save Review</button></div></form>`
+  <form id="review-form">${field('First Name', 'first_name')}${field('Middle Name', 'middle_name')}${field('Last Name', 'last_name')}${field('Birth Date', 'birth_date', 'date')}${field('Sex', 'sex')}${field('Grade Level', 'grade_level')}${field('Address', 'address')}${field('Contact Number', 'contact_number')}${field('Guardian Name', 'guardian_name')}${field('Relationship', 'guardian_relationship')}${field('Guardian Phone', 'guardian_phone')}${field('Guardian Email', 'guardian_email')}${field('Student Email (blank = username@tcs.edu.ph)', 'student_email', 'email')}${field('Prior School', 'prior_school')}${field('Prior Grade', 'prior_grade')}${field('Special Program', 'special_program')}<label>Registrar remarks<textarea name="remarks" maxlength="500">${escapeHtml(data.remarks || '')}</textarea></label><label>Status<select name="status" disabled><option>draft</option><option>under_review</option></select></label><div class="actions"><button class="btn-approve">Save Review</button></div></form>`
   $('review-content').querySelector('[name=status]').value = data.status === 'submitted' ? 'under_review' : data.status
   $('review-modal').classList.remove('hidden')
   // Renew the lease; stale tokens are rejected by the server even after tab suspension.

@@ -77,6 +77,7 @@ export function mountAdmissionReview(onChanged) {
         <div><small>Grade Level</small><p>${escape(gradeLabel(application.grade_level))}</p></div>
         <div><small>Current Status</small><p>${escape(String(application.status).replace('_', ' '))}</p></div>
         <div><small>Submitted</small><p>${formatDate(application.created_at)}</p></div>
+        <div><small>Student Login Email</small><p>${escape(application.student_email || 'username@tcs.edu.ph (default)')}</p></div>
       </div>`
     $('review-remarks').value = ''
     checks().forEach(box => (box.checked = false))
@@ -134,7 +135,7 @@ export function mountAdmissionReview(onChanged) {
           <div><small>Grade Level</small><p>${escape(a.grade_level || '-')}</p></div><div><small>Sex</small><p>${escape(a.sex || '-')}</p></div>
           <div><small>Birth Date</small><p>${escape(a.birth_date || '-')}</p></div><div><small>Address</small><p>${escape(a.address || '-')}</p></div>
           <div><small>Contact Number</small><p>${escape(a.contact_number || '-')}</p></div><div><small>Prior School</small><p>${escape(a.prior_school || '-')}</p></div>
-          <div><small>Prior Grade</small><p>${escape(a.prior_grade || '-')}</p></div>
+          <div><small>Prior Grade</small><p>${escape(a.prior_grade || '-')}</p></div><div><small>Student Email</small><p>${escape(a.student_email || 'username@tcs.edu.ph (default)')}</p></div>
           <div><small>Special Program</small><p>${escape(a.special_program || '-')}</p></div><div><small>Status</small><p>${escape(a.status || '-')}</p></div>
           <div><small>Guardian</small><p>${escape(a.guardian_name || '-')} (${escape(a.guardian_relationship || '-')})</p></div><div><small>Guardian Contact</small><p>${escape(a.guardian_phone || '-')} / ${escape(a.guardian_email || '-')}</p></div>
         </div>
@@ -176,7 +177,7 @@ export function mountAdmissionReview(onChanged) {
             `The application was approved, but the student's login could not be created automatically (${await describeFunctionError(provisionError, 'Create login')}).\nOpen Manage Accounts and use "Provision Login" on the new student account to finish.`,
             { title: 'Approved, login still needed' }
           )
-        else toast(`Application approved. Student login "${provision.username}" is ready to use.`)
+        else toast(`Application approved. Student login "${provision.username}" (${provision.email}) is ready to use.`)
       } else toast(status === 'approved' ? 'Application approved.' : 'Application declined.')
     })
   }

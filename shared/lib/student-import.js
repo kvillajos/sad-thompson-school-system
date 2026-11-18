@@ -15,7 +15,8 @@ export const IMPORT_COLUMNS = [
   { key: 'guardian_name', label: 'Guardian Name' },
   { key: 'guardian_relationship', label: 'Guardian Relationship' },
   { key: 'guardian_phone', label: 'Guardian Phone' },
-  { key: 'guardian_email', label: 'Guardian Email' }
+  { key: 'guardian_email', label: 'Guardian Email' },
+  { key: 'student_email', label: 'Student Email', hint: 'Login email, e.g. their Gmail. Blank = username@tcs.edu.ph' }
 ]
 export const MAX_IMPORT_ROWS = 500
 
@@ -36,7 +37,9 @@ const ALIASES = {
   'contact no': 'contact_number',
   'guardian contact': 'guardian_phone',
   'guardian phone number': 'guardian_phone',
-  relationship: 'guardian_relationship'
+  relationship: 'guardian_relationship',
+  email: 'student_email',
+  'student gmail': 'student_email'
 }
 
 export function headerKey(text) {
@@ -115,6 +118,7 @@ export function tableToRecords(table) {
 export function validateImportRows(rows, { offeredGrades = [], strands = [], existingKeys = new Set(), existingNumbers = new Set() } = {}) {
   const seen = new Map()
   const seenNumbers = new Map()
+  const seenEmails = new Map()
   return rows.map(({ row, values }) => {
     const errors = []
     const clean = {}
@@ -148,7 +152,14 @@ export function validateImportRows(rows, { offeredGrades = [], strands = [], exi
     }
     if (clean.guardian_email && !/^\S+@\S+\.\S+$/.test(clean.guardian_email)) errors.push('Guardian Email is not valid')
     if (clean.guardian_phone && !/^\+?[0-9 ()-]{7,20}$/.test(clean.guardian_phone)) errors.push('Guardian Phone is not valid')
-    for (const [key, max] of Object.entries({ first_name: 50, middle_name: 50, last_name: 50, address: 200, student_no: 30 }))
+    // Already-taken emails are refused by bulk_import_students(); the registrar cannot read other accounts here.
+    if (clean.student_email) {
+      clean.student_email = clean.student_email.toLowerCase()
+      if (!/^\S+@\S+\.\S+$/.test(clean.student_email)) errors.push('Student Email is not valid')
+      if (seenEmails.has(clean.student_email)) errors.push(`Student Email repeats row ${seenEmails.get(clean.student_email)}`)
+      else seenEmails.set(clean.student_email, row)
+    }
+    for (const [key, max] of Object.entries({ first_name: 50, middle_name: 50, last_name: 50, address: 200, student_no: 30, student_email: 120 }))
       if (clean[key] && clean[key].length > max)
         errors.push(`${IMPORT_COLUMNS.find(c => c.key === key).label} is longer than ${max} characters`)
 
@@ -182,9 +193,10 @@ const EXAMPLE = [
   'Maria Dela Cruz',
   'Mother',
   '09181234567',
-  'maria@example.com'
+  'maria@example.com',
+  'juan.delacruz@gmail.com'
 ]
-const WIDTHS = { address: 34, guardian_email: 26, guardian_name: 22, guardian_relationship: 20, student_no: 16, birth_date: 14 }
+const WIDTHS = { address: 34, guardian_email: 26, student_email: 28, guardian_name: 22, guardian_relationship: 20, student_no: 16, birth_date: 14 }
 const TEXT_COLUMNS = ['birth_date', 'student_no', 'contact_number', 'guardian_phone'] // text keeps 0917… and 2013-04-15 as typed
 
 // Excel template: sheet 1 is the data sheet (headers only, so a forgotten sample row can never be imported),

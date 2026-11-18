@@ -159,6 +159,19 @@
     </style>
     <style>
       /* Promotion Candidates is a table (.exclude-table); the reason pass status is unavailable shows once, above it. */
+      /* Supporting documents: one tile per document (title, buttons, chosen file name). */
+      .doc-uploads { border: 0; margin: 0; padding: 0; min-width: 0; }
+      .doc-uploads legend { padding: 0; margin-bottom: 10px; font-weight: 700; font-size: 14px; }
+      .doc-uploads legend small { margin-left: 6px; font-weight: 400; font-size: 12px; color: var(--ui-muted); }
+      .doc-tile { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px; border: 1px dashed #b9c8dc; border-radius: 12px; background: var(--ui-surface); }
+      .doc-tile-title { font-weight: 650; font-size: 13px; color: var(--ui-text); }
+      .doc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .doc-file { font-size: 12px; color: var(--ui-muted); overflow-wrap: anywhere; }
+      .doc-tile.has-file { border-style: solid; border-color: var(--ui-success); }
+      .doc-tile.has-file .doc-file { color: var(--ui-success); font-weight: 600; }
+      .doc-tile.is-invalid { border-style: solid; border-color: var(--ui-danger); }
+      .doc-tile.is-invalid .doc-file { color: var(--ui-danger); font-weight: 600; }
+      @media (max-width: 650px) { .doc-uploads legend small { display: block; margin: 4px 0 0; } }
       /* Directory year picker: highlighted like the active view button while a year is shown. */
       #student-directory-year { width: auto; font-weight: 700; }
       #student-directory-year.is-active { border-color: var(--ui-blue); background: var(--ui-blue); color: #fff; }
@@ -315,6 +328,7 @@
               ><label>Relationship<input maxlength="30" name="guardian_relationship" required /></label
               ><label>Guardian Phone<input maxlength="20" name="guardian_phone" required placeholder="09XX XXX XXXX" /></label
               ><label>Guardian Email<input maxlength="120" name="guardian_email" type="email" required /></label
+              ><label>Student Email (optional)<input maxlength="120" name="student_email" type="email" /></label
               ><label>Prior School (optional)<input maxlength="100" name="prior_school" /></label
               ><label>Prior Grade (optional)<input maxlength="20" name="prior_grade" /></label
               ><label>Special Program (optional)<input maxlength="50" name="special_program" placeholder="e.g. STEM, SPED" /></label>
@@ -331,43 +345,48 @@
                   ><input type="file" id="application-photo" accept="image/png,image/jpeg,image/webp" />
                 </div>
               </div>
-              <label class="full"
-                ><b>Supporting Documents (optional)</b>
+              <fieldset class="full doc-uploads">
+                <legend>Supporting Documents <small>Optional · PDF, JPG or PNG, up to 5 MB each</small></legend>
+                <!-- registrar-admissions.js adds Choose file / Use camera / Remove and the file name to each tile. -->
                 <div id="application-documents" class="upload-grid">
-                  <label
-                    >PSA Birth Certificate<input
+                  <div class="doc-tile">
+                    <span class="doc-tile-title">PSA Birth Certificate</span
+                    ><input
+                      hidden
                       type="file"
                       data-type="birth_certificate"
                       data-label="PSA Birth Certificate"
-                      accept=".pdf,.jpg,.jpeg,.png" /></label
-                  ><label
-                    >Form 138 (Report Card)<input
-                      type="file"
-                      data-type="report_card"
-                      data-label="Form 138 (Report Card)"
-                      accept=".pdf,.jpg,.jpeg,.png" /></label
-                  ><label
-                    >Good Moral Certificate<input
-                      type="file"
-                      data-type="good_moral"
-                      data-label="Good Moral Certificate"
-                      accept=".pdf,.jpg,.jpeg,.png" /></label
-                  ><label
-                    >Form 137 / SF10 (Transferees)<input
-                      type="file"
-                      data-type="form_137"
-                      data-label="Form 137 / SF10"
-                      accept=".pdf,.jpg,.jpeg,.png" /></label
-                  ><label
-                    >JHS Completion Certificate (Grades 11-12)<input
+                      accept=".pdf,.jpg,.jpeg,.png"
+                    />
+                  </div>
+                  <div class="doc-tile">
+                    <span class="doc-tile-title">Form 138 (Report Card)</span
+                    ><input hidden type="file" data-type="report_card" data-label="Form 138 (Report Card)" accept=".pdf,.jpg,.jpeg,.png" />
+                  </div>
+                  <div class="doc-tile">
+                    <span class="doc-tile-title">Good Moral Certificate</span
+                    ><input hidden type="file" data-type="good_moral" data-label="Good Moral Certificate" accept=".pdf,.jpg,.jpeg,.png" />
+                  </div>
+                  <div class="doc-tile">
+                    <span class="doc-tile-title">Form 137 / SF10 (Transferees)</span
+                    ><input hidden type="file" data-type="form_137" data-label="Form 137 / SF10" accept=".pdf,.jpg,.jpeg,.png" />
+                  </div>
+                  <div class="doc-tile">
+                    <span class="doc-tile-title">JHS Completion Certificate (Grades 11-12)</span
+                    ><input
+                      hidden
                       type="file"
                       data-type="jhs_completion"
                       data-label="JHS Completion Certificate"
-                      accept=".pdf,.jpg,.jpeg,.png" /></label
-                  ><label
-                    >Other Document<input type="file" data-type="other" data-label="Other Document" accept=".pdf,.jpg,.jpeg,.png"
-                  /></label></div
-              ></label>
+                      accept=".pdf,.jpg,.jpeg,.png"
+                    />
+                  </div>
+                  <div class="doc-tile">
+                    <span class="doc-tile-title">Other Document</span
+                    ><input hidden type="file" data-type="other" data-label="Other Document" accept=".pdf,.jpg,.jpeg,.png" />
+                  </div>
+                </div>
+              </fieldset>
               <div class="actions">
                 <button type="button" id="save-draft" class="btn secondary">Save Draft</button
                 ><button class="btn">Submit Application</button>
