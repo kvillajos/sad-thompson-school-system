@@ -1,8 +1,7 @@
 import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { $, state } from './registrar-state.js'
-import { escapeHtml, lastFirst, gradeLabel, gradeLevelOptions, errorRow } from '../shared/lib/html.js'
-import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
+import { escapeHtml, lastFirst, gradeLabel, errorRow } from '../shared/lib/html.js'
 import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog } from '../shared/ui/dialog.js'
 import { withBusy } from '../shared/ui/shell.js'
@@ -12,8 +11,9 @@ import { buildSemesterTable } from '../shared/lib/semester-grades.js'
 import { buildTranscript } from '../shared/documents/transcript.js'
 import { previewPdf, pdfName } from '../shared/documents/pdf-preview.js'
 import { loadGradingScales } from '../shared/lib/grading-scale.js'
+import { fetchAll } from '../shared/lib/fetch-all.js'
+import { mountFilterBar, gradeFilter, strandFilter } from '../shared/ui/filter-bar.js'
 
-$('academic-grade-filter').innerHTML = gradeLevelOptions({ includeAll: true, allLabel: 'All grades', grades: OFFERED_GRADES })
 
 // The rows are ... Latest School Year | Section | buttons, so Section goes before the page's own "Action" header.
 document
@@ -22,37 +22,55 @@ document
   ?.querySelector('thead tr')
   ?.lastElementChild?.insertAdjacentHTML('beforebegin', '<th>Section</th>')
 
-function academicRowsFor(studentId) {
-  return state.academic
-    .filter(record => `${record.student_id}` === `${studentId}`)
-    .sort((a, b) => (a.school_year || '').localeCompare(b.school_year || '') || (a.subject || '').localeCompare(b.subject || ''))
+// One student's full records, read when a button needs them (the list itself only loads two columns).
+async function academicRowsFor(studentId) {
+  const { data, error } = await supabase
+    .from('academic_history')
+    .select('*')
+    .eq('student_id', studentId)
+    .order('school_year')
+    .order('subject')
+    .order('id')
+  if (error) {
+    toast(describeError(error, 'Load academic history'), 'error')
+    return null
+  }
+  return data || []
 }
 
 const academicTableHtml = rows => buildSemesterTable(rows, { flat: true })
-let academicHistoryLoaded = false
+let academicTabOpened = false
+let summaries = null // student_id -> { count, latest }; null while the counts are still loading
 
-// The panel lists students, not raw records: the counts and the latest school year come
-// from the records already loaded, so no per-student query is needed.
+// The panel lists students, not raw records. The list shows at once; Records and Latest School Year
+// fill in when the light (student_id, school_year) read finishes.
+// Grade, section, strand and latest school year; each lists only the values in the table.
+const academicFilters = mountFilterBar($('academic-filters'), {
+  filters: [
+    gradeFilter(student => student.grade_level),
+    { key: 'section', name: 'Section', all: 'All sections', get: student => state.studentSections.get(String(student.student_id)) },
+    strandFilter(student => student.strand),
+    {
+      key: 'latest',
+      name: 'Latest school year',
+      all: 'All latest years',
+      get: student => summaries?.get(`${student.student_id}`)?.latest,
+      sort: 'desc'
+    }
+  ],
+  onChange: () => renderAcademicStudents()
+})
+
 export function renderAcademicStudents() {
-  if (!academicHistoryLoaded) return
+  if (!academicTabOpened) return
   const search = $('academic-search').value.trim().toLowerCase()
-  const grade = Number($('academic-grade-filter').value) || 0
-  const summaries = new Map()
-
-  state.academic.forEach(record => {
-    const key = `${record.student_id}`
-    const summary = summaries.get(key) || { count: 0, latest: '' }
-    summary.count += 1
-    const year = `${record.school_year || ''}`
-    if (summary.latest.localeCompare(year) < 0) summary.latest = year
-    summaries.set(key, summary)
-  })
-
-  const students = state.students.filter(student => {
+  const listed = state.students.filter(student => {
     const level = Number(student.grade_level)
-    if (level < 1 || level >= 13) return false
-    if (grade && level !== grade) return false
+    return level >= 1 && level < 13
+  })
+  academicFilters.update(listed)
 
+  const students = academicFilters.apply(listed).filter(student => {
     return (
       !search ||
       `${student.lrn_number || ''} ${student.student_id} ${student.first_name || ''} ${student.last_name || ''}`
@@ -64,8 +82,8 @@ export function renderAcademicStudents() {
   $('academic-table').innerHTML =
     students
       .map(student => {
-        const summary = summaries.get(`${student.student_id}`) || { count: 0, latest: '' }
-        return `<tr><td>${escapeHtml(student.lrn_number || student.student_id)}</td><td>${escapeHtml(lastFirst(student))}</td><td>${escapeHtml(gradeLabel(student.grade_level))}</td><td>${summary.count}</td><td>${escapeHtml(summary.latest || '-')}</td><td>${escapeHtml(state.studentSections.get(String(student.student_id)) || 'No Section')}</td><td><span class="academic-actions-main"><button class="admin-view" data-view-academic="${student.student_id}">View History</button> <button class="admin-view" data-print-academic="${student.student_id}">Report Card</button></span><span class="academic-actions-transcript"><button class="admin-view" data-transcript-academic="${student.student_id}">Transcript</button></span></td></tr>`
+        const summary = summaries ? summaries.get(`${student.student_id}`) || { count: 0, latest: '-' } : { count: '…', latest: '…' }
+        return `<tr><td>${escapeHtml(student.lrn_number || student.student_id)}</td><td>${escapeHtml(lastFirst(student))}</td><td>${escapeHtml(gradeLabel(student.grade_level))}</td><td>${summary.count}</td><td>${escapeHtml(summary.latest)}</td><td>${escapeHtml(state.studentSections.get(String(student.student_id)) || 'No Section')}</td><td><span class="academic-actions-main"><button class="admin-view" data-view-academic="${student.student_id}">View History</button> <button class="admin-view" data-print-academic="${student.student_id}">Report Card</button></span><span class="academic-actions-transcript"><button class="admin-view" data-transcript-academic="${student.student_id}">Transcript</button></span></td></tr>`
       })
       .join('') || '<tr><td colspan="7" class="empty-state">No students found.</td></tr>'
 
@@ -86,46 +104,42 @@ export function renderAcademicStudents() {
 let academicLoadSequence = 0
 
 export async function loadAcademic() {
-  await loadGradingScales()
   const sequence = ++academicLoadSequence
-  const data = []
-  academicHistoryLoaded = false
-  state.academic = []
-  $('academic-table').innerHTML = '<tr><td colspan="7">Loading academic history…</td></tr>'
+  // First open shows the list with "…" counts; later reloads (Refresh, live updates) keep the old counts until the new ones arrive.
+  academicTabOpened = true
+  if (!summaries) renderAcademicStudents()
 
-  // Fetch every school year with stable pages, not a school-wide 1000-row cap.
-  for (let start = 0; ; start += 500) {
-    const { data: page, error } = await supabase
-      .from('academic_history')
-      .select('*')
-      .order('school_year')
-      .order('subject')
-      .order('id')
-      .range(start, start + 499)
-
-    if (sequence !== academicLoadSequence) return
-
-    if (error) {
-      $('academic-table').innerHTML = errorRow(7, error, 'Load academic history')
-      return
-    }
-
-    data.push(...(page || []))
-    if (!page || page.length < 500) break
+  // Only the two columns the list needs, every school year (fetchAll pages past the 1000-row cap).
+  // ponytail: still reads one small row per grade record; a grouped SQL view would make it one row per student if this grows slow again.
+  const [, { data, error }] = await Promise.all([
+    loadGradingScales(),
+    fetchAll(() => supabase.from('academic_history').select('student_id,school_year').order('id'))
+  ])
+  if (sequence !== academicLoadSequence) return
+  if (error) {
+    $('academic-table').innerHTML = errorRow(7, error, 'Load academic history')
+    return
   }
 
-  state.academic = data
-  academicHistoryLoaded = true
+  summaries = new Map()
+  for (const record of data) {
+    const key = `${record.student_id}`
+    const summary = summaries.get(key) || { count: 0, latest: '' }
+    summary.count += 1
+    const year = `${record.school_year || ''}`
+    if (summary.latest.localeCompare(year) < 0) summary.latest = year
+    summaries.set(key, summary)
+  }
   renderAcademicStudents()
 }
 
 $('academic-search').oninput = renderAcademicStudents
-$('academic-grade-filter').addEventListener('change', renderAcademicStudents)
 $('refresh-academic').onclick = event => withBusy(event.currentTarget, 'Refreshing…', loadAcademic)
 
 async function openAcademicHistory(studentId) {
   const student = state.students.find(item => `${item.student_id}` === `${studentId}`) || {}
-  const rows = academicRowsFor(studentId)
+  const rows = await academicRowsFor(studentId)
+  if (!rows) return
   state.academicStudentId = studentId
   $('academic-history-title').textContent = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'View History'
 
@@ -202,7 +216,8 @@ async function printAcademicCard(studentId, year = '') {
   const student = state.students.find(item => `${item.student_id}` === `${studentId}`)
   if (!student) return toast('Open a student record first.', 'error')
 
-  const rows = academicRowsFor(studentId)
+  const rows = await academicRowsFor(studentId)
+  if (!rows) return
   if (!rows.length) return toast('No academic records to print for this student.', 'error')
 
   const schoolYear = year || rows[rows.length - 1].school_year

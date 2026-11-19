@@ -1,4 +1,4 @@
-import { supabase } from '../lib/auth-client.js'
+import { supabase, onTableChange } from '../lib/auth-client.js'
 import { escapeHtml, formatDate, richText } from '../lib/html.js'
 import { describeError } from '../lib/errors.js'
 
@@ -8,8 +8,14 @@ export const pinIcon =
 // Shows the announcements meant for one role on its dashboard: maintenance notices as a banner,
 // everything else as a list. The database already hides other audiences and expired rows from
 // faculty/students; admin and registrar can read every row, so the same filter runs here too.
+const liveHosts = new WeakSet()
+
 export async function mountAnnouncements(host, role, { list = true } = {}) {
   if (!host) return
+  if (!liveHosts.has(host)) {
+    liveHosts.add(host)
+    onTableChange(['announcements'], () => mountAnnouncements(host, role, { list }))
+  }
   const { data, error } = await supabase
     .from('announcements')
     .select('id,title,message,kind,audience,pinned,posted_at,expires_at,author_name')

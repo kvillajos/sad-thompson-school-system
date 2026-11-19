@@ -327,14 +327,29 @@ $('enrollment-table')
     })
   })
 
+// The dialogs re-read only the students who can still be placed (new admissions show up), not every past student.
+// A loaded student missing from the fresh read has graduated, transferred or withdrawn since, so it is dropped.
+async function refreshPlaceableStudents() {
+  const { data, error } = await fetchAll(() =>
+    supabase
+      .from('students')
+      .select('*')
+      .or('enrollment_status.is.null,enrollment_status.not.in.(Graduated,Transferred,Withdrawn)')
+      .order('student_id')
+  )
+  if (error) return { error }
+  const fresh = new Map((data || []).map(student => [student.student_id, student]))
+  state.students = [...state.students.filter(student => !fresh.has(student.student_id) && !isPlaceable(student)), ...fresh.values()].sort(byLastName)
+  return { error: null }
+}
+
 async function openPlacement(sectionId = '') {
   const [studentResult, enrollmentResult] = await Promise.all([
-    fetchAll(() => supabase.from('students').select('*').order('last_name').order('student_id')),
+    refreshPlaceableStudents(),
     fetchAll(() => supabase.from('enrollments').select('student_id,section_id,sections(section_name)').eq('status', 'active').order('id'))
   ])
   const placementError = studentResult.error || enrollmentResult.error
   if (placementError) return toast(describeError(placementError, 'Load placement students'), 'error')
-  state.students = (studentResult.data || []).sort(byLastName)
   state.enrolledByStudent = new Map((enrollmentResult.data || []).map(row => [row.student_id, row.section_id]))
   // Approving an application creates an active enrollment with no section yet; those students are unassigned.
   state.enrolledSections = new Map(
@@ -428,12 +443,11 @@ function renderSetStrandStudents() {
 }
 $('open-set-strand').onclick = async () => {
   const [studentResult, enrollmentResult] = await Promise.all([
-    fetchAll(() => supabase.from('students').select('*').order('last_name').order('student_id')),
+    refreshPlaceableStudents(),
     fetchAll(() => supabase.from('enrollments').select('student_id,section_id').eq('status', 'active').order('id'))
   ])
   const loadError = studentResult.error || enrollmentResult.error
   if (loadError) return toast(describeError(loadError, 'Load students'), 'error')
-  state.students = (studentResult.data || []).sort(byLastName)
   state.enrolledByStudent = new Map((enrollmentResult.data || []).map(row => [row.student_id, row.section_id]))
   $('set-strand-value').innerHTML = strandOptions('', 'Choose strand')
   $('set-strand-search').value = ''

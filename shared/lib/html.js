@@ -9,6 +9,18 @@ export function escapeHtml(value = '') {
   )
 }
 
+// One uploaded application document as a list item: images (JPG/PNG/...) show a preview that opens the full
+// file; anything else (PDF) is a link. url is a signed URL, or empty when the link could not be made.
+const IMAGE_FILE = /\.(jpe?g|png|gif|webp)$/i
+export function documentItem({ type, name, url, problem = '' }) {
+  const label = escapeHtml(String(type || 'Document').replaceAll('_', ' ').replace(/^./, c => c.toUpperCase()))
+  const fileName = escapeHtml(name || 'file')
+  if (!url) return `<li><b>${label}:</b> <span class="note">${fileName}${problem ? ` (${escapeHtml(problem)})` : ''}</span></li>`
+  const link = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${fileName}</a>`
+  if (!IMAGE_FILE.test(name || '')) return `<li><b>${label}:</b> ${link}</li>`
+  return `<li style="list-style:none;margin:0 0 14px -18px"><b>${label}:</b> ${link}<br><a href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="${label}" loading="lazy" style="display:block;margin-top:6px;max-width:min(100%,320px);max-height:220px;object-fit:contain;border:1px solid var(--ui-border);border-radius:8px;background:var(--ui-surface)"></a></li>`
+}
+
 // Display-only full names for abbreviated subject names. The stored name is left alone because grades,
 // academic history and the report card match on it; only what the admin pages show changes.
 const SUBJECT_FULL_NAMES = { mapeh: 'Music, Arts, Physical Education, and Health', infosys: 'Information Systems' }

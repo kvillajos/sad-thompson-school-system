@@ -1,4 +1,4 @@
-import { supabase } from '../shared/lib/auth-client.js'
+import { supabase, onTableChange } from '../shared/lib/auth-client.js'
 import { escapeHtml, formatDate } from '../shared/lib/html.js'
 
 const WEEK_MS = 7 * 86400000
@@ -37,12 +37,13 @@ export async function mountNotificationBell(user) {
     count.textContent = unread
     count.classList.toggle('hidden', !unread)
     panel.innerHTML =
-      items
+      `<div class="notif-head">Notifications<small>${unread ? `${unread} unread` : 'All read'}</small></div>` +
+      (items
         .map(
           item =>
             `<button type="button" class="notif-item${item.is_read ? '' : ' unread'}" data-notif="${item.id}"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.message)}</span><small>${formatDate(item.created_at, true)}</small></button>`
         )
-        .join('') || '<p class="notif-empty">No notifications this week.</p>'
+        .join('') || '<p class="notif-empty">No notifications this week.</p>')
   }
 
   function openDetails(item) {
@@ -77,5 +78,6 @@ export async function mountNotificationBell(user) {
     if (!box.contains(event.target)) panel.classList.add('hidden')
   })
   await load()
+  onTableChange(['notifications'], load, { wait: 500 }) // live; the 60 s refresh also drops week-old notices
   setInterval(load, 60000)
 }

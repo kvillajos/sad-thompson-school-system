@@ -11,12 +11,21 @@ const DATE_LIKE = /^\d{1,4}[/-]\d{1,2}[/-]\d{1,4}/
 const DATE_HEADER = /^(when|date|posted|requested|sent|submitted|created|updated|last saved)\b/i
 export const defaultDirection = header => (DATE_HEADER.test(String(header ?? '').trim()) ? -1 : 1)
 
+// Empty cells and the "-" / "…" placeholders (no value, still loading) count as blank.
+const isBlank = value => ['', '-', '…'].includes(String(value ?? '').trim())
+
+// Blanks count as the highest value: last on the first (A-Z) click, first when reversed, so they are
+// one click away instead of pages down.
 export function compareValues(left, right) {
   const a = String(left ?? '').trim()
   const b = String(right ?? '').trim()
-  if (!a && !b) return 0
-  if (!a) return 1 // blanks always sort last, either direction
-  if (!b) return -1
+  if (isBlank(a) && isBlank(b)) return 0
+  if (isBlank(a)) return 1
+  if (isBlank(b)) return -1
+  return compareFilled(a, b)
+}
+
+function compareFilled(a, b) {
   const numberA = Number(a.replace(/[,\s]/g, ''))
   const numberB = Number(b.replace(/[,\s]/g, ''))
   if (Number.isFinite(numberA) && Number.isFinite(numberB)) return numberA - numberB

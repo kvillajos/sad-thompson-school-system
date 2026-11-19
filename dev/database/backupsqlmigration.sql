@@ -8005,3 +8005,41 @@ grant execute on function public.bulk_import_students(text, jsonb) to authentica
 notify pgrst, 'reload schema';
 commit;
 -- END v76-shared-student-email.sql
+
+-- BEGIN v77-realtime-queues.sql  (applied live 2026-11-19 via the Supabase MCP; branch main; no pending file)
+-- v77-realtime-queues.sql  (logged only in backupsqlmigration.sql; no pending file)
+-- Live updates for the registrar and admin work queues: adds these tables to the supabase_realtime publication so the
+-- pages' onTableChange() subscriptions (shared/lib/auth-client.js) hear inserts/updates/deletes. Changes no data.
+-- Every table already has RLS on with read policies, and Realtime applies them per viewer, so nobody receives rows
+-- they could not already read. approval_requests was added earlier (student requests). Safe to run twice.
+begin;
+do $$
+declare t text;
+begin
+  foreach t in array array['admission_applications','enrollments','sections','registrar_feedback','academic_history','profile_change_requests'] loop
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+commit;
+-- END v77-realtime-queues.sql
+
+-- BEGIN v78-realtime-notices.sql  (applied live 2026-11-19 via the Supabase MCP; branch main; no pending file)
+-- v78-realtime-notices.sql  (logged only in backupsqlmigration.sql; no pending file)
+-- Live updates for notifications (student bell, faculty dashboard notices), document requests (student status,
+-- registrar queue) and announcements (every dashboard). Adds the tables to the supabase_realtime publication; changes
+-- no data. All three have RLS on: notifications and document_requests reach only their own recipient/student (plus
+-- admin/registrar), announcements only their audience. Same pattern as v77. Safe to run twice.
+begin;
+do $$
+declare t text;
+begin
+  foreach t in array array['notifications','document_requests','announcements'] loop
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+commit;
+-- END v78-realtime-notices.sql

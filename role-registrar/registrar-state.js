@@ -4,7 +4,6 @@ export const state = {
   drafts: [],
   sections: [],
   students: [],
-  academic: [],
   studentSections: new Map(),
   selectedApplication: null,
   enrolledByStudent: new Map(),

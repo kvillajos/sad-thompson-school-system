@@ -1,6 +1,6 @@
 // My Advisory: the class adviser's whole section on one page (every subject's grades, attendance, the
 // students' requests and discipline records). Read access comes from the v60 adviser policies.
-import { supabase } from '../shared/lib/auth-client.js'
+import { supabase, onTableChange } from '../shared/lib/auth-client.js'
 import { loadFacultyContext, escapeHtml, lastFirst } from './faculty-common.js'
 import { byLastName, errorRow, formatDate, gradeLabel } from '../shared/lib/html.js'
 import { describeError } from '../shared/lib/errors.js'
@@ -133,10 +133,17 @@ async function loadSection() {
     ...new Set([...(schedules.data || []).map(row => row.subjects?.subject_name), ...(grades.data || []).map(row => row.subject)].filter(Boolean))
   ].sort()
   current = { section, students, subjects, grades: grades.data || [] }
-  $('advisory-summary').innerHTML =
-    `<span><strong>${escapeHtml(section.section_name)}</strong> · ${escapeHtml(gradeLabel(section.grade_level))}${
-      section.strand ? ` ${escapeHtml(section.strand)}` : ''
-    }${section.semester ? ` · ${escapeHtml(section.semester)}` : ''}</span><span>${escapeHtml(section.academic_year)}</span><span>${students.length} student(s), ${subjects.length} subject(s)</span>`
+  // The section name is in the picker and the school year in the bar above, so only the other facts show here.
+  const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`
+  $('advisory-summary').innerHTML = [
+    `${gradeLabel(section.grade_level)}${section.strand ? ` ${section.strand}` : ''}`,
+    section.semester,
+    plural(students.length, 'student'),
+    plural(subjects.length, 'subject')
+  ]
+    .filter(Boolean)
+    .map(fact => `<span>${escapeHtml(fact)}</span>`)
+    .join('')
   renderGrades()
   await Promise.all([
     renderAttendance(section, students),
@@ -169,5 +176,7 @@ if (context) {
     $('advisory-section').onchange = () => loadSection().catch(error => toast(describeError(error, 'Load advisory'), 'error'))
     $('advisory-grade-field').onchange = renderGrades
     await loadSection().catch(error => toast(describeError(error, 'Load advisory'), 'error'))
+    // Live: the section's student requests appear and change status without a reload.
+    onTableChange(['approval_requests'], () => current && renderRequests(current.students))
   }
 }

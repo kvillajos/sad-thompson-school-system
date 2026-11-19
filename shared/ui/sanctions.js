@@ -51,8 +51,7 @@ const recordFields = (row = {}) => [
 // Registrar tab and admin page: a school-year picker over the whole school's records.
 export async function mountStaffSanctions(host, { canDelete = true } = {}) {
   if (!host) return
-  host.innerHTML =
-    '<div class="filterbar admin-filterbar"><select data-sanction-year aria-label="School year"></select></div><div data-sanction-list></div>'
+  host.innerHTML = '<select data-sanction-year aria-label="School year"></select><div data-sanction-list></div>'
   const yearSelect = host.querySelector('[data-sanction-year]')
   const [, students] = await Promise.all([
     fillYearSelect(yearSelect),
@@ -60,24 +59,26 @@ export async function mountStaffSanctions(host, { canDelete = true } = {}) {
   ])
   if (students.error) toast(describeError(students.error, 'Load students'), 'error')
   const list = host.querySelector('[data-sanction-list]')
-  const show = () => mountSanctions(list, { students: students.data || [], canDelete, schoolYear: yearSelect.value })
+  // The year picker sits at the start of the list's own filter bar (moved back in after each re-render).
+  const show = () => mountSanctions(list, { students: students.data || [], canDelete, schoolYear: yearSelect.value, leading: yearSelect })
   yearSelect.onchange = show
   await show()
 }
 
 export async function mountSanctions(
   host,
-  { students = [], studentId = null, readOnly = false, canDelete = false, schoolYear = currentSchoolYear() } = {}
+  { students = [], studentId = null, readOnly = false, canDelete = false, schoolYear = currentSchoolYear(), leading = null } = {}
 ) {
   if (!host) return
+  // Filters on the left (year, status), "find a student + Add record" pushed to the right.
   host.innerHTML = `
     ${
       readOnly
         ? ''
-        : `<div class="admin-filterbar filterbar">
-            <input type="search" data-sanction-student maxlength="100" placeholder="Type a student's name or ID to add a record" aria-label="Student" />
-            <button type="button" class="admin-primary btn" data-sanction-add disabled>+ Add record</button>
+        : `<div class="admin-filterbar filterbar sanction-bar">
             <select data-sanction-status aria-label="Status"><option value="">All statuses</option>${STATUSES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>
+            <input type="search" data-sanction-student maxlength="100" placeholder="Find a student to add a record" aria-label="Student to add a record for" />
+            <button type="button" class="admin-primary btn" data-sanction-add disabled>+ Add record</button>
           </div>`
     }
     <table><thead><tr><th>Date</th>${studentId ? '' : '<th>Student</th>'}<th>Violation</th><th>Sanction</th><th>Status</th>${
@@ -85,6 +86,7 @@ export async function mountSanctions(
     }</tr></thead><tbody data-sanction-rows><tr><td colspan="7">Loading…</td></tr></tbody></table>`
   const body = host.querySelector('[data-sanction-rows]')
   const columns = 4 + (studentId ? 0 : 1) + (readOnly ? 0 : 2)
+  if (leading) host.querySelector('.sanction-bar')?.prepend(leading)
   let rows = []
   let picked = null
 

@@ -12,12 +12,17 @@ let data = null // { types, received: Map(appId -> Set(code)), uploaded: Map(app
 
 const addTo = (map, key, value) => (map.get(key) || map.set(key, new Set()).get(key)).add(value)
 
-// Loads every application's marks, uploads and override requests at once. Returns false before v58 is applied.
-export async function loadRequirementData() {
+let scope = null // application ids the last load covered; null = every application
+
+// Loads the marks, uploads and override requests at once. Returns false before v58 is applied.
+// ids: only these applications (the admin's waiting list); omitted, the same set as the last load.
+export async function loadRequirementData(ids = scope) {
+  scope = ids
+  const only = query => (ids ? query.in('application_id', ids) : query)
   const [types, marks, docs, overrides] = await Promise.all([
     supabase.from('requirement_types').select('code,label,grade_levels,transferee_only,required,sort_order,is_active').order('sort_order'),
-    fetchAll(() => supabase.from('application_requirements').select('application_id,code').order('application_id').order('code')),
-    fetchAll(() => supabase.from('application_documents').select('id,application_id,document_type').order('id')),
+    fetchAll(() => only(supabase.from('application_requirements').select('application_id,code')).order('application_id').order('code')),
+    fetchAll(() => only(supabase.from('application_documents').select('id,application_id,document_type')).order('id')),
     supabase
       .from('approval_requests')
       .select('id,status,payload,remarks,created_at')
@@ -41,6 +46,13 @@ export async function loadRequirementData() {
 const statusOf = app => {
   const codes = new Set([...(data.received.get(app.id) || []), ...(data.uploaded.get(app.id) || [])])
   return requirementStatus(app, data.types, codes)
+}
+
+// For the Applications Requirements filter: 'complete' when the badge says Complete or Override approved,
+// 'missing' otherwise, null when the badge shows '-' (drafts, or no checklist set up).
+export function requirementsState(app) {
+  if (!data || app.status === 'draft') return null
+  return statusOf(app).complete || data.overrides.get(app.id)?.status === 'approved' ? 'complete' : 'missing'
 }
 
 // "Complete", "2 of 4" or "Override approved"; '-' before v58 or for drafts.

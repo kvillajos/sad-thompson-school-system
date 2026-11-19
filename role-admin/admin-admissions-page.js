@@ -1,4 +1,4 @@
-import { supabase } from '../shared/lib/auth-client.js'
+import { supabase, onTableChange } from '../shared/lib/auth-client.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
 import { escapeHtml, errorRow, formatDate, gradeLabel, lastFirst } from '../shared/lib/html.js'
 import { withBusy } from '../shared/ui/shell.js'
@@ -17,16 +17,15 @@ let applications = []
 const openReview = mountAdmissionReview(() => loadApplications())
 
 async function loadApplications() {
-  const [{ data, error }] = await Promise.all([
-    supabase
-      .from('admission_applications')
-      .select('id,first_name,last_name,grade_level,admission_type,status,created_at,editing_by,editing_since,student_email')
-      .in('status', ['submitted', 'under_review'])
-      .order('created_at'),
-    loadRequirementData()
-  ])
+  const { data, error } = await supabase
+    .from('admission_applications')
+    .select('id,first_name,last_name,grade_level,admission_type,status,created_at,editing_by,editing_since,student_email')
+    .in('status', ['submitted', 'under_review'])
+    .order('created_at')
   if (error) return ($('admission-rejection-table').innerHTML = errorRow(7, error, 'Load applications'))
   applications = data || []
+  // Requirement marks and uploads for the waiting applications only, not every application ever filed.
+  await loadRequirementData(applications.map(app => app.id))
   $('admissions-count').textContent = applications.length ? `${applications.length} waiting` : ''
   renderApplications()
 }
@@ -63,4 +62,5 @@ await loadApplications()
 const linked = applications.find(app => String(app.id) === new URLSearchParams(location.search).get('review'))
 if (linked) openReview(linked)
 setInterval(loadApplications, 30000)
+onTableChange(['admission_applications'], loadApplications) // live; the 30 s refresh still picks up requirement marks
 hideLoadingScreen()

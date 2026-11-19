@@ -1,4 +1,4 @@
-import { requireRole, signOut } from '../shared/lib/auth-client.js'
+import { requireRole, signOut, onTableChange } from '../shared/lib/auth-client.js'
 import { applyUiTheme, toast } from '../shared/ui/ui-theme.js'
 import { mountProfile, mountSidebar, withBusy } from '../shared/ui/shell.js'
 import { mountRestoreChanges } from '../shared/ui/restore-changes.js'
@@ -88,10 +88,10 @@ function showTab(name) {
     })
   }
   if (name === 'requests') loadMyRequests()
-  if (name === 'restore') mountRestoreChanges($('restore-changes-host'))
+  if (name === 'restore') mountRestoreChanges($('restore-changes-host'), { actions: $('refresh-restore') })
   showLifecycleTab(name)
 }
-$('refresh-restore').onclick = event => withBusy(event.currentTarget, 'Refreshing…', () => mountRestoreChanges($('restore-changes-host')))
+$('refresh-restore').onclick = event => withBusy(event.currentTarget, 'Refreshing…', () => mountRestoreChanges($('restore-changes-host'), { actions: $('refresh-restore') }))
 const tabFromHash = () => {
   const name = location.hash.slice(1)
   return tabs.some(t => t.dataset.tab === name) && $(name) ? name : null
@@ -117,5 +117,11 @@ async function init() {
   await loadPromotionCandidates()
   await refreshShiftSections()
   hideLoadingScreen()
+  // Live: the lists reload when someone else (admin, another registrar) changes them.
+  onTableChange(['admission_applications'], loadApplications)
+  onTableChange(['approval_requests'], loadMyRequests) // the admin deciding the registrar's own requests
+  onTableChange(['enrollments', 'sections'], () => Promise.all([loadSections(), loadEnrollments()]))
+  // Grade saves come in bursts while faculty type, so the school-wide counts reload at most every 5 s, and only once the tab was opened.
+  onTableChange(['academic_history'], () => academicLoadStarted && loadAcademic(), { wait: 5000 })
 }
 init()

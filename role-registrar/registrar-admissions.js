@@ -2,7 +2,7 @@ import { supabase } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { withBusy, confirmPassword } from '../shared/ui/shell.js'
 import { $, state } from './registrar-state.js'
-import { escapeHtml, formatDate, gradeLabel, gradeToNumber, errorRow } from '../shared/lib/html.js'
+import { escapeHtml, formatDate, gradeLabel, gradeToNumber, errorRow, documentItem } from '../shared/lib/html.js'
 import { OFFERED_GRADES } from '../shared/lib/grade-levels.js'
 import { attendanceSummaryLine } from '../shared/lib/attendance.js'
 import { currentSchoolYear, generalAverage, letterGrade } from '../shared/lib/grades.js'
@@ -11,7 +11,8 @@ import { describeError } from '../shared/lib/errors.js'
 import { confirmDialog, formDialog } from '../shared/ui/dialog.js'
 import { isSeniorHigh, strandOptions, STRANDS } from '../shared/lib/strands.js'
 import { buildSemesterTable } from '../shared/lib/semester-grades.js'
-import { loadRequirementData, mountRequirementChecklist, requirementBadge } from '../shared/ui/requirements-checklist.js'
+import { loadRequirementData, mountRequirementChecklist, requirementBadge, requirementsState } from '../shared/ui/requirements-checklist.js'
+import { mountFilterBar, gradeFilter } from '../shared/ui/filter-bar.js'
 
 // Label values ("Grade 7"), so an application's stored grade still selects through gradeSelectLabel().
 const applicationGrade = document.querySelector('#application-form [name=grade_level]')
@@ -36,7 +37,7 @@ export function statusBadge(s) {
 const photoPlaceholder = $('application-photo-preview')?.getAttribute('src') || ''
 if ($('application-photo')) {
   $('application-photo').setAttribute('capture', 'user')
-  $('application-photo-hint')?.replaceChildren('PNG/JPG/WEBP up to 3MB - choose a file or use the device camera')
+  $('application-photo-hint')?.replaceChildren('PNG, JPG or WEBP, up to 3 MB')
 }
 
 // One camera window for the profile picture and the supporting documents. The captured JPG is put into the
@@ -108,7 +109,8 @@ if ($('application-photo')) {
         setApplicationPhoto(URL.createObjectURL(file))
       }
     })
-  $('application-photo').after(cameraButton)
+  $('remove-application-photo').before(cameraButton)
+  $('choose-application-photo').onclick = () => $('application-photo').click()
 }
 // Supporting documents: same limits as the admission-documents bucket (v41), checked as soon as a file is chosen.
 const DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -159,6 +161,15 @@ function setApplicationPhoto(url) {
   if (photoObjectUrl) URL.revokeObjectURL(photoObjectUrl)
   photoObjectUrl = url?.startsWith('blob:') ? url : null
   $('application-photo-preview').src = url || photoPlaceholder
+  // Status under the buttons: the chosen file, a draft's saved photo, or nothing yet. Remove only when there is one.
+  const file = $('application-photo').files?.[0]
+  $('application-photo-name').textContent = !url
+    ? 'No photo chosen'
+    : file
+      ? `✓ ${file.name} · ${fileSize(file.size)}`
+      : '✓ Saved photo'
+  $('application-photo-name').style.color = url ? 'var(--ui-success)' : ''
+  $('remove-application-photo').classList.toggle('hidden', !url)
 }
 $('application-photo').addEventListener('change', event => {
   const file = event.target.files?.[0]
@@ -297,6 +308,17 @@ async function saveProfilePicture(applicationId) {
   if (error) toast(describeError(error, 'Linking the profile picture to the application'), 'error')
 }
 
+// One file into the admission-documents bucket plus its application_documents row. Returns an error or null.
+async function uploadDocument(applicationId, type, file) {
+  const path = `${applicationId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+  const { error: uploadError } = await supabase.storage.from('admission-documents').upload(path, file, { upsert: false })
+  if (uploadError) return uploadError
+  const { error } = await supabase
+    .from('application_documents')
+    .insert({ application_id: applicationId, document_type: type, file_path: path, original_name: file.name })
+  return error
+}
+
 // Returns the labels of documents that did not make it, so the caller can say so instead of "success".
 async function uploadDocuments(applicationId) {
   const failed = []
@@ -308,16 +330,7 @@ async function uploadDocuments(applicationId) {
       failed.push(`${input.dataset.label} (PDF/JPG/PNG up to 5MB only)`)
       continue
     }
-    const path = `${applicationId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-    const { error: uploadError } = await supabase.storage.from('admission-documents').upload(path, file, { upsert: false })
-    if (uploadError) {
-      failed.push(input.dataset.label)
-      continue
-    }
-    const { error } = await supabase
-      .from('application_documents')
-      .insert({ application_id: applicationId, document_type: input.dataset.type, file_path: path, original_name: file.name })
-    if (error) {
+    if (await uploadDocument(applicationId, input.dataset.type, file)) {
       failed.push(input.dataset.label)
       continue
     }
@@ -327,9 +340,69 @@ async function uploadDocuments(applicationId) {
   return failed
 }
 
+// The uploaded documents of one application as list items (image previews, PDF links).
+async function documentListHtml(applicationId) {
+  const { data: documents, error } = await supabase
+    .from('application_documents')
+    .select('document_type,original_name,file_path')
+    .eq('application_id', applicationId)
+    .order('uploaded_at')
+  if (error) return `<li role="alert">${escapeHtml(describeError(error, 'Load documents'))}</li>`
+  const items = await Promise.all(
+    (documents || []).map(async doc => {
+      const { data: signed } = await supabase.storage.from('admission-documents').createSignedUrl(doc.file_path, 600)
+      return documentItem({ type: doc.document_type, name: doc.original_name, url: signed?.signedUrl })
+    })
+  )
+  return items.join('') || '<li>No documents uploaded.</li>'
+}
+
+// Edit Application: the requirements tick-list and the documents, each saved as soon as it changes (like the
+// View window's checklist), so the registrar can add a missing file or mark a paper copy as received.
+async function mountEditRequirements(app) {
+  const requirementsHost = $('edit-requirements')
+  const documentsHost = $('edit-documents')
+  if (!requirementsHost || !documentsHost) return
+  mountRequirementChecklist(requirementsHost, app, { editable: true, onChange: loadApplications })
+  const types = [...document.querySelectorAll('#application-documents input[type=file]')]
+  documentsHost.innerHTML = `<ul class="document-list" data-doc-list><li>Loading documents…</li></ul>
+    <div class="filterbar" style="align-items:center">
+      <select data-doc-type aria-label="Document type">${types.map(input => `<option value="${escapeHtml(input.dataset.type)}">${escapeHtml(input.dataset.label)}</option>`).join('')}</select>
+      <input type="file" data-doc-file accept=".pdf,.jpg,.jpeg,.png" aria-label="Document file" />
+      <button type="button" class="btn secondary" data-doc-upload>Upload</button>
+    </div>
+    <p class="note">PDF, JPG or PNG up to 5 MB. Uploading a required document ticks it in the list above.</p>`
+  const list = documentsHost.querySelector('[data-doc-list]')
+  list.innerHTML = await documentListHtml(app.id)
+  const upload = documentsHost.querySelector('[data-doc-upload]')
+  upload.onclick = () =>
+    withBusy(upload, 'Uploading…', async () => {
+      const input = documentsHost.querySelector('[data-doc-file]')
+      const file = input.files?.[0]
+      if (!file) return toast('Choose a file to upload first.', 'error')
+      const problem = docProblem(file)
+      if (problem) return toast(`That file is ${problem}. Use a PDF, JPG or PNG up to 5 MB.`, 'error')
+      const error = await uploadDocument(app.id, documentsHost.querySelector('[data-doc-type]').value, file)
+      if (error) return toast(describeError(error, 'Upload document'), 'error')
+      input.value = ''
+      toast(`${file.name} uploaded.`)
+      await loadRequirementData()
+      mountRequirementChecklist(requirementsHost, app, { editable: true, onChange: loadApplications })
+      list.innerHTML = await documentListHtml(app.id)
+      loadApplications()
+    })
+}
+
 export async function loadApplications() {
   const [{ data, error }] = await Promise.all([
-    fetchAll(() => supabase.from('admission_applications').select('*').order('created_at', { ascending: false }).order('id')),
+    // List columns only; View and Resume read the full application when pressed (fullApplication).
+    fetchAll(() =>
+      supabase
+        .from('admission_applications')
+        .select('id,first_name,last_name,grade_level,admission_type,status,created_at')
+        .order('created_at', { ascending: false })
+        .order('id')
+    ),
     loadRequirementData()
   ])
   if (error) {
@@ -337,13 +410,34 @@ export async function loadApplications() {
     return
   }
   state.applications = data || []
+  applicationFilters.update(state.applications)
   renderApplications()
 }
+
+// Grade, status and requirements on top of the search box; the choices come from the loaded applications.
+const applicationFilters = mountFilterBar($('application-filters'), {
+  filters: [
+    gradeFilter(a => a.grade_level),
+    { key: 'status', name: 'Status', all: 'All statuses', get: a => a.status, label: s => s.replaceAll('_', ' ').replace(/^./, c => c.toUpperCase()) },
+    {
+      key: 'requirements',
+      name: 'Requirements',
+      all: 'All requirements',
+      get: requirementsState,
+      options: [
+        ['complete', 'Requirements complete'],
+        ['missing', 'Requirements missing']
+      ]
+    }
+  ],
+  onChange: () => renderApplications()
+})
 
 function renderApplications() {
   const search = $('application-search').value.trim().toLowerCase()
   $('applications-table').innerHTML =
-    state.applications
+    applicationFilters
+      .apply(state.applications)
       .filter(a => !search || `${a.first_name} ${a.last_name} ${a.last_name} ${a.first_name} ${a.id}`.toLowerCase().includes(search))
       .map(
         a => `<tr>
@@ -366,8 +460,15 @@ function renderApplications() {
 }
 $('application-search').oninput = renderApplications
 
-function resumeApplication(id) {
-  const application = state.applications.find(item => String(item.id) === String(id))
+// Every field of one application (the list only holds its own columns).
+async function fullApplication(id) {
+  const { data, error } = await supabase.from('admission_applications').select('*').eq('id', id).maybeSingle()
+  if (error) toast(describeError(error, 'Load application'), 'error')
+  return data
+}
+
+async function resumeApplication(id) {
+  const application = await fullApplication(id)
   if (!application) return toast('That draft could not be found. Refresh the draft list and try again.', 'error')
   const form = $('application-form')
   clearApplicationForm()
@@ -592,7 +693,7 @@ const APPLICATION_FIELDS = [
 // view-only because they have already become (or been refused as) student records.
 async function openView(id) {
   if (state.selectedApplication) return toast('Close the current review first.', 'error')
-  const a = state.applications.find(item => String(item.id) === String(id))
+  const a = await fullApplication(id)
   if (!a) return toast('That application could not be found. Refresh the list and try again.', 'error')
   const editable = ['submitted', 'under_review'].includes(a.status)
   const show = (key, value) => (value == null || value === '' ? '-' : key === 'grade_level' ? gradeLabel(value) : value)
@@ -616,24 +717,8 @@ async function openView(id) {
       return
     await openReview(a.id)
   })
-  const { data: documents, error } = await supabase
-    .from('application_documents')
-    .select('document_type,original_name,file_path')
-    .eq('application_id', a.id)
-    .order('uploaded_at')
-  const list = $('view-documents')
-  if (!list) return
-  if (error) return (list.innerHTML = `<li role="alert">${escapeHtml(describeError(error, 'Load documents'))}</li>`)
-  const links = await Promise.all(
-    (documents || []).map(async doc => {
-      const { data: signed } = await supabase.storage.from('admission-documents').createSignedUrl(doc.file_path, 600)
-      const name = escapeHtml(`${doc.document_type}: ${doc.original_name || 'file'}`)
-      return signed?.signedUrl
-        ? `<li><a href="${escapeHtml(signed.signedUrl)}" target="_blank" rel="noopener">${name}</a></li>`
-        : `<li>${name}</li>`
-    })
-  )
-  list.innerHTML = links.join('') || '<li>No documents uploaded.</li>'
+  const html = await documentListHtml(a.id)
+  if ($('view-documents')) $('view-documents').innerHTML = html
 }
 
 // Opens the application with a database-held edit lock so the administrator cannot
@@ -665,9 +750,13 @@ async function openReview(id) {
     `<label>${label}<input name="${name}" type="${type}"${LIMITS[name] ? ` maxlength="${LIMITS[name]}"` : ''} value="${escapeHtml(data[name] ?? '')}"></label>`
   $('review-content').innerHTML =
     `<div class="note">Editing as <b>${escapeHtml(data.editing_by || 'registrar')}</b>. The administrator cannot approve or decline this file while it is open here. Closing the form releases it.</div>
+  <h3>Requirements</h3><p class="note">Ticks and uploads save right away; Save Review is only for the fields below.</p><div id="edit-requirements"><p>Loading requirements…</p></div>
+  <h3>Documents</h3><div id="edit-documents"></div>
+  <h3>Application details</h3>
   <form id="review-form">${field('First Name', 'first_name')}${field('Middle Name', 'middle_name')}${field('Last Name', 'last_name')}${field('Birth Date', 'birth_date', 'date')}${field('Sex', 'sex')}${field('Grade Level', 'grade_level')}${field('Address', 'address')}${field('Contact Number', 'contact_number')}${field('Guardian Name', 'guardian_name')}${field('Relationship', 'guardian_relationship')}${field('Guardian Phone', 'guardian_phone')}${field('Guardian Email', 'guardian_email')}${field('Student Email (blank = username@tcs.edu.ph)', 'student_email', 'email')}${field('Prior School', 'prior_school')}${field('Prior Grade', 'prior_grade')}${field('Special Program', 'special_program')}<label>Registrar remarks<textarea name="remarks" maxlength="500">${escapeHtml(data.remarks || '')}</textarea></label><label>Status<select name="status" disabled><option>draft</option><option>under_review</option></select></label><div class="actions"><button class="btn-approve">Save Review</button></div></form>`
   $('review-content').querySelector('[name=status]').value = data.status === 'submitted' ? 'under_review' : data.status
   $('review-modal').classList.remove('hidden')
+  mountEditRequirements(data).catch(error => toast(describeError(error, 'Load requirements'), 'error'))
   // Renew the lease; stale tokens are rejected by the server even after tab suspension.
   data.heartbeat = setInterval(async () => {
     try {
@@ -676,7 +765,7 @@ async function openReview(id) {
     } catch (error) {
       clearInterval(data.heartbeat)
       if (state.selectedApplication === data) {
-        $('review-content').querySelector('button').disabled = true
+        $('review-content').querySelector('#review-form button').disabled = true
         toast(
           `Edit lock lost (${describeError(error, 'Renew lock')}). Copy your corrections, then close and reopen the application.`,
           'error'

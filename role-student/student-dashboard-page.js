@@ -1,4 +1,4 @@
-import { supabase, requireRole, signOut } from '../shared/lib/auth-client.js'
+import { supabase, requireRole, signOut, onTableChange } from '../shared/lib/auth-client.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
 import { mountDayTabs, gapsFrom, timeRange12 } from '../shared/ui/day-tabs.js'
 import { loadSchoolYearSettings } from '../shared/lib/school-settings.js'
@@ -406,3 +406,9 @@ await Promise.all([
 renderHistory()
 await renderCurrentGrades()
 hideLoadingScreen()
+// Live: a grade the teacher saves shows up on Grades, History and the transcript.
+onTableChange(['academic_history'], async () => {
+  await loadGrades()
+  renderHistory()
+  await renderCurrentGrades()
+})

@@ -1,7 +1,7 @@
 // Document requests (table document_requests, v62): Form 137, Good Moral, Certificate of Enrollment.
 //   mountStudentDocumentRequests(host)   the student's form and their requests' status
 //   mountRegistrarDocumentRequests(host) the registrar's queue: approve / reject / ready / released
-import { supabase } from '../lib/auth-client.js'
+import { supabase, onTableChange } from '../lib/auth-client.js'
 import { escapeHtml, errorRow, formatDate, lastFirst } from '../lib/html.js'
 import { describeError } from '../lib/errors.js'
 import { fetchAll } from '../lib/fetch-all.js'
@@ -71,6 +71,7 @@ export async function mountStudentDocumentRequests(host) {
     })
   }
   await load()
+  onTableChange(['document_requests'], load) // live: the registrar's status changes
 }
 
 // Next steps the registrar can take from each status.
@@ -182,4 +183,5 @@ export async function mountRegistrarDocumentRequests(host) {
   host.querySelector('[data-doc-status]').onchange = render
   host.querySelector('[data-doc-search]').oninput = render
   await load()
+  onTableChange(['document_requests'], load) // live: new student requests
 }

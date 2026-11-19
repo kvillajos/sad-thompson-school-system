@@ -1,4 +1,4 @@
-import { supabase } from '../shared/lib/auth-client.js'
+import { supabase, onTableChange } from '../shared/lib/auth-client.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
 import { escapeHtml, errorRow, gradeLabel, longDate } from '../shared/lib/html.js'
@@ -113,4 +113,6 @@ try {
 } catch (error) {
   toast(describeError(error, 'Load grade progress'), 'error')
 }
+// Live: progress updates as faculty save grades (bursty, so at most one reload every 5 s).
+onTableChange(['academic_history'], () => loadYear().catch(error => toast(describeError(error, 'Load grade progress'), 'error')), { wait: 5000 })
 hideLoadingScreen()

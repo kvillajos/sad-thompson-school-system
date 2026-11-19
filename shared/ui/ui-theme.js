@@ -106,6 +106,10 @@ button.admin-primary[id^="add-"]:hover { background:#1445ae; box-shadow:0 6px 12
   #grade-table input[data-field="remarks"] { width:150px; text-align:left; }
 }
 .admin-filterbar .combo { flex:1 1 280px; width:auto !important; max-width:420px; }
+.sanction-bar { align-items:center; }
+.sanction-bar .combo { margin-left:auto; }
+.sanction-bar .combo input { max-width:none; }
+@media (max-width:700px) { .sanction-bar > select { flex:1 1 0; min-width:0; max-width:none; } .sanction-bar .combo { flex:1 1 100%; max-width:none; margin-left:0; } .sanction-bar > button { flex:1 1 100%; } }
 .admin-filterbar .combo input { width:100%; box-sizing:border-box; }
 .filterbar { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px }
 .filterbar input,.filterbar select { margin:0; padding:9px; font-size:12px; max-width:220px }
@@ -1196,13 +1200,19 @@ tr.schedule-gap td { background:#fff8db !important; color:#7a5c00; font-size:13p
   .theme-toggle.spin svg { animation: none; }
 }
 .notif-count { position:absolute; top:7px; right:7px; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; display:grid; place-items:center; border-radius:9px; background:#c0392b; color:#fff; font-size:11px; font-weight:700; }
-.notif-panel { position:absolute; right:0; top:60px; width:340px; max-height:420px; overflow:auto; padding:8px; background:#fff; border:1px solid #dbe3ef; border-radius:14px; box-shadow:0 12px 28px rgba(7,27,58,.16); z-index:120; }
-.notif-item { display:flex; flex-direction:column; gap:2px; width:100%; margin:0; padding:10px 12px; border:0; border-radius:10px; background:none; text-align:left; cursor:pointer; color:var(--ui-text); font:inherit; }
-.notif-item:hover { background:#eef3fb; }
-.notif-item.unread { background:#f3f7fd; box-shadow:inset 3px 0 0 var(--ui-blue); }
+.notif-panel { position:absolute; right:0; top:60px; width:min(360px, calc(100vw - 32px)); max-height:440px; overflow:auto; padding:0; background:#fff; border:1px solid #dbe3ef; border-radius:14px; box-shadow:0 12px 28px rgba(7,27,58,.16); z-index:120; }
+.notif-head { position:sticky; top:0; z-index:1; display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:12px 16px; border-bottom:1px solid var(--ui-border); background:inherit; font-weight:700; font-size:14px; color:var(--ui-blue-dark); }
+.notif-head small { font-weight:600; font-size:12px; color:var(--ui-muted); }
+/* Each notice is a button: undo the app's general button look (padding, radius, shadow, lift) so the list reads as one list. */
+.notif-panel .notif-item { position:relative; display:grid; gap:3px; width:100%; min-height:0; margin:0; padding:12px 16px 12px 30px; border:0; border-bottom:1px solid var(--ui-border); border-radius:0; background:none; box-shadow:none; transform:none; text-align:left; cursor:pointer; color:var(--ui-text); font:inherit; line-height:1.4; }
+.notif-panel .notif-item:last-child { border-bottom:0; }
+.notif-panel .notif-item:hover { background:#eef3fb; }
+.notif-panel .notif-item.unread { background:#f5f8fe; }
+.notif-panel .notif-item.unread::before { content:''; position:absolute; left:13px; top:18px; width:8px; height:8px; border-radius:50%; background:var(--ui-blue); }
+.notif-item strong { font-size:14px; color:var(--ui-blue-dark); }
 .notif-item span { font-size:13px; color:#475569; }
-.notif-item small { color:#94a3b8; font-size:11px; }
-.notif-empty { margin:0; padding:14px; text-align:center; color:#64748b; font-size:13px; }
+.notif-item small { margin-top:2px; color:#94a3b8; font-size:11.5px; }
+.notif-empty { margin:0; padding:20px 16px; text-align:center; color:#64748b; font-size:13px; }
 .account-edit-grid .wide { grid-column:1/-1; }
 .account-edit-grid textarea { width:100%; box-sizing:border-box; margin-top:4px; padding:7px 10px; font-size:13px; min-height:60px; resize:vertical; }
 .account-section-head { display:flex; align-items:center; justify-content:space-between; margin:20px 0 8px; }

@@ -1,4 +1,4 @@
-import { supabase } from '../shared/lib/auth-client.js'
+import { supabase, onTableChange } from '../shared/lib/auth-client.js'
 import { hideLoadingScreen } from '../shared/ui/loading-screen.js'
 import { escapeHtml as escape, formatDate, richText, errorRow } from '../shared/lib/html.js'
 import { confirmDialog, formDialog, noticeDialog } from '../shared/ui/dialog.js'
@@ -297,27 +297,32 @@ async function markFeedbackFixed(id) {
   if (files.length > 3) return toast('Attach at most 3 proof files.', 'error')
   if (files.some(file => !PROOF_TYPES.includes(file.type) || file.size > 5 * 1024 * 1024))
     return toast('Proof files must be PDF, JPG or PNG up to 5 MB each.', 'error')
-  const proof = []
-  for (const file of files) {
-    const path = `${id}/${Date.now()}-${file.name.replace(/[^\w.-]/g, '_')}`
-    const { error } = await supabase.storage.from('feedback-proofs').upload(path, file, { upsert: false })
-    if (error) return toast(describeError(error, 'Upload proof'), 'error')
-    proof.push({ path, name: file.name })
+  const save = async () => {
+    const proof = []
+    for (const file of files) {
+      const path = `${id}/${Date.now()}-${file.name.replace(/[^\w.-]/g, '_')}`
+      const { error } = await supabase.storage.from('feedback-proofs').upload(path, file, { upsert: false })
+      if (error) return toast(describeError(error, 'Upload proof'), 'error')
+      proof.push({ path, name: file.name })
+    }
+    const { error } = await supabase
+      .from('registrar_feedback')
+      .update({
+        status: 'fixed',
+        fixed_reason: values.reason,
+        fixed_by: user.username,
+        fixed_at: new Date().toISOString(),
+        proof_files: proof
+      })
+      .eq('id', id)
+      .eq('status', 'open')
+    if (error) return toast(describeError(error, 'Mark as fixed'), 'error')
+    toast('Marked as fixed.')
+    await loadRegistrarFeedback()
   }
-  const { error } = await supabase
-    .from('registrar_feedback')
-    .update({
-      status: 'fixed',
-      fixed_reason: values.reason,
-      fixed_by: user.username,
-      fixed_at: new Date().toISOString(),
-      proof_files: proof
-    })
-    .eq('id', id)
-    .eq('status', 'open')
-  if (error) return toast(describeError(error, 'Mark as fixed'), 'error')
-  toast('Marked as fixed.')
-  await loadRegistrarFeedback()
+  // The row's button shows the wait (uploads can take a few seconds), also when started from the Feedback view.
+  const button = feedbackTable.querySelector(`[data-fix-feedback="${id}"]`)
+  return button ? withBusy(button, 'Saving…', save) : save()
 }
 
 function openFixedList() {
@@ -355,7 +360,7 @@ async function loadRegistrarFeedback() {
     open
       .map(
         item =>
-          `<tr class="feedback-row" data-feedback="${item.id}"><td>${escape(item.area)}</td><td>${priorityBadge(item.priority)}</td><td title="Press to read the full text">${escape(short(item.pain_point))}</td><td>${escape(short(item.suggested_fix || '-'))}</td><td>${escape(item.submitted_by || '-')}<br><small>${item.submitted_role === 'faculty' ? 'Faculty' : 'Registrar'}</small></td><td>${formatDate(item.created_at, true)}</td><td><button type="button" data-fix-feedback="${item.id}">Mark as fixed</button></td></tr>`
+          `<tr class="feedback-row" data-feedback="${item.id}"><td>${escape(item.area)}</td><td>${priorityBadge(item.priority)}</td><td title="Press to read the full text">${escape(short(item.pain_point))}</td><td>${escape(short(item.suggested_fix || '-'))}</td><td>${escape(item.submitted_by || '-')}<br><small>${item.submitted_role === 'faculty' ? 'Faculty' : 'Registrar'}</small></td><td>${formatDate(item.created_at, true)}</td><td><button type="button" class="admin-view" data-fix-feedback="${item.id}">Mark as fixed</button></td></tr>`
       )
       .join('') || '<tr><td colspan="7">No open feedback.</td></tr>'
   feedbackTable.querySelectorAll('[data-fix-feedback]').forEach(button => {
@@ -364,7 +369,8 @@ async function loadRegistrarFeedback() {
 }
 feedbackTable.addEventListener('click', event => {
   const row = event.target.closest('[data-feedback]')
-  if (row && !event.target.closest('.table-action-menu')) openFeedback(Number(row.dataset.feedback))
+  // A button or link in the row (Mark as fixed, the actions menu) does its own thing, not "open the item".
+  if (row && !event.target.closest('button, a, .table-action-menu')) openFeedback(Number(row.dataset.feedback))
 })
 document.getElementById('view-fixed-feedback').onclick = openFixedList
 
@@ -457,6 +463,11 @@ setInterval(loadApplications, 30000)
 setInterval(loadProfileRequests, 30000)
 setInterval(loadApprovalRequests, 30000)
 setInterval(loadRegistrarFeedback, 30000)
+// Live on top of the 30 s refresh: each queue reloads as soon as its table changes.
+onTableChange(['admission_applications'], loadApplications)
+onTableChange(['profile_change_requests'], loadProfileRequests)
+onTableChange(['approval_requests'], loadApprovalRequests)
+onTableChange(['registrar_feedback'], loadRegistrarFeedback)
 
 // "First Last" using only the first word of the first name; stored on the row because recipients can't read other users.
 async function currentAuthorName() {

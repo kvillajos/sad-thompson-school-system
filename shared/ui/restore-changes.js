@@ -28,8 +28,17 @@ const OPERATION_LABELS = { INSERT: 'Added', UPDATE: 'Edited', DELETE: 'Deleted' 
 const ROLE_NAMES = { 1: 'Administrator', 2: 'Registrar', 3: 'Faculty', 4: 'Student' }
 const expiresOn = date => formatDate(new Date(new Date(date).getTime() + 30 * 24 * 60 * 60 * 1000))
 
-export async function mountRestoreChanges(host, { includeDeletedAccounts = false } = {}) {
-  host.innerHTML = '<p>Loading changes…</p>'
+// actions: an optional element (the page's Refresh button) kept at the right end of the filter row. Every
+// redraw below replaces host's content, so each branch puts it back.
+export async function mountRestoreChanges(host, { includeDeletedAccounts = false, actions = null } = {}) {
+  const options = { includeDeletedAccounts, actions }
+  const placeActions = row => {
+    if (!actions) return
+    actions.style.marginLeft = 'auto'
+    row.append(actions)
+  }
+  host.innerHTML = '<div class="admin-filterbar filterbar" style="align-items:center"><p style="margin:0">Loading changes…</p></div>'
+  placeActions(host.firstElementChild)
   const [changes, accounts] = await Promise.all([
     supabase.rpc('list_change_groups', { p_limit: 200 }),
     includeDeletedAccounts
@@ -42,7 +51,8 @@ export async function mountRestoreChanges(host, { includeDeletedAccounts = false
   ])
   const failure = changes.error || accounts.error
   if (failure) {
-    host.innerHTML = `<p class="note" role="alert">${escape(describeError(failure, 'Load changes'))}</p>`
+    host.innerHTML = `<div class="admin-filterbar filterbar" style="align-items:center"><p class="note" role="alert" style="margin:0">${escape(describeError(failure, 'Load changes'))}</p></div>`
+    placeActions(host.firstElementChild)
     return
   }
 
@@ -59,7 +69,7 @@ export async function mountRestoreChanges(host, { includeDeletedAccounts = false
   const groups = changes.data || []
   const whatOf = group => [...new Set(group.tables.map(table => TABLE_LABELS[table] || table))]
   const changeOf = group => group.operations.map(operation => OPERATION_LABELS[operation] || operation)
-  host.innerHTML = `${accountsHtml}<div class="admin-filterbar" id="restore-filters"></div><table data-no-sort><thead><tr><th>Date</th><th>By</th><th>What</th><th>Change</th><th>Expires</th><th>Action</th></tr></thead><tbody id="restore-change-rows"></tbody></table>`
+  host.innerHTML = `${accountsHtml}<div class="admin-filterbar filterbar" id="restore-filters"></div><table data-no-sort><thead><tr><th>Date</th><th>By</th><th>What</th><th>Change</th><th>Expires</th><th>Action</th></tr></thead><tbody id="restore-change-rows"></tbody></table>`
   const filters = mountFilterBar(host.querySelector('#restore-filters'), {
     filters: [
       { key: 'change', name: 'Change', all: 'All changes', get: changeOf },
@@ -68,6 +78,8 @@ export async function mountRestoreChanges(host, { includeDeletedAccounts = false
     ],
     onChange: () => renderChanges()
   })
+  host.querySelector('#restore-filters').style.alignItems = 'center'
+  placeActions(host.querySelector('#restore-filters'))
   const renderChanges = () => {
     const visible = filters.apply(groups)
     host.querySelector('#restore-change-rows').innerHTML =
@@ -107,7 +119,7 @@ export async function mountRestoreChanges(host, { includeDeletedAccounts = false
             const { error } = await supabase.rpc('restore_change_group', { p_group: group.change_group })
             if (error) return toast(describeError(error, 'Restore change'), 'error')
             toast('Change restored.')
-            await mountRestoreChanges(host, { includeDeletedAccounts })
+            await mountRestoreChanges(host, options)
           })
         })
     )
@@ -130,7 +142,7 @@ export async function mountRestoreChanges(host, { includeDeletedAccounts = false
           })
           if (error) return toast(await describeFunctionError(error, 'Restore account'), 'error')
           toast(`${item.username} restored.`)
-          await mountRestoreChanges(host, { includeDeletedAccounts })
+          await mountRestoreChanges(host, options)
         })
       })
   )

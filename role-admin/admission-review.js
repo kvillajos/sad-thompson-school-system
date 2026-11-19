@@ -1,7 +1,7 @@
 // Admissions > Review: the one place an admin approves or declines an application.
 // The three checks must be ticked first, and declining needs a reason (the guardian is told).
 import { supabase } from '../shared/lib/auth-client.js'
-import { escapeHtml as escape, formatDate, gradeLabel } from '../shared/lib/html.js'
+import { escapeHtml as escape, formatDate, gradeLabel, documentItem } from '../shared/lib/html.js'
 import { confirmDialog, noticeDialog } from '../shared/ui/dialog.js'
 import { toast } from '../shared/ui/ui-theme.js'
 import { withBusy } from '../shared/ui/shell.js'
@@ -166,7 +166,12 @@ export function mountAdmissionReview(onChanged) {
       const documentLinks = await Promise.all(
         (documentsResult.data || []).map(async document => {
           const result = await supabase.storage.from('admission-documents').createSignedUrl(document.file_path, 600)
-          return `<li>${escape(document.document_type)}: ${result.error ? `<span class="note">${escape(document.original_name)} (link unavailable: ${escape(describeError(result.error, 'Open file'))})</span>` : `<a href="${escape(result.data.signedUrl)}" target="_blank" rel="noopener">${escape(document.original_name)}</a>`}</li>`
+          return documentItem({
+            type: document.document_type,
+            name: document.original_name,
+            url: result.data?.signedUrl,
+            problem: result.error ? `link unavailable: ${describeError(result.error, 'Open file')}` : ''
+          })
         })
       )
       const fullName = escape(`${a.first_name || ''} ${a.middle_name || ''} ${a.last_name || ''}`.replace(/\s+/g, ' ').trim())
@@ -211,25 +216,30 @@ export function mountAdmissionReview(onChanged) {
         p_remarks: remarks || null
       })
       if (error) return toast(describeError(error, 'Review application'), 'error')
+      if (status !== 'approved' || !data?.new_user_id) {
+        close()
+        return toast(status === 'approved' ? 'Application approved.' : 'Application declined.')
+      }
+      // Creating the login takes a few seconds; the dialog stays open with this label until the slip appears.
+      button.textContent = 'Creating login slip…'
+      $('decline-application').disabled = true
+      const { data: provision, error: provisionError } = await supabase.functions.invoke('provision-account', {
+        body: { user_id: data.new_user_id }
+      })
+      if (provisionError) {
+        close()
+        return noticeDialog(
+          `The application was approved, but the student's login could not be created automatically (${await describeFunctionError(provisionError, 'Create login')}).\nOpen Manage Accounts and use "Provision Login" on the new student account to finish.`,
+          { title: 'Approved, login still needed' }
+        )
+      }
+      toast(
+        data.email_in_use
+          ? `Application approved. ${data.email_in_use} is already used by another account, so the student signs in as "${provision.username}" (${provision.email}).`
+          : `Application approved. Student login "${provision.username}" (${provision.email}) is ready to use.`
+      )
+      await showLoginSlip(data.new_user_id, provision, data.email_in_use)
       close()
-      if (status === 'approved' && data?.new_user_id) {
-        const { data: provision, error: provisionError } = await supabase.functions.invoke('provision-account', {
-          body: { user_id: data.new_user_id }
-        })
-        if (provisionError)
-          await noticeDialog(
-            `The application was approved, but the student's login could not be created automatically (${await describeFunctionError(provisionError, 'Create login')}).\nOpen Manage Accounts and use "Provision Login" on the new student account to finish.`,
-            { title: 'Approved, login still needed' }
-          )
-        else {
-          toast(
-            data.email_in_use
-              ? `Application approved. ${data.email_in_use} is already used by another account, so the student signs in as "${provision.username}" (${provision.email}).`
-              : `Application approved. Student login "${provision.username}" (${provision.email}) is ready to use.`
-          )
-          await showLoginSlip(data.new_user_id, provision, data.email_in_use)
-        }
-      } else toast(status === 'approved' ? 'Application approved.' : 'Application declined.')
     })
   }
   $('approve-application').onclick = event => decide('approved', event.currentTarget)

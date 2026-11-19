@@ -97,6 +97,10 @@ async function loadSections() {
     const moderatorResult = await loadModerators()
     moderators = moderatorResult.data || []
   }
+  // Past sections count the students who finished the year in them (completed), current ones the active students.
+  // The counts read starts with the sections read; the list shows first and the counts fill in after.
+  // ponytail: one small row per enrollment, every year; a grouped SQL view would make it one row per section.
+  const countsRead = fetchAll(() => supabase.from('enrollments').select('section_id').in('status', ['active', 'completed']).order('id'))
   const { data, error } = await supabase
     .from('sections')
     .select('section_id,section_name,grade_level,strand,capacity,academic_year,faculty_assigned,room')
@@ -106,10 +110,9 @@ async function loadSections() {
   if (error) return (table.innerHTML = errorRow(7, error, 'Load sections'))
   sections = data || []
   filters.update(sections)
-  // Past sections count the students who finished the year in them (completed), current ones the active students.
-  const { data: enrollments, error: enrollmentError } = await fetchAll(() =>
-    supabase.from('enrollments').select('section_id').in('status', ['active', 'completed']).order('id')
-  )
+  counts = null
+  renderSections()
+  const { data: enrollments, error: enrollmentError } = await countsRead
   if (enrollmentError) return (table.innerHTML = errorRow(7, enrollmentError, 'Load section counts'))
   counts = (enrollments || []).reduce((result, row) => {
     result[row.section_id] = (result[row.section_id] || 0) + 1
@@ -148,7 +151,7 @@ function renderSections() {
                 ${escape(section.room || '-')}
             </td>
             <td data-label="Students / Capacity">
-                <span class="section-capacity-value">${counts[section.section_id] || 0} / ${Number(section.capacity) || 0}</span>
+                <span class="section-capacity-value">${counts ? counts[section.section_id] || 0 : '…'} /${Number(section.capacity) || 0}</span>
             </td>
             <td data-label="Actions">
                 <button class="admin-view"

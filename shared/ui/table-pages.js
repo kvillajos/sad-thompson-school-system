@@ -25,7 +25,8 @@ function apply(table, doc) {
   if (!state) known.set(body, (state = { rows: new WeakSet(), page: 1 }))
   // Rows we haven't seen mean new content (search/filter/reload): go back to page 1. A sort only reorders known rows.
   if (rows.some(row => !state.rows.has(row))) {
-    state.page = 1
+    // A live update re-renders the same list: stay on the user's page (pageWindow clamps it if the list shrank).
+    if (!doc.body?.dataset.liveRefresh) state.page = 1
     rows.forEach(row => state.rows.add(row))
   }
   if (rows.length <= PAGE_SIZE) {

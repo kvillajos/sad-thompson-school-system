@@ -1,4 +1,4 @@
-import { supabase } from '../shared/lib/auth-client.js'
+import { supabase, onTableChange } from '../shared/lib/auth-client.js'
 import { mountAnnouncements } from '../shared/ui/announcements.js'
 import { mountDayTabs, gapsFrom, timeRange12 } from '../shared/ui/day-tabs.js'
 import { loadSchoolYearSettings } from '../shared/lib/school-settings.js'
@@ -68,4 +68,5 @@ if (context) {
       )
   }
   showNotices()
+  onTableChange(['notifications'], showNotices, { wait: 500 })
 }
